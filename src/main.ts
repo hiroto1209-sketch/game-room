@@ -194,6 +194,7 @@ async function copyInvitation():Promise<void>{
 }
 function leaveOnlineRoom():void{
   roomClient.leave();
+  setHealth(MAX_HP);
   clearRoomQuery();
   showToast("オンラインルームから退出しました。ソロプレイを続けられます");
 }
@@ -356,7 +357,7 @@ function registerUi():void{
       e.preventDefault();e.stopPropagation();fireBlaster();
     }
   },{passive:false});
-  shootButton.addEventListener("click",e=>{if(e.detail===0||e instanceof MouseEvent&&e.pointerType===undefined)fireBlaster()});
+  shootButton.addEventListener("click",fireBlaster);
   window.addEventListener("keydown",e=>{
     if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!(document.activeElement instanceof HTMLInputElement))
       fireBlaster();
