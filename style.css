@@ -92,3 +92,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 .monitor-share{display:flex;align-items:center;gap:9px;padding:12px;border:1px solid #f8c5da67;background:#443049;border-radius:12px;color:#ffdfed;font-size:12px;line-height:1.5}
 .monitor-share input{width:19px;height:19px;flex-shrink:0;accent-color:#f3afc9}
 .monitor-share-detail{font-size:11px;color:#f0d7e2bb;line-height:1.6;margin:0}
+
+/* After the Door — unobtrusive wayfinding, never a touch interceptor */
+#zone-indicator{position:absolute;top:calc(max(20px,env(safe-area-inset-top)) + 113px);left:max(15px,env(safe-area-inset-left));z-index:9;pointer-events:none;max-width:calc(100vw - 24px);padding:7px 12px;background:rgba(24,21,30,.52);border:1px solid rgba(243,212,179,.23);border-radius:999px;backdrop-filter:blur(8px);color:#f3e2c7;font-size:10px;font-weight:700;letter-spacing:.09em;text-shadow:0 1px 4px #000}
+@media(max-height:590px){#zone-indicator{top:calc(max(8px,env(safe-area-inset-top)) + 76px);font-size:9px;padding:5px 9px}}
