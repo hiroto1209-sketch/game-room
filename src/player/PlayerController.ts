@@ -7,7 +7,8 @@ export class PlayerController {
   private velocity={x:0,y:0,z:0};
   grounded=true;
   private phase=0;
-  constructor(private colliders:readonly Collider[]){}
+  private readonly colliders:readonly Collider[];
+  constructor(colliders:readonly Collider[]){this.colliders=colliders;}
   reset():void{
     this.position.x=0;this.position.y=this.height;this.position.z=15;
     this.velocity.x=this.velocity.y=this.velocity.z=0;this.grounded=true;
