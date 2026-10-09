@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs",
     "build": "vite build",
     "check": "npm run typecheck && npm run test && npm run build",
     "test:browser": "node tests/browser.test.mjs",
