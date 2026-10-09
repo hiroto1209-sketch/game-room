@@ -1,0 +1,25 @@
+{
+  "name": "game-room",
+  "version": "2.0.0-phase1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs",
+    "build": "vite build",
+    "check": "npm run typecheck && npm run test && npm run build",
+    "test:browser": "node tests/browser.test.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "0.160.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "@types/three": "0.160.0",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "playwright": "1.55.0"
+  }
+}
