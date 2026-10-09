@@ -39,7 +39,7 @@ function nextMessage(socket,type,predicate=()=>true){
 test("two players share one Durable Object and positions/leave events propagate", {timeout:65000},async()=>{
   const server=spawn(process.execPath,["./node_modules/wrangler/bin/wrangler.js","dev",
     "--config","server/wrangler.jsonc","--port",String(PORT),"--ip","127.0.0.1","--local"],{stdio:"ignore"});
-  let a,b;
+  let a,b,c;
   try{
     await available();
     const url="ws://127.0.0.1:"+PORT+"/rooms/"+ROOM;
@@ -64,12 +64,33 @@ test("two players share one Durable Object and positions/leave events propagate"
     b.send(JSON.stringify({type:"move",position:{x:0.1,y:1.65,z:14.7},yaw:0.3,pitch:0,sequence:1}));
     const move=await aMove;
     assert.equal(move.player.position.z,14.7);
+    const lightA=nextMessage(a,"room_state",m=>m.revision>=1&&m.lightShow===true);
+    const lightB=nextMessage(b,"room_state",m=>m.revision>=1&&m.lightShow===true);
+    a.send(JSON.stringify({type:"room_update",key:"lightShow",value:true}));
+    const confirmedA=await lightA, confirmedB=await lightB;
+    assert.equal(confirmedA.revision,confirmedB.revision);
+    const jpeg="data:image/jpeg;base64,/9j/AA==";
+    const imageA=nextMessage(a,"room_state",m=>m.monitorImage===jpeg);
+    const imageB=nextMessage(b,"room_state",m=>m.monitorImage===jpeg);
+    b.send(JSON.stringify({type:"room_update",key:"monitorImage",value:jpeg}));
+    assert.equal((await imageA).monitorImage,jpeg);
+    assert.equal((await imageB).monitorImage,jpeg);
+    // Late joiners receive the last persisted state, rather than a private client texture.
+    c=await connected(url);
+    const cWelcome=nextMessage(c,"welcome");
+    const cState=nextMessage(c,"room_state");
+    c.send(JSON.stringify({type:"join",roomId:ROOM,displayName:"Charlie"}));
+    assert.ok((await cWelcome).playerId);
+    const saved=await cState;
+    assert.equal(saved.monitorImage,jpeg);
+    assert.equal(saved.lightShow,true);
+    c.close();
     const aLeft=nextMessage(a,"left",m=>m.playerId===bob.playerId);
     b.close();
     const left=await aLeft;
     assert.equal(left.playerId,bob.playerId);
   }finally{
-    a?.close();b?.close();
+    a?.close();b?.close();c?.close();
     server.kill("SIGTERM");
   }
 });

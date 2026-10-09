@@ -25,6 +25,9 @@ const monitorFile=byId<HTMLInputElement>("monitor-file");
 const monitorUrl=byId<HTMLInputElement>("monitor-url");
 const monitorError=byId("monitor-error");
 const monitorApply=byId<HTMLButtonElement>("apply-monitor");
+const monitorShareRow=byId("monitor-share-row");
+const monitorShareDetail=byId("monitor-share-detail");
+const monitorShare=byId<HTMLInputElement>("monitor-share");
 const joystick=byId("joystick");
 const thumb=byId("joystick-thumb");
 const interaction=byId("interaction");
@@ -66,6 +69,14 @@ const roomClient=new RealtimeRoomClient({
   },
   onPlayer:member=>{players?.upsertRemote(member);},
   onLeave:id=>{players?.removeRemote(id);},
+  onRoomState:shared=>{
+    if(!world)return;
+    world.setPartyMode(shared.lightShow);
+    void world.monitor.applySharedJpeg(shared.monitorImage).catch(error=>{
+      console.warn("Shared monitor image could not be applied",error);
+      showToast("共有画像の読み込みに失敗しました");
+    });
+  },
   onError:message=>showToast(message)
 },configuredServer);
 function clearRoomQuery():void{
@@ -125,6 +136,10 @@ function openMonitor():void{
   if(input){input.enabled=false;input.reset();}
   player?.stop();
   monitorError.textContent="";
+  monitorShareRow.classList.toggle("hidden",!roomClient.online);
+  monitorShareDetail.classList.toggle("hidden",!roomClient.online);
+  // Opt-in every time: photos are never uploaded without this checkbox.
+  monitorShare.checked=false;
   monitorOverlay.classList.remove("hidden");
 }
 function closeMonitor():void{
@@ -146,6 +161,11 @@ async function applyMonitorImage():Promise<void>{
   try{
     if(selected)await world.monitor.setFile(selected);
     else await world.monitor.setUrl(url);
+    if(roomClient.online && monitorShare.checked){
+      const compressed=world.monitor.exportSharedJpeg();
+      if(!roomClient.setRoomImage(compressed))
+        throw new Error("共有できませんでした。オンライン接続を確認してください");
+    }
     monitorFile.value="";
     closeMonitor();
     showToast("モニターに画像を表示しました 📸");
@@ -260,6 +280,9 @@ function registerUi():void{
   byId("close-monitor").addEventListener("click",closeMonitor);
   byId("apply-monitor").addEventListener("click",()=>{void applyMonitorImage();});
   byId("reset-monitor").addEventListener("click",()=>{
+    if(roomClient.online && monitorShare.checked && !roomClient.setRoomImage(null)){
+      monitorError.textContent="共有モニターのリセットを送信できませんでした";return;
+    }
     world?.monitor.clear();
     monitorFile.value="";monitorUrl.value="";
     closeMonitor();showToast("モニターを初期表示に戻しました");
@@ -287,7 +310,11 @@ function registerUi():void{
   });
 }
 function initialize():void{
-  world=createPartyWorld(canvas,showToast,openMonitor);
+  world=createPartyWorld(canvas,showToast,openMonitor,(enabled:boolean)=>{
+    // Solo mode stays local; joined rooms persist light-show changes for all peers.
+    if(roomClient.online && !roomClient.setLightShow(enabled))
+      showToast("照明の共有に失敗しました");
+  });
   player=new PlayerController(world.colliders);
   camera=new CameraController(world.camera);
   players=new PlayerManager(world.scene);

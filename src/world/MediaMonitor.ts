@@ -5,14 +5,15 @@ const MIME_TYPES=new Set(["image/jpeg","image/png","image/webp","image/gif"]);
 const MAX_DIMENSION=8192;
 
 /**
- * One local wall display. Photos selected by a player are never uploaded.
- * A future shared-image feature must explicitly use server-owned storage and permissions.
+ * One interactive wall display. Local photo selection is private by default.
+ * A separately opted-in compressed JPEG can be transmitted and persisted to a room.
  */
 export class MediaMonitor {
   readonly group=new THREE.Group();
   private readonly canvas=document.createElement("canvas");
   private readonly context:CanvasRenderingContext2D;
   private readonly texture:THREE.CanvasTexture;
+  private sharedLoadVersion=0;
 
   constructor(scene:THREE.Scene,x:number,y:number,z:number){
     this.canvas.width=1024;
@@ -68,7 +69,45 @@ export class MediaMonitor {
     ctx.fillText("COME CLOSER TO CUSTOMIZE",512,344);
     this.texture.needsUpdate=true;
   }
-  clear():void{this.drawPlaceholder()}
+  clear():void{
+    this.sharedLoadVersion++;
+    this.drawPlaceholder();
+  }
+  /**
+   * 640x360/other lower resolutions prevent forwarding a full personal photo.
+   * The room server enforces its own strict JPEG/payload size checks.
+   */
+  exportSharedJpeg():string{
+    const c=document.createElement("canvas");
+    const ctx=c.getContext("2d");
+    if(!ctx)throw new Error("写真を共有用に変換できません");
+    const sizes=[640,560,480,384,320];
+    const qualities=[.72,.60,.46,.38];
+    for(const width of sizes){
+      c.width=width;c.height=Math.round(width*9/16);
+      ctx.clearRect(0,0,c.width,c.height);
+      ctx.drawImage(this.canvas,0,0,c.width,c.height);
+      for(const quality of qualities){
+        const jpeg=c.toDataURL("image/jpeg",quality);
+        if(jpeg.length<=110000)return jpeg;
+      }
+    }
+    throw new Error("画像が大きすぎて共有できません。別の画像を試してください");
+  }
+  async applySharedJpeg(jpeg:string|null):Promise<void>{
+    if(jpeg===null){this.clear();return;}
+    if(jpeg.length>110000 || !/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]*={0,2}$/.test(jpeg))
+      throw new Error("共有画像データが正しくありません");
+    const token=++this.sharedLoadVersion;
+    const image=new Image();
+    image.src=jpeg;
+    await image.decode();
+    if(token!==this.sharedLoadVersion)return;
+    const ctx=this.context;
+    ctx.fillStyle="#100f18";ctx.fillRect(0,0,1024,576);
+    ctx.drawImage(image,0,0,1024,576);
+    this.texture.needsUpdate=true;
+  }
   async setFile(file:File):Promise<void>{
     if(!MIME_TYPES.has(file.type))throw new Error("JPEG・PNG・WebP・GIFのみ表示できます");
     await this.renderBlob(file);

@@ -172,3 +172,36 @@ npx wrangler dev --config server/wrangler.jsonc
 ```
 
 In another terminal, set `VITE_GAME_ROOM_SERVER_URL=http://localhost:8787` only after you have adjusted local URL handling: the production client currently requires HTTPS/WSS and intentionally refuses insecure server endpoints. For secure published testing, use the deployed `https://...` Worker URL with `npm run dev`.
+
+## Phase 3 — World-state synchronization (room photo + lights)
+
+**Motivation:** two users could see one another, but the wall monitor was local to each browser. Phase 3 adds a **server-authoritative shared room state** rather than merely synchronizing player movement.
+
+- **Light show:** Activating the existing light switch broadcasts its current on/off state to every connected peer.
+- **Shared monitor:** When entering the monitor editor in an online room, users can explicitly opt into **オンラインの参加者全員へ共有する**. A screenshot-quality JPEG is generated from the visible monitor image in the browser, downscaled and capped to roughly 80 KiB encoded; the original photo is never sent or stored.
+- **Privacy:** The share checkbox is always **off by default**, and absent in offline mode. Sharing photos is optional; private local monitor changes continue to work.
+- **Persistence:** The room's light mode and shared monitor JPEG are stored in the SQLite-backed Durable Object with a revision number. New joiners and reconnecting players receive the current room state. Saved room customization is scheduled for deletion after **7 days without changes**. Anyone possessing an invite URL may currently join and alter the image, so do not share private photos or sensitive content. A future host/moderator permission system should gate shared customization.
+- **Bandwidth discipline:** Photos are only broadcast **on edit**, never every frame. Player movement retains its existing ~10Hz update interval; shared images are capped, while small messages retain 4KB limits.
+- **Future growth:** This is the first version of a shared room document. Furniture layouts, room selection, interactions and game state should use typed, server-owned edits with specific permissions rather than transmitting whole scenes every frame.
+- **No image moderation or durable R2 asset gallery yet.** Room photo sharing is a small-room prototype and is unsuitable for unrestricted public uploads.
+
+### Release after merge — IMPORTANT
+
+Deploy the **Worker first**, using [Deploy Game Room Cloudflare Realtime Worker](https://github.com/hiroto1209-sketch/game-room/actions/workflows/deploy-realtime.yml) → **Run workflow** on `main`. Then verify its health endpoint, and rerun [Game Room Pages](https://github.com/hiroto1209-sketch/game-room/actions/workflows/pages.yml) on `main` if the browser is still showing a previous build.
+
+Re-deploying the Worker is essential because its new `room_state` and `room_update` protocol handlers are not present in the previous deployment. **No new API keys, GitHub Secrets, Cloudflare accounts, R2 buckets or variables are required** if the existing Cloudflare deployment works.
+
+### Manual acceptance
+
+1. A and B join the same room via invite URL; confirm both show `オンライン / 2人`.
+2. A approaches the wall monitor, selects a photo, **checks the sharing box**, and presses **モニターに表示する**.
+3. B should see the new image on the same 3D monitor. A should see it too.
+4. A toggles the existing light show switch. B should see the same lighting mode.
+5. B reloads with the invitation URL. The shared photo and lighting mode should be restored from Durable Object storage.
+6. C joins that same invitation URL later; the shared photo and lighting mode should also be restored.
+7. Test solo mode: image edits are private, and the room UI does not request uploads.
+8. When A chooses reset while sharing is checked, the other monitor should revert to the default screen.
+
+### iPhone performance measurements
+
+Use a real iPhone for FPS and display measurements; code/build tests do not guarantee a stable 60fps. For future expansion, split the map into independently loaded or activated rooms, minimize draw calls through instancing, share materials and textures, and cull distant geometry. Do not extrapolate maximum map size from square meters alone.

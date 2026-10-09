@@ -7,6 +7,6 @@ export interface PartyWorld {
   monitor:MediaMonitor;
   colliders:Collider[]; targets:WorldTarget[];
   resize():void; update(dt:number,time:number,reducedMotion?:boolean):void;
-  setExposure(value:number):void;resetParty():void;dispose():void;
+  setExposure(value:number):void;resetParty():void;setPartyMode(enabled:boolean):void;dispose():void;
 }
-export function createPartyWorld(canvas:HTMLCanvasElement,onToast:(text:string)=>void,onEditMonitor:()=>void):PartyWorld;
+export function createPartyWorld(canvas:HTMLCanvasElement,onToast:(text:string)=>void,onEditMonitor:()=>void,onEditLights:(enabled:boolean)=>void):PartyWorld;

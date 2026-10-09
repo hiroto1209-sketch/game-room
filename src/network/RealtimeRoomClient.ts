@@ -1,6 +1,6 @@
 import type { PlayerSnapshot } from "../types/Player";
 import { safeDisplayName } from "../types/Player";
-import { isValidRoomId } from "./protocol";
+import { isValidRoomId, type RoomSharedState } from "./protocol";
 import { WebSocketTransport } from "./Transport";
 
 export type RoomConnectionState="offline"|"connecting"|"online"|"reconnecting";
@@ -10,6 +10,7 @@ export interface RoomCallbacks{
   onPlayer(player:PlayerSnapshot):void;
   onLeave(playerId:string):void;
   onError(message:string):void;
+  onRoomState(state:RoomSharedState):void;
 }
 /** Holds the network lifecycle; no rendering, DOM or game rules in this module. */
 export class RealtimeRoomClient {
@@ -25,6 +26,7 @@ export class RealtimeRoomClient {
   private lastSend=0;
   private sequence=0;
   private connectGeneration=0;
+  private lastRoomRevision=-1;
   private handshakeTimer:ReturnType<typeof setTimeout>|null=null;
   readonly supported:boolean;
   state:RoomConnectionState="offline";
@@ -35,6 +37,15 @@ export class RealtimeRoomClient {
   }
   get roomId():string{return this.currentRoomId}
   get count():number{return this.isReady?this.peers.size+1:0}
+  get online():boolean{return this.isReady&&this.transport?.status==="online"}
+  setRoomImage(image:string|null):boolean{
+    if(!this.online)return false;
+    return this.transport?.send({type:"room_update",key:"monitorImage",value:image})??false;
+  }
+  setLightShow(enabled:boolean):boolean{
+    if(!this.online)return false;
+    return this.transport?.send({type:"room_update",key:"lightShow",value:enabled})??false;
+  }
   private emit():void{this.callbacks.onState(this.state,this.count)}
   async join(roomId:string,displayName:string):Promise<void>{
     if(!isValidRoomId(roomId))throw new Error("招待コードが正しくありません");
@@ -56,6 +67,7 @@ export class RealtimeRoomClient {
     this.playerId="";
     this.lastSend=0;
     this.sequence=0;
+    this.lastRoomRevision=-1;
     this.peers.clear();
     this.callbacks.onSnapshot([]);
     this.state=this.attempts===0?"connecting":"reconnecting";
@@ -64,7 +76,11 @@ export class RealtimeRoomClient {
     const url=server+"/rooms/"+this.currentRoomId;
     transport.subscribe(msg=>{
       if(gen!==this.connectGeneration)return;
-      if(msg.type==="welcome"){
+      if(msg.type==="room_state"){
+        if(msg.revision<this.lastRoomRevision)return;
+        this.lastRoomRevision=msg.revision;
+        this.callbacks.onRoomState(msg);
+      }else if(msg.type==="welcome"){
         if(msg.roomId!==this.currentRoomId)return;
         this.playerId=msg.playerId;
         this.isReady=true;this.attempts=0;
@@ -165,6 +181,7 @@ export class RealtimeRoomClient {
     this.currentRoomId="";
     this.attempts=0;
     this.nextAttemptAt=0;
+    this.lastRoomRevision=-1;
     this.state="offline";
     this.callbacks.onSnapshot([]);
     this.emit();
