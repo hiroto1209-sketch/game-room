@@ -10,6 +10,8 @@ import { RealtimeRoomClient, type RoomConnectionState } from "./network/Realtime
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt } from "../shared/worldRules.js";
+import { inArena, validSignText, MAX_HP } from "../shared/combatRules.js";
+import {BlasterEffects} from "./combat/BlasterEffects";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
   const el=document.getElementById(id);
@@ -29,6 +31,15 @@ const monitorApply=byId<HTMLButtonElement>("apply-monitor");
 const monitorShareRow=byId("monitor-share-row");
 const monitorShareDetail=byId("monitor-share-detail");
 const monitorShare=byId<HTMLInputElement>("monitor-share");
+const signOverlay=byId("sign-overlay");
+const signText=byId<HTMLInputElement>("sign-text");
+const signError=byId("sign-error");
+const hpLabel=byId("hp-label");
+const hpFill=byId("hp-fill");
+const combatNote=byId("combat-note");
+const combatHud=byId("combat-hud");
+const shootButton=byId<HTMLButtonElement>("shoot-button");
+const crosshair=byId("crosshair");
 const joystick=byId("joystick");
 const thumb=byId("joystick-thumb");
 const interaction=byId("interaction");
@@ -48,13 +59,57 @@ const configuredServer=(import.meta.env.VITE_GAME_ROOM_SERVER_URL??"").trim();
 const invitation=new URLSearchParams(window.location.search).get("room");
 const inviteRoomId=invitation&&isValidRoomId(invitation)?invitation:null;
 const settings={sensitivity:4,exposure:1,reducedMotion:false};
-const state={playing:false,paused:false,editingMonitor:false,time:0,toastUntil:0};
+const state={playing:false,paused:false,editingMonitor:false,editingSign:false,time:0,toastUntil:0};
 let nearby:ReturnType<InteractionManager["closest"]>=null;
 let world:ReturnType<typeof createPartyWorld>|undefined;
 let player:PlayerController|undefined;
 let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
+let blaster:BlasterEffects|undefined;
+let currentHp=MAX_HP;
+let lastShotAt=0;
+const hpByPlayer=new Map<string,number>();
+function setHealth(value:number):void{
+  currentHp=Math.max(0,Math.min(MAX_HP,value));
+  hpLabel.textContent="HP "+currentHp+" / "+MAX_HP;
+  hpFill.style.width=currentHp+"%";
+  combatNote.textContent=currentHp===0?"リスポーンを待っています…":"アリーナ内のみ対戦可能";
+}
+function openSign():void{
+  if(!state.playing||state.paused||!world)return;
+  state.editingSign=true;state.paused=true;player?.stop();
+  input?.reset();if(input)input.enabled=false;
+  signText.value=world.signBoard.getText();signError.textContent="";
+  signOverlay.classList.remove("hidden");
+}
+function closeSign():void{
+  if(!state.editingSign)return;
+  state.editingSign=false;state.paused=false;
+  signOverlay.classList.add("hidden");
+  input?.reset();if(input)input.enabled=state.playing;
+}
+function saveSign():void{
+  if(!world)return;
+  const value=signText.value.trim()||"WELCOME TO GAME ROOM";
+  if(!validSignText(value)){signError.textContent="80文字以内で入力してください。タグ・改行・制御文字は使えません";return;}
+  if(roomClient.online){
+    if(!roomClient.setSignText(value)){signError.textContent="共有できませんでした。接続状態を確認してください";return;}
+  }else world.signBoard.setText(value);
+  closeSign();
+  showToast(roomClient.online?"📢 看板の共有を送信しました":"📢 看板を書き換えました");
+}
+function fireBlaster():void{
+  if(!state.playing||state.paused||!player||!camera||!blaster)return;
+  if(!inArena(player.position))return;
+  if(currentHp<=0)return;
+  const now=performance.now();if(now-lastShotAt<410)return;
+  lastShotAt=now;
+  const origin={...player.position};
+  blaster.shoot(origin,camera.yaw,camera.pitch);
+  if(roomClient.online && !roomClient.shoot(camera.yaw,camera.pitch))
+    showToast("発射通信に失敗しました");
+}
 const clock=new THREE.Clock();
 const zoneIndicator=byId("zone-indicator");
 let lastOutdoorZone=false;
@@ -75,10 +130,26 @@ const roomClient=new RealtimeRoomClient({
   onRoomState:shared=>{
     if(!world)return;
     world.setPartyMode(shared.lightShow);
+    world.signBoard.setText(shared.signText);
     void world.monitor.applySharedJpeg(shared.monitorImage).catch(error=>{
       console.warn("Shared monitor image could not be applied",error);
       showToast("共有画像の読み込みに失敗しました");
     });
+  },
+  onHealth:(id,hp,_respawnAt)=>{
+    hpByPlayer.set(id,hp);
+    if(id===roomClient.playerId)setHealth(hp);
+  },
+  onFire:(shooterId,position,yaw,pitch)=>{
+    if(shooterId!==roomClient.playerId)blaster?.shoot(position,yaw,pitch);
+  },
+  onFireResult:(hit,damage)=>{
+    if(hit)showToast("✦ HIT! "+damage+" DAMAGE");
+  },
+  onRespawn:position=>{
+    player?.teleport(position.x,position.y,position.z);
+    if(player&&camera)camera.update(player.position);
+    setHealth(MAX_HP);showToast("✨ RESPAWN — 戻ってきました");
   },
   onError:message=>showToast(message)
 },configuredServer);
@@ -190,7 +261,7 @@ function start():void{
   window.setTimeout(()=>tips.classList.add("fading"),6900);
 }
 function openMenu():void{
-  if(state.editingMonitor)return;
+  if(state.editingMonitor||state.editingSign)return;
   state.paused=true;
   input?.reset();if(input)input.enabled=false;
   player?.stop();
@@ -203,6 +274,7 @@ function closeMenu():void{
   input?.reset();if(input)input.enabled=state.playing;
 }
 function backToTitle():void{
+  closeSign();
   closeMonitor();
   closeMenu();roomClient.leave();clearRoomQuery();state.playing=false;
   if(input)input.enabled=false;
@@ -214,6 +286,7 @@ function backToTitle():void{
   startScreen.classList.remove("dismissed");
   hud.classList.add("hidden");
   players?.clear();
+  setHealth(MAX_HP);hpByPlayer.clear();
   music.stop();
   byId<HTMLInputElement>("sound-enabled").checked=false;
 }
@@ -229,7 +302,7 @@ function update(dt:number):void{
   if(!world||!player||!camera||!input||!players)return;
   state.time+=dt;
   if(state.playing&&!state.paused){
-    const bob=player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion);
+    const bob=currentHp>0?player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion):0;
     camera.update(player.position,bob);
     const inOutdoor=player.position.x>10.65;
     if(inOutdoor!==lastOutdoorZone){
@@ -240,12 +313,17 @@ function update(dt:number):void{
       (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"BLOCK GROVE":"MOONLIT PLAZA") :
       "PARTY LOUNGE · 東側の扉から外へ";
     if(zoneIndicator.textContent!==nextZone)zoneIndicator.textContent=nextZone;
+    const fighting=inArena(player.position);
+    combatHud.classList.toggle("hidden",!fighting);
+    shootButton.classList.toggle("hidden",!fighting);
+    crosshair.classList.toggle("armed",fighting);
     updateInteraction();
     roomClient.tick(performance.now(),{
       position:{...player.position},yaw:camera.yaw,pitch:camera.pitch
     });
   }
   world.update(dt,state.time,settings.reducedMotion);
+  blaster?.update(dt);
   players.update(dt,world.camera);
   if(toast.classList.contains("visible")&&performance.now()>state.toastUntil)
     toast.classList.remove("visible");
@@ -270,6 +348,19 @@ function registerUi():void{
   byId("copy-invite").addEventListener("click",()=>{void copyInvitation();});
   byId("leave-room").addEventListener("click",leaveOnlineRoom);
   byId("start-button").addEventListener("click",start);
+  byId("close-sign").addEventListener("click",closeSign);
+  byId("save-sign").addEventListener("click",saveSign);
+  signText.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveSign()}});
+  shootButton.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="mouse"){
+      e.preventDefault();e.stopPropagation();fireBlaster();
+    }
+  },{passive:false});
+  shootButton.addEventListener("click",e=>{if(e.detail===0||e instanceof MouseEvent&&e.pointerType===undefined)fireBlaster()});
+  window.addEventListener("keydown",e=>{
+    if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!(document.activeElement instanceof HTMLInputElement))
+      fireBlaster();
+  });
   byId("menu-button").addEventListener("click",()=>state.paused?closeMenu():openMenu());
   byId("close-menu").addEventListener("click",closeMenu);
   byId("resume-button").addEventListener("click",closeMenu);
@@ -328,7 +419,8 @@ function initialize():void{
     // Solo mode stays local; joined rooms persist light-show changes for all peers.
     if(roomClient.online && !roomClient.setLightShow(enabled))
       showToast("照明の共有に失敗しました");
-  });
+  },openSign);
+  blaster=new BlasterEffects(world.scene);
   player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
   camera=new CameraController(world.camera);
   players=new PlayerManager(world.scene);
