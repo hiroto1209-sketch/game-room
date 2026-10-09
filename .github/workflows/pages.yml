@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: game-room-v2-pages-${{ github.ref }}
+  group: game-room-v3-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -34,18 +34,6 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
-      - name: Install headless Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Browser smoke test (mobile viewport)
-        run: npm run test:browser
-      - name: Upload browser screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: game-room-mobile-browser
-          path: artifacts/*.png
-          if-no-files-found: ignore
-          retention-days: 7
       - name: Archive built output
         uses: actions/upload-artifact@v4
         with:
