@@ -162,7 +162,13 @@ export class RoomHub extends DurableObject {
     for(const peer of this.members())if(peer!==ws)send(peer,{type:"joined",player});
   }
   async alarm(){
-    await this.ctx.storage.delete("shared_room_v1");
+    // Remove room-uploaded photo after its retention window; keep short sign
+    // text and lighting preferences so the world remains personalized.
+    const saved=await this.ctx.storage.get("shared_room_v1");
+    if(!saved||saved.monitorImage===null)return;
+    const next={...saved,monitorImage:null,revision:(saved.revision??0)+1};
+    await this.ctx.storage.put("shared_room_v1",next);
+    for(const peer of this.members())send(peer,{type:"room_state",...next});
   }
   webSocketClose(ws,code,reason){
     this.onDisconnect(ws);
