@@ -85,6 +85,42 @@ test("two players share one Durable Object and positions/leave events propagate"
     assert.equal(saved.monitorImage,jpeg);
     assert.equal(saved.lightShow,true);
     c.close();
+    // Phase 4-A full outdoor traversal: server must accept a walk from the
+    // existing hallway spawn, through the actual doorway, then beyond x=10.
+    // We exercise real Durable Object WebSocket events, not only pure math.
+    const acceptedSteps=[];
+    const rejectedSteps=[];
+    a.on("message",raw=>{
+      try{const m=JSON.parse(raw.toString());
+        if(m.type==="joined"&&m.player?.id===bob.playerId)acceptedSteps.push({seq:m.player.sequence,x:m.player.position.x,z:m.player.position.z});
+      }catch{}
+    });
+    b.on("message",raw=>{
+      try{const m=JSON.parse(raw.toString());
+        if(m.type==="error")rejectedSteps.push(m.reason);
+      }catch{}
+    });
+    let p={x:0.1,y:1.65,z:14.7}, seq=1;
+    async function walkStep(x,z){
+      const nextSequence=seq+1;
+      const next={x,y:1.65,z};
+      const receipt=nextMessage(a,"joined",m=>m.player.id===bob.playerId&&m.player.sequence===nextSequence);
+      b.send(JSON.stringify({type:"move",position:next,yaw:0,pitch:0,sequence:nextSequence}));
+      try{await receipt}
+      catch(error){
+        console.error("OUTDOOR DEBUG",JSON.stringify({nextSequence,next,acceptedSteps:acceptedSteps.slice(-6),rejectedSteps}));
+        throw error;
+      }
+      seq=nextSequence;p=next;
+      await wait(105); // server min 75ms; accepted movement is <=.6 units per tick
+    }
+    await wait(250);
+    for(let i=1;i<=40;i++)await walkStep(.1,14.7-i*.5);
+    // Walk through the doorway with server acknowledgements, not a teleport.
+    for(let i=1;i<=20;i++)await walkStep(.1+i*.55,-5.3);
+    await walkStep(11.65,-5.3);
+    await walkStep(12.2,-5.3);
+    assert.ok(acceptedSteps.at(-1).x>10.5);
     const aLeft=nextMessage(a,"left",m=>m.playerId===bob.playerId);
     b.close();
     const left=await aLeft;

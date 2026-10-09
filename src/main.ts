@@ -9,6 +9,7 @@ import { MusicController } from "./audio/MusicController";
 import { RealtimeRoomClient, type RoomConnectionState } from "./network/RealtimeRoomClient";
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
+import { worldBlocked, groundHeightAt } from "../shared/worldRules.js";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
   const el=document.getElementById(id);
@@ -55,6 +56,8 @@ let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
 const clock=new THREE.Clock();
+const zoneIndicator=byId("zone-indicator");
+let lastOutdoorZone=false;
 const roomClient=new RealtimeRoomClient({
   onState:(connection:RoomConnectionState,count:number)=>{
     roomState.textContent=connection==="online"?"オンライン":connection==="offline"?"オフライン":connection==="connecting"?"接続中…":"再接続中…";
@@ -204,6 +207,8 @@ function backToTitle():void{
   closeMenu();roomClient.leave();clearRoomQuery();state.playing=false;
   if(input)input.enabled=false;
   player?.reset();camera?.reset();
+  lastOutdoorZone=false;
+  zoneIndicator.textContent="PARTY LOUNGE";
   if(player&&camera)camera.update(player.position);
   world?.resetParty();
   startScreen.classList.remove("dismissed");
@@ -226,6 +231,15 @@ function update(dt:number):void{
   if(state.playing&&!state.paused){
     const bob=player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion);
     camera.update(player.position,bob);
+    const inOutdoor=player.position.x>10.65;
+    if(inOutdoor!==lastOutdoorZone){
+      lastOutdoorZone=inOutdoor;
+      showToast(inOutdoor?"🌿 THE DOOR — ようこそ月夜の世界へ！":"🏠 パーティールームにおかえり！");
+    }
+    const nextZone=inOutdoor?
+      (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"BLOCK GROVE":"MOONLIT PLAZA") :
+      "PARTY LOUNGE · 東側の扉から外へ";
+    if(zoneIndicator.textContent!==nextZone)zoneIndicator.textContent=nextZone;
     updateInteraction();
     roomClient.tick(performance.now(),{
       position:{...player.position},yaw:camera.yaw,pitch:camera.pitch
@@ -315,7 +329,7 @@ function initialize():void{
     if(roomClient.online && !roomClient.setLightShow(enabled))
       showToast("照明の共有に失敗しました");
   });
-  player=new PlayerController(world.colliders);
+  player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
   camera=new CameraController(world.camera);
   players=new PlayerManager(world.scene);
   const safeName=safeDisplayName("Guest");

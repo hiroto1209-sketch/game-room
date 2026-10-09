@@ -3,13 +3,14 @@
 // The geometry, lights, decor and collision placements remain unchanged.
 import * as THREE from "three";
 import { MediaMonitor } from "./MediaMonitor.ts";
+import { OutdoorWorld } from "./OutdoorWorld.ts";
 
 const el = { canvas: null };
 const cfg = { exposure:1, reducedMotion:false };
 const game = { partyMode:false, time:0 };
 const p = { x:0,y:1.65,z:15,yaw:0,pitch:0 };
 const colliders=[], balloons=[], floorMats=[], lamps=[], targets=[];
-let renderer,scene,camera,ball,monitor;
+let renderer,scene,camera,ball,monitor,outdoor;
 let toastHandler = () => {};
 let monitorEditHandler = () => {};
 let lightEditHandler = () => {};
@@ -190,8 +191,8 @@ function arcade(x,z,name,color){
 }
 function populate(){
   scene=new THREE.Scene();scene.background=new THREE.Color("#19121e");
-  scene.fog=new THREE.Fog("#19121e",13,44);
-  camera=new THREE.PerspectiveCamera(76,1,.06,100);camera.rotation.order="YXZ";
+  scene.fog=new THREE.Fog("#19121e",13,78);
+  camera=new THREE.PerspectiveCamera(76,1,.06,185);camera.rotation.order="YXZ";
   renderer=new THREE.WebGLRenderer({canvas:el.canvas,antialias:true,powerPreference:"high-performance"});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -217,7 +218,15 @@ function populate(){
   cube(0,4.15,-4,20.2,.23,24.4,ceiling);
   cube(0,4.15,13,4.65,.23,10.2,hallCeiling);
   cube(-10,2,-4,.3,4.1,24.4,wall,true);
-  cube(10,2,-4,.3,4.1,24.4,wall,true);
+  // Real east-side doorway: split original full-height wall AND its AABB collision.
+  // Door aperture z=-6.65 .. -3.35 is 3.30 units wide.
+  cube(10,2,-11.425,.3,4.1,9.55,wall,true);
+  cube(10,2,2.425,.3,4.1,11.55,wall,true);
+  // Raised lintel and luminous posts, but no collision volume blocking the opening.
+  cube(10,3.91,-5,.4,.25,3.25,mat("#d9a5a2",{emissive:"#d9a5a2",emissiveIntensity:.35}));
+  for(const z of [-6.7,-3.3]){
+    cube(10,2,z,.34,4,.18,mat("#c996ae"));
+  }
   cube(0,2,-16,20.3,4.1,.3,wall,true);
   cube(-6.18,2,8,7.64,4.1,.3,wall,true);
   cube(6.18,2,8,7.64,4.1,.3,wall,true);
@@ -227,7 +236,7 @@ function populate(){
   const edge=mat("#b99392"),brass=mat("#e3ae8a",{metalness:.45,roughness:.38});
   for(let z=-14;z<8;z+=3.2){
     cube(-9.83,1.9,z,.045,3.5,.08,edge);
-    cube(9.83,1.9,z,.045,3.5,.08,edge);
+    if(z<-6.65||z>-3.35)cube(9.83,1.9,z,.045,3.5,.08,edge);
   }
   for(let z=9;z<18;z+=2.5){
     cube(-2.15,1.9,z,.05,3.5,.08,edge);
@@ -277,6 +286,9 @@ function populate(){
     lightEditHandler(game.partyMode);
     showToast(game.partyMode?"✨ PARTY LIGHT SHOW ON!":"ライトショーをオフにしました");
   }});
+  // Outdoor is independent from all original indoor meshes/props.
+  outdoor=new OutdoorWorld(scene);
+  scene.add(new THREE.DirectionalLight(0xb4d8d4,.30));
   confetti();resetCamera();resize();
 }
 function resetCamera(){
@@ -297,11 +309,12 @@ export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights){
   lightEditHandler=onEditLights;
   populate();
   return {
-    scene,camera,renderer,colliders,targets,monitor,
+    scene,camera,renderer,colliders,targets,monitor,outdoor,
     resize,
     update(dt,t,reducedMotion=false){
       cfg.reducedMotion=reducedMotion;
       game.time=t;
+      outdoor.update(camera.position,t);
       if(!cfg.reducedMotion){
         for(const b of balloons){
           b.group.position.y=b.y+Math.sin(t*1.15+b.phase)*.045;
