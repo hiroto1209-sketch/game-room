@@ -205,3 +205,32 @@ Re-deploying the Worker is essential because its new `room_state` and `room_upda
 ### iPhone performance measurements
 
 Use a real iPhone for FPS and display measurements; code/build tests do not guarantee a stable 60fps. For future expansion, split the map into independently loaded or activated rooms, minimize draw calls through instancing, share materials and textures, and cull distant geometry. Do not extrapolate maximum map size from square meters alone.
+
+## Phase 4-A — THE DOOR / Moonlit Outside (new)
+
+**Purpose:** preserve the multiplayer party room while allowing real movement through a new door to a lightweight, deterministic night-time outdoor region. The new areas are scenery/exploration only: HP, blasters, live sign editor and playable arcade games belong to subsequent Phase 4 PRs.
+
+- Exit location: **east wall of main lounge**, near `x=10,z=-5` (opposite the photo monitor side of the room). The original wall's 3D mesh **and** horizontal collider have been split so you can walk out and come back. A glowing portal frame leads to the exterior.
+- Destination: **MOONLIT WORLD** with a plaza path, lamp posts, pond with lily pads, instanced trees/grasses/stones, distant stars/fireflies and voxel-style ruins.
+- Shared map: all devices use `shared/worldRules.js` with a fixed `WORLD_SEED`, deterministic chunk geometry and identical world boundaries. **The world mesh is built locally**, not streamed over WebSocket; player movement still syncs with Durable Objects.
+- Rendering: 16×16-unit outdoor tiles, a **3×3 active neighborhood**, `InstancedMesh` vegetation, shared geometries/materials and a low-detail fallback terrain under unloaded cells. No model downloads or additional texture assets.
+- Movement: extends `PlayerController` with optional ground-height and outdoor collision predicates without changing legacy indoor AABB/JUMP controls. First outdoor terrain is flat; future stairs/slopes require a separate physics upgrade.
+- Network: Worker uses the same shared `validWorldPosition`, pond blocking and door crossing constraints. The original Cloudflare room ID, RoomHub Durable Object class/binding, existing photo state and current invitations are preserved.
+- Wayfinding: a non-interactive HUD location label changes from **PARTY LOUNGE** to **MOONLIT PLAZA**, **STARLIT POND**, or **BLOCK GROVE**.
+
+### Release order (essential)
+
+1. Review GitHub Actions for this PR — TypeScript, Node unit tests, Vite production build, Cloudflare Wrangler bundling and local WebSocket integration must all succeed.
+2. **Deploy Cloudflare Worker first:** [Run GAME ROOM Cloudflare Realtime Worker workflow](https://github.com/hiroto1209-sketch/game-room/actions/workflows/deploy-realtime.yml) on `main` after merge.
+3. **Then deploy Pages:** [Run Game Room Pages workflow](https://github.com/hiroto1209-sketch/game-room/actions/workflows/pages.yml) on `main`. The existing `GAME_ROOM_SERVER_URL` variable remains unchanged; no new Cloudflare token is required.
+4. Open [GAME ROOM](https://hiroto1209-sketch.github.io/game-room/) on iPhone, iPad and a second connected device. From the central hall, move right toward the decorated doorway near the main dance floor.
+5. Walk out together, look at the pond, walk around the trees, return through the same doorway. All peers should see positions and jumping; confirm that shared photo, lights, invite URL and 2-thumb controls still work.
+6. **Measure Safari performance** before assuming the world meets a particular FPS target. Low-power devices may require a smaller active chunk radius, fewer lighting effects or a reduced pixel ratio.
+
+### Known limits
+
+- The first release is a **walkable connected night landscape**, not infinite terrain. Bounds are intentionally limited and the pond is non-swimmable.
+- No stairs, climbing, shooting, health or mini-games are implemented in Phase 4-A.
+- The fixed common world seed ensures deterministic terrain for all visitors in this version. Room-specific editable terrains require a future world-state migration.
+- The authoritative server validates basic door traversal, position/speed, pond and tree/block obstacles, but it is not yet a full 3D physics server. Avoid calling the multiplayer world exploit-proof.
+- New scenery and HUD behavior require real iPhone/iPad visual/interaction verification; build tests alone cannot guarantee a specific FPS.
