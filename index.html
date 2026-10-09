@@ -37,6 +37,25 @@
       <div id="toast" role="status"></div>
     </div>
 
+    <div id="monitor-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="monitor-title">
+      <div class="monitor-card">
+        <div class="menu-head">
+          <div><span class="overline">GAME ROOM / MEDIA</span><h2 id="monitor-title">モニターに画像を表示</h2></div>
+          <button id="close-monitor" class="icon-button" aria-label="画像設定を閉じる">×</button>
+        </div>
+        <p class="monitor-help">iPhoneの写真から画像を選ぶか、画像への直接リンクを貼り付けてください。</p>
+        <label class="monitor-label" for="monitor-file">写真・画像から選択</label>
+        <input id="monitor-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
+        <div class="monitor-or">または</div>
+        <label class="monitor-label" for="monitor-url">画像URL（HTTPS・CORS許可が必要）</label>
+        <input id="monitor-url" type="url" autocomplete="url" inputmode="url" placeholder="https://example.com/photo.jpg" />
+        <div id="monitor-error" role="status" aria-live="polite"></div>
+        <button id="apply-monitor" class="primary-menu-button">モニターに表示する</button>
+        <button id="reset-monitor" class="plain-menu-button">画像をリセットする</button>
+        <p class="monitor-footnote">最大8MB・JPEG / PNG / WebP / GIF。現段階では自分の端末だけに表示され、サーバーへアップロードされません。</p>
+      </div>
+    </div>
+
     <div id="menu-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-label="ゲーム設定">
       <div class="menu-card">
         <div class="menu-head"><div><span class="overline">GAME ROOM</span><h2>ポーズ / 設定</h2></div><button id="close-menu" class="icon-button" aria-label="設定を閉じる">×</button></div>
