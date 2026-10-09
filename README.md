@@ -61,7 +61,7 @@ The Vite production output is in `dist/`; build base is explicitly set to `/game
 3. The Pages URL remains **https://hiroto1209-sketch.github.io/game-room/**.
 4. The old `main.js` file is deliberately preserved for rollback, but Vite uses `src/main.ts` as its entrypoint. You can revert to the backup branch if a major regression is discovered.
 
-**If Pages is still configured as “Deploy from a branch”, do not interpret the source `index.html` as a standalone production site:** browsers cannot execute the TypeScript entrypoint directly. The built `dist` artifact must be deployed through GitHub Actions.
+**Safe transition:** the repository-root `index.html` still loads legacy `main.js` when published directly from the branch, so the existing working Game Room remains playable during migration. Vite's HTML transform swaps that script to `src/main.ts` for development and compiled `dist/` builds. The modular 2.0 client appears at the existing URL only after selecting GitHub Actions as the Pages deployment source.
 
 ## Architecture and threat model
 
