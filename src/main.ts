@@ -10,7 +10,7 @@ import { RealtimeRoomClient, type RoomConnectionState } from "./network/Realtime
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt } from "../shared/worldRules.js";
-import { inArena, validSignText, MAX_HP } from "../shared/combatRules.js";
+import { inArena, validSignText, MAX_HP, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
@@ -318,6 +318,18 @@ function update(dt:number):void{
     combatHud.classList.toggle("hidden",!fighting);
     shootButton.classList.toggle("hidden",!fighting);
     crosshair.classList.toggle("armed",fighting);
+    const candidate=fighting?findHitscanTarget(
+      {id:roomClient.playerId||"local",hp:currentHp,position:player.position},
+      players.getRemoteSnapshots().map(p=>({id:p.id,position:p.position,hp:hpByPlayer.get(p.id)??100})),
+      camera.yaw,camera.pitch
+    ):null;
+    crosshair.classList.toggle("targeted",Boolean(candidate));
+    if(fighting&&currentHp>0){
+      const note=!roomClient.online?"ソロ練習 · ダメージ同期なし":
+        candidate?"TARGET LOCK · HP "+(hpByPlayer.get(candidate.id)??100):
+        "FIREでブラスター発射";
+      if(combatNote.textContent!==note)combatNote.textContent=note;
+    }
     updateInteraction();
     roomClient.tick(performance.now(),{
       position:{...player.position},yaw:camera.yaw,pitch:camera.pitch
