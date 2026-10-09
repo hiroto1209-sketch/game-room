@@ -61,3 +61,15 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 @media(max-width:570px){.world-label small{display:none}.world-label{padding:12px}.start-title{font-size:clamp(36px,11vw,65px)}.start-heading{margin-bottom:28px}.subheading{font-size:9px}.start-button{width:min(290px,72vw)}#tips{width:72%;font-size:10px;line-height:1.5}.menu-card{gap:17px;padding:22px}}
 @media(max-height:570px){.start-heading{margin-bottom:18px;gap:6px}.start-title{font-size:42px}.start-button{min-height:55px}#tips{top:12px;left:50%;width:auto}.world-label{display:none}.menu-card{gap:10px;padding:15px} .menu-head h2{font-size:20px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+#monitor-overlay{background:rgba(8,5,14,.82);z-index:32;padding:16px;backdrop-filter:blur(12px)}
+.monitor-card{width:min(450px,100%);max-height:90dvh;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:24px;background:linear-gradient(145deg,#302336,#15131d);border:1px solid #ffffff4a;border-radius:20px;box-shadow:0 22px 80px #000b}
+.monitor-card h2{margin:9px 0 0;font-size:21px}
+.monitor-help{font-size:13px;color:#e8d7e1;line-height:1.7;margin:0}
+.monitor-label{font-size:12px;font-weight:700;color:#f8d4e2}
+#monitor-url,#monitor-file{width:100%;border:1px solid #ffffff45;background:#100d18;color:#fff2ed;border-radius:10px;padding:13px;font-size:13px;min-width:0}
+#monitor-file::file-selector-button{border:0;background:#e9b3cc;border-radius:8px;padding:9px 12px;color:#291627;margin-right:10px}
+.monitor-or{text-align:center;font-size:11px;color:#ffffff99}
+#monitor-error{min-height:0;color:#ffc09d;font-size:12px;line-height:1.5}
+.monitor-footnote{color:#ccbbcb;font-size:11px;line-height:1.65;margin:0}
+#jump-button{touch-action:none;-webkit-user-select:none;user-select:none}
