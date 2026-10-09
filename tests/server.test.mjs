@@ -24,3 +24,17 @@ test("plausible movement accepted; teleport rejected",()=>{
   assert.equal(withinMovementSpeed({x:0,y:1.65,z:15},{x:0,y:1.65,z:14.5},120),true);
   assert.equal(withinMovementSpeed({x:0,y:1.65,z:15},{x:9,y:1.65,z:0},120),false);
 });
+
+test("room media accepts only bounded JPEG base64 and boolean lighting",()=>{
+  const fakeJpeg="data:image/jpeg;base64,/9j/AA==";
+  assert.deepEqual(decodeMessage(JSON.stringify({type:"room_update",key:"monitorImage",value:fakeJpeg})),
+    {type:"room_update",key:"monitorImage",value:fakeJpeg});
+  assert.deepEqual(decodeMessage(JSON.stringify({type:"room_update",key:"monitorImage",value:null})),
+    {type:"room_update",key:"monitorImage",value:null});
+  assert.deepEqual(decodeMessage(JSON.stringify({type:"room_update",key:"lightShow",value:true})),
+    {type:"room_update",key:"lightShow",value:true});
+  assert.equal(decodeMessage(JSON.stringify({type:"room_update",key:"monitorImage",value:"https://evil.example/img"})),null);
+  assert.equal(decodeMessage(JSON.stringify({type:"room_update",key:"monitorImage",value:"data:image/svg+xml;base64,PGh0bWw+"})),null);
+  assert.equal(decodeMessage(JSON.stringify({type:"room_update",key:"lightShow",value:"yes"})),null);
+  assert.equal(decodeMessage(JSON.stringify({type:"room_update",key:"monitorImage",value:fakeJpeg+"A".repeat(120000)})),null);
+});
