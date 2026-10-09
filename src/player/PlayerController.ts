@@ -22,6 +22,12 @@ export class PlayerController {
     this.velocity.x=this.velocity.y=this.velocity.z=0;this.grounded=true;
     this.phase=0;
   }
+  teleport(x:number,y:number,z:number):void{
+    if(![x,y,z].every(Number.isFinite))return;
+    this.position.x=x;this.position.y=y;this.position.z=z;
+    this.velocity.x=this.velocity.y=this.velocity.z=0;
+    this.grounded=true;
+  }
   stop():void{this.velocity.x=this.velocity.z=0}
   jump():void{
     if(this.grounded){this.velocity.y=4.5;this.grounded=false;}
