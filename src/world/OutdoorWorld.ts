@@ -122,7 +122,7 @@ export class OutdoorWorld {
   ):void{
     if(entries.length===0)return;
     const mesh=new THREE.InstancedMesh(geometry,material,entries.length);
-    mesh.frustumCulled=false;
+    mesh.frustumCulled=true;
     for(let i=0;i<entries.length;i++){
       this.tmp.position.set(0,0,0);
       this.tmp.rotation.set(0,0,0);
@@ -136,6 +136,7 @@ export class OutdoorWorld {
     }
     mesh.instanceMatrix.needsUpdate=true;
     if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    mesh.computeBoundingSphere();
     mesh.castShadow=false;mesh.receiveShadow=false;
     parent.add(mesh);
   }
@@ -191,7 +192,8 @@ export class OutdoorWorld {
       for(const [k,group] of this.chunks){
         if(!wanted.has(k)){
           this.root.remove(group);this.chunks.delete(k);
-          // Shared meshes/materials reused; no GPU dispose on individual chunk removal.
+          group.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose();});
+          // Per-chunk instance buffers are released; shared geometries/materials stay resident.
         }
       }
       this.activeChunkCount=this.chunks.size;
