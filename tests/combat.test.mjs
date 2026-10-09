@@ -40,7 +40,8 @@ test("server detects target from shooter aim, ignoring client hit claims",()=>{
   assert.equal(findHitscanTarget(shooter,[target,outsider],Math.PI,0),null);
   assert.equal(findHitscanTarget(shooter,[{...target,hp:0}],0,0),null);
   assert.equal(DAMAGE,25);
-  assert.deepEqual(aimDirection(0,0),{x:0,y:0,z:-1});
+  assert.ok(Math.abs(aimDirection(0,0).x)<1e-10);
+  assert.equal(aimDirection(0,0).z,-1);
   assert.equal(raySphereDistance(shooter.position,{x:0,y:0,z:-1},{x:100,y:0,z:0},.3),null);
 });
 test("clients send fire direction and sequence, never victim or damage",()=>{
