@@ -96,3 +96,17 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 /* After the Door — unobtrusive wayfinding, never a touch interceptor */
 #zone-indicator{position:absolute;top:calc(max(20px,env(safe-area-inset-top)) + 113px);left:max(15px,env(safe-area-inset-left));z-index:9;pointer-events:none;max-width:calc(100vw - 24px);padding:7px 12px;background:rgba(24,21,30,.52);border:1px solid rgba(243,212,179,.23);border-radius:999px;backdrop-filter:blur(8px);color:#f3e2c7;font-size:10px;font-weight:700;letter-spacing:.09em;text-shadow:0 1px 4px #000}
 @media(max-height:590px){#zone-indicator{top:calc(max(8px,env(safe-area-inset-top)) + 76px);font-size:9px;padding:5px 9px}}
+
+/* Phase 4-C & D: mobile-safe marquee controls and neon arena HUD. */
+#sign-overlay{background:rgba(8,5,15,.82);z-index:35;padding:16px;backdrop-filter:blur(14px)}
+#sign-text{width:100%;border:1px solid #ffc2db83;background:#120f1b;border-radius:12px;color:#fff3ec;padding:15px;font-size:16px}
+#sign-error{color:#ffbfaa;font-size:12px;min-height:12px}
+#combat-hud{position:absolute;left:max(15px,env(safe-area-inset-left));bottom:calc(max(20px,env(safe-area-inset-bottom)) + 103px);z-index:12;display:flex;flex-direction:column;gap:5px;padding:10px 13px;width:min(218px,48vw);border-radius:14px;border:1px solid #78ffde70;background:#120f27d9;pointer-events:none;box-shadow:0 0 25px #25d8de16}
+.combat-title{color:#8bffe3;font-size:10px;font-weight:800;letter-spacing:.17em}
+#hp-label{color:#fff0e9;font-size:15px;font-weight:800}
+.hp-track{height:9px;background:#4c3145;border-radius:9px;overflow:hidden}
+#hp-fill{background:linear-gradient(90deg,#50cbcb,#a8ffda);height:100%;width:100%;transition:width .25s}
+#combat-note{font-size:10px;color:#e7c9df;line-height:1.5}
+#shoot-button{position:absolute;right:max(118px,calc(env(safe-area-inset-right) + 104px));bottom:calc(max(14px,env(safe-area-inset-bottom)) + 110px);z-index:14;background:#124455cf;border:1px solid #80fce0a8;color:#baffef;touch-action:none;-webkit-user-select:none;user-select:none;box-shadow:0 0 22px #48ffce29}
+#shoot-button span{font-size:26px}
+@media(max-width:420px){#combat-hud{bottom:calc(max(13px,env(safe-area-inset-bottom)) + 95px);width:44vw}#shoot-button{right:max(104px,calc(env(safe-area-inset-right) + 92px));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 101px)}}
