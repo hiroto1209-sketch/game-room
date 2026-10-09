@@ -82,12 +82,12 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   if(o.type==="fire_result"&&Number.isSafeInteger(o.sequence)&&typeof o.hit==="boolean"
     &&typeof o.damage==="number"&&Number.isFinite(o.damage)&&o.damage>=0&&o.damage<=100
     &&(o.targetId===undefined||(typeof o.targetId==="string"&&PLAYER_ID_PATTERN.test(o.targetId))))
-    return {type:"fire_result",sequence:o.sequence,hit:o.hit,damage:o.damage,
+    return {type:"fire_result",sequence:Number(o.sequence),hit:o.hit,damage:o.damage,
       ...(typeof o.targetId==="string"?{targetId:o.targetId}:{})};
   if(o.type==="fire_event"&&typeof o.shooterId==="string"&&PLAYER_ID_PATTERN.test(o.shooterId)
     &&isFiniteVector3(o.position)&&typeof o.yaw==="number"&&Number.isFinite(o.yaw)
     &&typeof o.pitch==="number"&&Number.isFinite(o.pitch)&&Number.isSafeInteger(o.sequence))
-    return {type:"fire_event",shooterId:o.shooterId,position:o.position,yaw:o.yaw,pitch:o.pitch,sequence:o.sequence};
+    return {type:"fire_event",shooterId:o.shooterId,position:o.position,yaw:o.yaw,pitch:o.pitch,sequence:Number(o.sequence)};
   if(o.type==="respawn"&&isFiniteVector3(o.position)&&o.health===100)
     return {type:"respawn",position:o.position,health:o.health};
   if(o.type==="welcome"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)&&isValidRoomId(o.roomId))
