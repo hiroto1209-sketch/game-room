@@ -223,7 +223,7 @@ function populate(){
   cube(10,2,-11.425,.3,4.1,9.55,wall,true);
   cube(10,2,2.425,.3,4.1,11.55,wall,true);
   // Raised lintel and luminous posts, but no collision volume blocking the opening.
-  cube(10,3.91,-5,.4,.25,3.25,brassDoorMaterial());
+  cube(10,3.91,-5,.4,.25,3.25,mat("#d9a5a2",{emissive:"#d9a5a2",emissiveIntensity:.35}));
   for(const z of [-6.7,-3.3]){
     cube(10,2,z,.34,4,.18,mat("#c996ae"));
   }
