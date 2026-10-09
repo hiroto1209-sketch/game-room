@@ -88,3 +88,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #room-state{max-width:33vw;overflow:hidden;text-overflow:ellipsis}
 @media(max-height:700px){.start-heading{margin-bottom:13px}.start-title{font-size:clamp(28px,7vw,51px)}.start-caption{display:none}.start-button{min-height:52px;font-size:20px}.online-panel{padding:9px;gap:5px}.online-create{padding:8px}}
 @media(max-width:380px){.room-hud{gap:5px}.room-hud>*{padding:6px 7px;font-size:10px}}
+
+.monitor-share{display:flex;align-items:center;gap:9px;padding:12px;border:1px solid #f8c5da67;background:#443049;border-radius:12px;color:#ffdfed;font-size:12px;line-height:1.5}
+.monitor-share input{width:19px;height:19px;flex-shrink:0;accent-color:#f3afc9}
+.monitor-share-detail{font-size:11px;color:#f0d7e2bb;line-height:1.6;margin:0}
