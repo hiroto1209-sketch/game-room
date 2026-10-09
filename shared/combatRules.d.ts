@@ -1,0 +1,11 @@
+export interface Position{x:number;y:number;z:number}
+export interface Combatant{id:string;hp:number;position:Position}
+export const ARENA:{minX:number;maxX:number;minZ:number;maxZ:number};
+export const ARENA_RESPAWN:Position;
+export const MAX_HP:number,DAMAGE:number,RANGE:number,SHOT_COOLDOWN_MS:number,RESPAWN_MS:number,SPAWN_SHIELD_MS:number;
+export function inArena(p:Position):boolean;
+export function validSignText(value:unknown):boolean;
+export function signText(value:unknown):string|null;
+export function aimDirection(yaw:number,pitch:number):Position;
+export function raySphereDistance(origin:Position,direction:Position,center:Position,radius:number):number|null;
+export function findHitscanTarget(shooter:Combatant,players:Combatant[],yaw:number,pitch:number):Combatant|null;
