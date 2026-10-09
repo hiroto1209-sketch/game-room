@@ -54,7 +54,7 @@ export class WebSocketTransport implements Transport{
   send(message:OutgoingMessage):boolean{
     if(this.socket?.readyState!==WebSocket.OPEN||!validateOutgoing(message))return false;
     const serialized=JSON.stringify(message);
-    if(serialized.length>4096)return false;
+    if(serialized.length>(message.type==="room_update"?150000:4096))return false;
     this.socket.send(serialized);return true;
   }
   subscribe(listener:(message:IncomingMessage)=>void):()=>void{
