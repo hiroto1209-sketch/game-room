@@ -114,3 +114,60 @@ Do not describe Phase 1 as an online multiplayer product: it is a modularized of
 3. Approach the wall monitor; choose a photo from iOS Photos and confirm the textured monitor updates in 3D.
 4. Open the editor, try an invalid URL or oversize file, and verify a clear error without breaking controls.
 5. Close the editor and resume free movement; the joystick must not remain stuck.
+
+## Phase 2 — invitation rooms (Cloudflare deployment required)
+
+> **Important:** The GitHub Pages frontend still works offline before a Worker is deployed. The invitation buttons activate only after the public GitHub Actions Variable `GAME_ROOM_SERVER_URL` is configured and a new Pages build succeeds. A Cloudflare account on its own does not activate multiplayer.
+
+### Current Phase 2 functionality
+
+- **Create room:** Browser creates a cryptographically random 192-bit / 32-character ID; a different Durable Object is selected for each room. No human-readable, sequential, or guessable room IDs.
+- **Join room:** Other guests open the invitation URL `https://hiroto1209-sketch.github.io/game-room/?room=ROOM_ID`, choose a display name and tap `招待ルームに参加`.
+- **Remote avatars:** PlayerManager renders named low-poly avatars and interpolates their movement. Remote movements are sent at approximately 10Hz; connection limits are enforced on the server.
+- **Connection lifecycle:** Welcome, snapshot, join, leave, basic reconnection and room departure. Normal offline Start mode remains available. The monitor photo remains **local-only**.
+- **Server controls:** Room capacity 8; accepted browser Origin restricted to the official Pages origin (and local Vite development); 4KB packet limit; bounded coordinates, yaw, pitch, sequence, and minimum interval between accepted movements. Server assigns client IDs. These checks are a foundation, not authoritative physics or comprehensive anti-cheat.
+- **No persistent rooms, auth/accounts, chat, audio chat, storage of images, scores or minigame networking** in this phase. Anyone who has the invitation URL can join while room capacity remains.
+
+### The 3 things the project owner must configure (never paste secrets into a chat)
+
+**Step A — Cloudflare credentials in GitHub Secrets**
+
+1. In [Cloudflare Dashboard](https://dash.cloudflare.com/) find **Account ID**.
+2. Create a scoped Cloudflare API token for deploying Workers (the initial creation of a Worker may need product-level Workers Admin; constrain permissions as far as possible). Token values must not be committed or shared in messages.
+3. In [Repository → Settings → Secrets and variables → Actions](https://github.com/hiroto1209-sketch/game-room/settings/secrets/actions), add repository secrets:
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `CLOUDFLARE_API_TOKEN`
+
+**Step B — Deploy Worker**
+
+Open [Actions](https://github.com/hiroto1209-sketch/game-room/actions) → **Deploy Game Room Cloudflare Realtime Worker** → **Run workflow**, on `main`. Successful logs report the real URL, typically `https://game-room-realtime.<YOUR_WORKERS_SUBDOMAIN>.workers.dev`. Do not assume your subdomain; copy it from the successful deploy log or Cloudflare dashboard.
+
+The Worker uses `server/wrangler.jsonc` with a SQLite-backed Durable Object `RoomHub` and endpoint `GET /rooms/{32-character-token}` (WebSocket upgrade). You can verify deployment by visiting `https://<your-worker-url>/api/health` in a browser, expecting an `ok:true` response.
+
+**Step C — Connect GitHub Pages to the Worker**
+
+In [Repository → Settings → Secrets and variables → Actions → Variables](https://github.com/hiroto1209-sketch/game-room/settings/variables/actions), add the non-secret repository **variable** `GAME_ROOM_SERVER_URL` whose value is the complete HTTPS Worker origin (do not include a `/rooms/...` suffix). Example only: `https://game-room-realtime.example.workers.dev`.
+
+Then open GitHub Actions → **Game Room 2.0 — test, build and deploy** → **Run workflow** on `main`. The production Vite build reads this URL via `VITE_GAME_ROOM_SERVER_URL`; **never put an API token in a VITE_ variable**, since frontend variables become public.
+
+### Two-device acceptance test
+
+1. Open Game Room on iPhone A, choose a name and tap **ルームを作る**.
+2. Wait until HUD reads **オンライン**, then tap **招待リンク** and send it to iPhone B.
+3. Open URL on iPhone B, choose another name, tap **招待ルームに参加**.
+4. Both devices must see the second avatar and `2人` in the HUD, observe the other walking, turning and jumping.
+5. Tap **退出** on B; A's avatar list should remove B.
+6. Temporarily disconnect Wi-Fi on B, then reconnect; check the status changes to **再接続中…** and the client recovers.
+7. Return to normal Start solo mode, verify two-finger controls, jump, monitor and styling are unchanged.
+
+**Limitations:** Browser interactions with the Cloudflare Worker cannot be fully tested until the account credentials and public URL are installed and deployed. iPhone Safari real-device and distant-network latency tests are manual acceptance gates.
+
+### Local development
+
+```bash
+npm install
+npm run check
+npx wrangler dev --config server/wrangler.jsonc
+```
+
+In another terminal, set `VITE_GAME_ROOM_SERVER_URL=http://localhost:8787` only after you have adjusted local URL handling: the production client currently requires HTTPS/WSS and intentionally refuses insecure server endpoints. For secure published testing, use the deployed `https://...` Worker URL with `npm run dev`.
