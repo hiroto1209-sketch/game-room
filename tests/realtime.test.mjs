@@ -85,6 +85,23 @@ test("two players share one Durable Object and positions/leave events propagate"
     assert.equal(saved.monitorImage,jpeg);
     assert.equal(saved.lightShow,true);
     c.close();
+    // Phase 4-A full outdoor traversal: server must accept a walk from the
+    // existing hallway spawn, through the actual doorway, then beyond x=10.
+    // We exercise real Durable Object WebSocket events, not only pure math.
+    let p={x:0.1,y:1.65,z:14.7}, seq=1;
+    async function walkStep(x,z){
+      p={x,y:1.65,z};
+      b.send(JSON.stringify({type:"move",position:p,yaw:0,pitch:0,sequence:++seq}));
+      await wait(165); // server movement pacing >=75ms, ~1.0 unit/step
+    }
+    for(let z=13.7;z>=-5.3;z-=1)await walkStep(.1,z);
+    // Snap slightly to the center of the doorway without wall penetration.
+    for(let x=1.1;x<=11.1;x+=1)await walkStep(x,-5.3);
+    const outdoorMove=nextMessage(a,"joined",m=>m.player.id===bob.playerId&&m.player.sequence===seq+1);
+    b.send(JSON.stringify({type:"move",position:{x:12.1,y:1.65,z:-5.3},yaw:0,pitch:0,sequence:++seq}));
+    const observedOutdoor=await outdoorMove;
+    assert.equal(observedOutdoor.player.position.x,12.1);
+    assert.equal(observedOutdoor.player.position.z,-5.3);
     const aLeft=nextMessage(a,"left",m=>m.playerId===bob.playerId);
     b.close();
     const left=await aLeft;
