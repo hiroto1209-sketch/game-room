@@ -234,3 +234,24 @@ Use a real iPhone for FPS and display measurements; code/build tests do not guar
 - The fixed common world seed ensures deterministic terrain for all visitors in this version. Room-specific editable terrains require a future world-state migration.
 - The authoritative server validates basic door traversal, position/speed, pond and tree/block obstacles, but it is not yet a full 3D physics server. Avoid calling the multiplayer world exploit-proof.
 - New scenery and HUD behavior require real iPhone/iPad visual/interaction verification; build tests alone cannot guarantee a specific FPS.
+
+## Phase 4-B/C/D implementation
+
+- **WILD WORLD:** reuses the existing deterministic outdoor terrain, instanced vegetation, moonlit pond, boardwalk and block ruins, adding a new glowing outdoor arena.
+- **LIVE SIGN:** keeps the original GAME ROOM sign, overlays a scrolling ticker, and lets guests near the sign edit Japanese/English text (80 characters). Online changes are broadcast and persisted for later joiners.
+- **AIM & BLASTER:** inside the marked arena, the center aim activates an energy-blaster mode. The server owns HP (100), hit tests, 25-point changes, cooldown (400ms), respawn (4 seconds) and a short respawn shield. The lobby and general outdoor world remain safe zones. Solo play shows visual effects only.
+- **No new credentials:** existing Cloudflare Worker and Pages connection remain; the Worker must be deployed **before** Pages after merge.
+
+### Release verification
+
+1. Confirm GitHub Actions: TypeScript, unit tests, Vite build, Worker dry run, and local WebSocket integration all green.
+2. Run `deploy-realtime.yml` on `main` first.
+3. Run `pages.yml` on `main` second.
+4. Test with three devices: outdoor travel, shared photos, lights, marquee edits, HP synchronization and respawn.
+5. Confirm the existing two-thumb movement/jump controls still work on iPhone Safari.
+6. Log performance on actual iPhone/iPad; do not assume or claim a measured FPS before testing.
+
+### Limitations
+
+This version is a prototype: no advanced lag compensation, comprehensive host permissions, or fully hardened game anti-cheat yet. MINI GAMES and ARCADE machines are not included in Phase 4-D. For feature creation ideas, see `docs/GAME_ROOM_IDEA_AUTOPILOT.md`.
+
