@@ -11,6 +11,10 @@ export interface RoomCallbacks{
   onLeave(playerId:string):void;
   onError(message:string):void;
   onRoomState(state:RoomSharedState):void;
+  onHealth(playerId:string,hp:number,respawnAt:number):void;
+  onFire(shooterId:string,position:{x:number;y:number;z:number},yaw:number,pitch:number):void;
+  onFireResult(hit:boolean,damage:number,targetId?:string):void;
+  onRespawn(position:{x:number;y:number;z:number}):void;
 }
 /** Holds the network lifecycle; no rendering, DOM or game rules in this module. */
 export class RealtimeRoomClient {
@@ -25,6 +29,7 @@ export class RealtimeRoomClient {
   private peers=new Map<string,PlayerSnapshot>();
   private lastSend=0;
   private sequence=0;
+  private fireSequence=0;
   private connectGeneration=0;
   private lastRoomRevision=-1;
   private handshakeTimer:ReturnType<typeof setTimeout>|null=null;
@@ -41,6 +46,14 @@ export class RealtimeRoomClient {
   setRoomImage(image:string|null):boolean{
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"monitorImage",value:image})??false;
+  }
+  setSignText(value:string):boolean{
+    if(!this.online)return false;
+    return this.transport?.send({type:"room_update",key:"signText",value})??false;
+  }
+  shoot(yaw:number,pitch:number):boolean{
+    if(!this.online)return false;
+    return this.transport?.send({type:"fire",sequence:++this.fireSequence,yaw,pitch})??false;
   }
   setLightShow(enabled:boolean):boolean{
     if(!this.online)return false;
@@ -67,6 +80,7 @@ export class RealtimeRoomClient {
     this.playerId="";
     this.lastSend=0;
     this.sequence=0;
+    this.fireSequence=0;
     this.lastRoomRevision=-1;
     this.peers.clear();
     this.callbacks.onSnapshot([]);
@@ -76,7 +90,17 @@ export class RealtimeRoomClient {
     const url=server+"/rooms/"+this.currentRoomId;
     transport.subscribe(msg=>{
       if(gen!==this.connectGeneration)return;
-      if(msg.type==="room_state"){
+      if(msg.type==="health_snapshot"){
+        for(const p of msg.players)this.callbacks.onHealth(p.playerId,p.hp,p.respawnAt);
+      }else if(msg.type==="health_state"){
+        this.callbacks.onHealth(msg.playerId,msg.hp,msg.respawnAt);
+      }else if(msg.type==="fire_event"){
+        this.callbacks.onFire(msg.shooterId,msg.position,msg.yaw,msg.pitch);
+      }else if(msg.type==="fire_result"){
+        this.callbacks.onFireResult(msg.hit,msg.damage,msg.targetId);
+      }else if(msg.type==="respawn"){
+        this.callbacks.onRespawn(msg.position);
+      }else if(msg.type==="room_state"){
         if(msg.revision<this.lastRoomRevision)return;
         this.lastRoomRevision=msg.revision;
         this.callbacks.onRoomState(msg);

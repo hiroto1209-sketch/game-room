@@ -1,3 +1,4 @@
+import {validSignText} from "../../shared/combatRules.js";
 import { validWorldPosition, validWorldStep } from "../../shared/worldRules.js";
 // Pure protocol/security helpers shared with Node unit tests (no Worker globals).
 export const ROOM_ID=/^[A-Za-z0-9_-]{32}$/;
@@ -30,6 +31,12 @@ export function decodeMessage(raw){
       return {type:"room_update",key:"monitorImage",value:m.value};
     if(m.type==="room_update" && m.key==="lightShow" && typeof m.value==="boolean")
       return {type:"room_update",key:"lightShow",value:m.value};
+    if(m.type==="room_update" && m.key==="signText" && validSignText(m.value))
+      return {type:"room_update",key:"signText",value:m.value.trim()||"WELCOME TO GAME ROOM"};
+    if(m.type==="fire" && Number.isSafeInteger(m.sequence) && m.sequence>0 && m.sequence<=1000000000
+      && typeof m.yaw==="number"&&Number.isFinite(m.yaw)&&Math.abs(m.yaw)<=1e6
+      && typeof m.pitch==="number"&&Number.isFinite(m.pitch)&&Math.abs(m.pitch)<=1.22)
+      return {type:"fire",sequence:m.sequence,yaw:m.yaw,pitch:m.pitch};
     if(m.type==="join"&&validRoomId(m.roomId)&&typeof m.displayName==="string"&&m.displayName.length<=80)
       return {type:"join",roomId:m.roomId,displayName:safeName(m.displayName)};
     if(m.type==="move"&&validPosition(m.position)&&typeof m.yaw==="number"&&Number.isFinite(m.yaw)

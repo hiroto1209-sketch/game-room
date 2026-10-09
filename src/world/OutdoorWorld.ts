@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { chunkData, OUTDOOR, POND, WORLD_SEED } from "../../shared/worldRules.js";
+import {ARENA} from "../../shared/combatRules.js";
 
 /**
  * Procedural outdoor preview linked to the existing lobby.
@@ -59,6 +60,26 @@ export class OutdoorWorld {
     this.boxMesh(43,.055,3.4,0x87796f,32,-.04,-5);
     this.boxMesh(2.8,.055,23,0x797b72,44,-.039,-17);
     this.boxMesh(22,.055,2.4,0x777e6d,45,-.038,-19);
+    // Path to the combat island skirts the pond's southern edge.
+    this.boxMesh(45,.065,2.8,0x777b83,65,-.055,-40.2);
+    this.boxMesh(8,.065,2.8,0x777b83,46,-.055,-32);
+    // Dedicated combat floor; no vegetation is generated inside this arena.
+    const middleX=(ARENA.minX+ARENA.maxX)/2,middleZ=(ARENA.minZ+ARENA.maxZ)/2;
+    const spanX=ARENA.maxX-ARENA.minX,spanZ=ARENA.maxZ-ARENA.minZ;
+    this.boxMesh(spanX,.095,spanZ,0x2b2b46,middleX,-.065,middleZ);
+    for(const [x,z,w,d] of [
+      [middleX,ARENA.minZ,spanX,.22],[middleX,ARENA.maxZ,spanX,.22],
+      [ARENA.minX,middleZ,.22,spanZ],[ARENA.maxX,middleZ,.22,spanZ]
+    ]){
+      this.boxMesh(w,.11,d,0x42e6ce,x,.035,z);
+    }
+    // Neon pylons signal a separate consensual arena, not a weapon in the lounge.
+    for(const x of [ARENA.minX+1,ARENA.maxX-1])for(const z of [ARENA.minZ+1,ARENA.maxZ-1]){
+      this.boxMesh(.32,3.6,.32,0x6e4ba5,x,1.8,z);
+      const orb=new THREE.Mesh(new THREE.OctahedronGeometry(.34),new THREE.MeshBasicMaterial({color:0x8cfce6}));
+      orb.position.set(x,3.6,z);this.root.add(orb);this.sharedScenery.push(orb);
+    }
+    this.outdoorSign("NEON ARENA",76,-38);
     // Entrance pillars make the former wall opening look deliberate.
     for(const z of [-6.7,-3.3]){
       this.boxMesh(.57,3.8,.55,0x8c6c83,11,1.91,z);
@@ -89,6 +110,21 @@ export class OutdoorWorld {
       pad.position.set(POND.x+Math.cos(angle)*POND.rx*r,.058,POND.z+Math.sin(angle)*POND.rz*r);
       this.root.add(pad);this.sharedScenery.push(pad);
     }
+    // Reeds around the lake use one instanced draw call.
+    const reedGeometry=new THREE.ConeGeometry(.11,1.6,4);
+    const reedMaterial=new THREE.MeshStandardMaterial({color:0x8cac77,roughness:1});
+    const reeds=new THREE.InstancedMesh(reedGeometry,reedMaterial,40);
+    const dummy=new THREE.Object3D();
+    for(let i=0;i<40;i++){
+      const angle=i*2.39996;
+      const radial=1.04+(i%5)*.032;
+      dummy.position.set(POND.x+Math.cos(angle)*POND.rx*radial,.57,POND.z+Math.sin(angle)*POND.rz*radial);
+      dummy.rotation.y=angle;dummy.scale.set(.75, .8+(i%4)*.11, .75);
+      dummy.updateMatrix();reeds.setMatrixAt(i,dummy.matrix);
+    }
+    reeds.instanceMatrix.needsUpdate=true;
+    reeds.computeBoundingSphere();
+    this.root.add(reeds);this.sharedScenery.push(reeds);
     // A few warm street lamps, rather than one point light per tree.
     for(const [x,z] of [[18,-10],[35,-11],[43,-22],[72,9]]){
       this.boxMesh(.14,3.6,.14,0x766776,x,1.8,z);

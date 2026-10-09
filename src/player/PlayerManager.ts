@@ -14,6 +14,7 @@ export class PlayerManager{
   }
   get count():number{return this.remote.size}
   getRemote(id:string):PlayerSnapshot|undefined{return this.remote.get(id)?.snapshot}
+  getRemoteSnapshots():PlayerSnapshot[]{return [...this.remote.values()].map(v=>v.snapshot)}
   upsertRemote(snapshot:PlayerSnapshot):boolean{
     if(snapshot.id===this.localId||!isFiniteVector3(snapshot.position)
       ||!Number.isFinite(snapshot.yaw)||!Number.isFinite(snapshot.pitch)

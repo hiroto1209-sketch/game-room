@@ -51,12 +51,18 @@ test("two players share one Durable Object and positions/leave events propagate"
     assert.ok(alice.playerId);
     b=await connected(url);
     const bWelcome=nextMessage(b,"welcome");
+    const bHealth=nextMessage(b,"health_snapshot");
     const bSnapshot=nextMessage(b,"snapshot");
     const aJoined=nextMessage(a,"joined");
     b.send(JSON.stringify({type:"join",roomId:ROOM,displayName:"Bob"}));
     const bob=await bWelcome;
     const snapshot=await bSnapshot;
     const joined=await aJoined;
+    const initialHP=await bHealth;
+    assert.equal(initialHP.players.find(p=>p.playerId===bob.playerId)?.hp,100);
+    const deniedFire=nextMessage(b,"error",m=>m.reason.includes("アリーナ"));
+    b.send(JSON.stringify({type:"fire",sequence:1,yaw:0,pitch:0}));
+    assert.ok((await deniedFire).reason.includes("アリーナ"));
     assert.equal(snapshot.players.some(x=>x.id===alice.playerId),true);
     assert.equal(joined.player.id,bob.playerId);
     await wait(130);
@@ -75,6 +81,12 @@ test("two players share one Durable Object and positions/leave events propagate"
     b.send(JSON.stringify({type:"room_update",key:"monitorImage",value:jpeg}));
     assert.equal((await imageA).monitorImage,jpeg);
     assert.equal((await imageB).monitorImage,jpeg);
+    const text="THREE FRIENDS — GAME ROOM!";
+    const textA=nextMessage(a,"room_state",m=>m.signText===text);
+    const textB=nextMessage(b,"room_state",m=>m.signText===text);
+    a.send(JSON.stringify({type:"room_update",key:"signText",value:text}));
+    assert.equal((await textA).signText,text);
+    assert.equal((await textB).signText,text);
     // Late joiners receive the last persisted state, rather than a private client texture.
     c=await connected(url);
     const cWelcome=nextMessage(c,"welcome");
@@ -84,6 +96,7 @@ test("two players share one Durable Object and positions/leave events propagate"
     const saved=await cState;
     assert.equal(saved.monitorImage,jpeg);
     assert.equal(saved.lightShow,true);
+    assert.equal(saved.signText,text);
     c.close();
     // Phase 4-A full outdoor traversal: server must accept a walk from the
     // existing hallway spawn, through the actual doorway, then beyond x=10.

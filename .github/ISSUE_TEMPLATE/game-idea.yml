@@ -1,0 +1,32 @@
+name: "🎮 GAME ROOM アイデア"
+description: "短いアイデアをゲーム開発タスクへ変換するための入力テンプレート"
+title: "[IDEA] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        やりたいことを一文で書くだけでも大丈夫です。内容を仕様にまとめるときは `docs/GAME_ROOM_IDEA_AUTOPILOT.md` を利用します。
+  - type: textarea
+    id: idea
+    attributes:
+      label: "こんなことをしたい"
+      description: "何が起きると楽しいですか？"
+      placeholder: "友達と木の上に秘密基地を作って、そこから世界を眺めたい"
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: "置きたい場所"
+      placeholder: "森、池、アーケード、屋内、またはおまかせ"
+  - type: textarea
+    id: online
+    attributes:
+      label: "友達との遊び方・共有したいこと"
+      placeholder: "一緒に建設し、完成した秘密基地をあとから来た友達も見られるように"
+  - type: textarea
+    id: guardrails
+    attributes:
+      label: "守ってほしい条件"
+      placeholder: "iPhoneで軽く動くこと。今の部屋を壊さないこと"

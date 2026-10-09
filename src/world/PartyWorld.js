@@ -4,16 +4,18 @@
 import * as THREE from "three";
 import { MediaMonitor } from "./MediaMonitor.ts";
 import { OutdoorWorld } from "./OutdoorWorld.ts";
+import {SignMarquee} from "./SignMarquee.ts";
 
 const el = { canvas: null };
 const cfg = { exposure:1, reducedMotion:false };
 const game = { partyMode:false, time:0 };
 const p = { x:0,y:1.65,z:15,yaw:0,pitch:0 };
 const colliders=[], balloons=[], floorMats=[], lamps=[], targets=[];
-let renderer,scene,camera,ball,monitor,outdoor;
+let renderer,scene,camera,ball,monitor,outdoor,signBoard;
 let toastHandler = () => {};
 let monitorEditHandler = () => {};
 let lightEditHandler = () => {};
+let signEditHandler=()=>{};
 function showToast(message){toastHandler(message);}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let randomSeed=87241;
@@ -248,6 +250,7 @@ function populate(){
   cube(0,3.97,7.93,4.55,.14,.17,brass);
   sign("PARTY INSIDE","FOLLOW THE LIGHTS",0,3.42,7.78,3.6,.64,"#ffc6df");
   sign("GAME ROOM","PARTY WORLD · WELCOME",0,2.5,-15.75,7.4,1.65,"#ff94cb");
+  signBoard=new SignMarquee(scene);
   fairyLights(1);fairyLights(-10.9);bunting(3);
   balloonBunch(-7.8,5);balloonBunch(7.8,5);
   balloonBunch(-8.1,-11.7);balloonBunch(8.1,-11.7);
@@ -281,6 +284,7 @@ function populate(){
   const switchFace=new THREE.Mesh(new THREE.PlaneGeometry(1.25,.72),
     new THREE.MeshBasicMaterial({map:textImage("LIGHT SHOW","PRESS TO TOGGLE","#ffe79b"),transparent:true}));
   switchFace.position.set(0,1.61,-13.39);scene.add(switchFace);
+  targets.push({x:-2.15,z:-13.2,label:"お知らせ看板を編集",action:()=>signEditHandler()});
   targets.push({x:0,z:-12.2,label:"ライトショーの切り替え",action:()=>{
     game.partyMode=!game.partyMode;
     lightEditHandler(game.partyMode);
@@ -302,19 +306,21 @@ function resize(){
   renderer.setSize(w,h,false);
 }
 
-export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights){
+export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEditSign){
   el.canvas=canvas;
   toastHandler=onToast;
   monitorEditHandler=onEditMonitor;
   lightEditHandler=onEditLights;
+  signEditHandler=onEditSign;
   populate();
   return {
-    scene,camera,renderer,colliders,targets,monitor,outdoor,
+    scene,camera,renderer,colliders,targets,monitor,outdoor,signBoard,
     resize,
     update(dt,t,reducedMotion=false){
       cfg.reducedMotion=reducedMotion;
       game.time=t;
       outdoor.update(camera.position,t);
+      if(camera.position.x<24)signBoard.update(dt,reducedMotion);
       if(!cfg.reducedMotion){
         for(const b of balloons){
           b.group.position.y=b.y+Math.sin(t*1.15+b.phase)*.045;
