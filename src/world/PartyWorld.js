@@ -320,7 +320,7 @@ export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEdi
       cfg.reducedMotion=reducedMotion;
       game.time=t;
       outdoor.update(camera.position,t);
-      signBoard.update(dt,reducedMotion);
+      if(camera.position.x<24)signBoard.update(dt,reducedMotion);
       if(!cfg.reducedMotion){
         for(const b of balloons){
           b.group.position.y=b.y+Math.sin(t*1.15+b.phase)*.045;
