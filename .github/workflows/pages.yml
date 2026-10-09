@@ -38,6 +38,8 @@ jobs:
         run: npm run build
       - name: Validate Cloudflare Worker bundle
         run: npm run check:worker
+      - name: Two-client local Durable Object smoke
+        run: npm run test:realtime
       - name: Archive built output
         uses: actions/upload-artifact@v4
         with:
