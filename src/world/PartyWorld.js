@@ -12,6 +12,7 @@ const colliders=[], balloons=[], floorMats=[], lamps=[], targets=[];
 let renderer,scene,camera,ball,monitor;
 let toastHandler = () => {};
 let monitorEditHandler = () => {};
+let lightEditHandler = () => {};
 function showToast(message){toastHandler(message);}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let randomSeed=87241;
@@ -273,6 +274,7 @@ function populate(){
   switchFace.position.set(0,1.61,-13.39);scene.add(switchFace);
   targets.push({x:0,z:-12.2,label:"ライトショーの切り替え",action:()=>{
     game.partyMode=!game.partyMode;
+    lightEditHandler(game.partyMode);
     showToast(game.partyMode?"✨ PARTY LIGHT SHOW ON!":"ライトショーをオフにしました");
   }});
   confetti();resetCamera();resize();
@@ -288,10 +290,11 @@ function resize(){
   renderer.setSize(w,h,false);
 }
 
-export function createPartyWorld(canvas,onToast,onEditMonitor){
+export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights){
   el.canvas=canvas;
   toastHandler=onToast;
   monitorEditHandler=onEditMonitor;
+  lightEditHandler=onEditLights;
   populate();
   return {
     scene,camera,renderer,colliders,targets,monitor,
@@ -312,6 +315,7 @@ export function createPartyWorld(canvas,onToast,onEditMonitor){
     },
     setExposure(value){cfg.exposure=value;renderer.toneMappingExposure=value;},
     resetParty(){game.partyMode=false;},
+    setPartyMode(enabled){game.partyMode=Boolean(enabled);},
     dispose(){
       scene.traverse((object)=>{
         if(object.geometry)object.geometry.dispose();
