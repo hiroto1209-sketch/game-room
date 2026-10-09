@@ -220,7 +220,7 @@ Use a real iPhone for FPS and display measurements; code/build tests do not guar
 
 ### Release order (essential)
 
-1. Review GitHub Actions for this PR — TypeScript, Node unit tests, Vite production build, Cloudflare Wrangler bundling and local WebSocket integration must all succeed.
+1. Review GitHub Actions for this PR — TypeScript, Node unit tests, Vite production build, Cloudflare Wrangler bundling and local WebSocket integration must all succeed. **The Pages deploy job has been deliberately changed to manual-only for release safety**; future feature releases will also require a manual Pages workflow run unless this setting is deliberately revised.
 2. **Deploy Cloudflare Worker first:** [Run GAME ROOM Cloudflare Realtime Worker workflow](https://github.com/hiroto1209-sketch/game-room/actions/workflows/deploy-realtime.yml) on `main` after merge.
 3. **Then deploy Pages:** [Run Game Room Pages workflow](https://github.com/hiroto1209-sketch/game-room/actions/workflows/pages.yml) on `main`. The existing `GAME_ROOM_SERVER_URL` variable remains unchanged; no new Cloudflare token is required.
 4. Open [GAME ROOM](https://hiroto1209-sketch.github.io/game-room/) on iPhone, iPad and a second connected device. From the central hall, move right toward the decorated doorway near the main dance floor.
