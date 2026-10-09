@@ -110,3 +110,6 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #shoot-button{position:absolute;right:max(118px,calc(env(safe-area-inset-right) + 104px));bottom:calc(max(14px,env(safe-area-inset-bottom)) + 110px);z-index:14;background:#124455cf;border:1px solid #80fce0a8;color:#baffef;touch-action:none;-webkit-user-select:none;user-select:none;box-shadow:0 0 22px #48ffce29}
 #shoot-button span{font-size:26px}
 @media(max-width:420px){#combat-hud{bottom:calc(max(13px,env(safe-area-inset-bottom)) + 95px);width:44vw}#shoot-button{right:max(104px,calc(env(safe-area-inset-right) + 92px));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 101px)}}
+
+#crosshair.armed{background:#86ffe2;box-shadow:0 0 0 5px #6ee4c52d,0 0 11px #64ffe9;transition:box-shadow .15s}
+#crosshair.targeted{background:#ffb5ce;box-shadow:0 0 0 7px #f470aa43,0 0 16px #ff8da8}
