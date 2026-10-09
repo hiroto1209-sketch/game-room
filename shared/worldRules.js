@@ -1,3 +1,4 @@
+import {inArena} from "./combatRules.js";
 /**
  * Deterministic geometry/navigation rules shared by Vite and Cloudflare Worker.
  * Coordinates are Three.js units; +X leads through the new east door.
@@ -23,24 +24,24 @@ export function chunkData(cx,cz,seed=WORLD_SEED){
   // Instanced geometry only; plants never receive unique Mesh objects.
   for(let i=0;i<72;i++){
     const x=centerX+(rand()-.5)*15,z=centerZ+(rand()-.5)*15;
-    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0))continue;
+    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z}))continue;
     grass.push({x,z,size:.25+rand()*.48,twist:rand()*6.28});
   }
   for(let i=0;i<8;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
     const path=Math.abs(z+5)<(x<45?7:4.5);
-    if(x<29||path||insidePond(x,z,4.0))continue;
+    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z}))continue;
     trees.push({x,z,height:2.7+rand()*2.3,color:Math.floor(rand()*3)});
   }
   for(let i=0;i<4;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
-    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6))continue;
+    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z}))continue;
     rocks.push({x,z,size:.38+rand()*.75});
   }
   if(centerX>78){
     for(let i=0;i<4;i++){
       const x=centerX+(rand()-.5)*11,z=centerZ+(rand()-.5)*11;
-      if(Math.abs(z+5)<6||insidePond(x,z,2.5))continue;
+      if(Math.abs(z+5)<6||insidePond(x,z,2.5)||inArena({x,z}))continue;
       blocks.push({x,z,height:.8+Math.floor(rand()*4)*.72});
     }
   }
