@@ -99,3 +99,18 @@ Phase 1 keeps the **same procedural world-building functions, same decorative me
 5. Persistence, abuse prevention, privacy/security hardening.
 
 Do not describe Phase 1 as an online multiplayer product: it is a modularized offline client designed to support that future feature.
+
+## Phase 2 preflight improvements (mobile input + media monitor)
+
+- **Walk + Jump**: The JUMP button responds directly to a touch/pen `pointerdown` to avoid iOS Safari suppressing the synthesized click while a different finger maintains movement. Keyboard and mouse activation remain supported. Walking velocity is not reset when jumping. Moving-jump regression tests are included.
+- **Custom wall display**: Walk from the start corridor into the party room, then turn right and approach the wall-mounted **YOUR PHOTO** monitor near the entrance. Press **あそぶ** when the "モニターに画像を表示" prompt appears.
+- In the monitor editor, choose an image from your device (**JPEG, PNG, WebP, GIF; up to 8MB**) or paste a direct HTTPS image URL from a host supporting browser CORS, then press **モニターに表示する**. Use **画像をリセットする** to restore the default placeholder.
+- The selected image is **rendered only on the current player's browser**. It is not uploaded, synchronized with other players, or persisted across reloads. GIFs are displayed as static frames.
+- Shared/persistent images in a multiplayer room will require server authorization, size/type checks, content handling and object storage (e.g., private Cloudflare R2 with server-authorized upload flows). Do **not** put R2 secrets in the browser.
+
+### Manual mobile checks
+1. Hold left-thumb movement forward while tapping **JUMP** with the right thumb; movement must continue throughout the jump.
+2. Keep the left joystick active and rotate the camera with the right thumb.
+3. Approach the wall monitor; choose a photo from iOS Photos and confirm the textured monitor updates in 3D.
+4. Open the editor, try an invalid URL or oversize file, and verify a clear error without breaking controls.
+5. Close the editor and resume free movement; the joystick must not remain stuck.

@@ -19,6 +19,11 @@ const loader=byId("loading");
 const startScreen=byId("start-screen");
 const hud=byId("hud");
 const menu=byId("menu-overlay");
+const monitorOverlay=byId("monitor-overlay");
+const monitorFile=byId<HTMLInputElement>("monitor-file");
+const monitorUrl=byId<HTMLInputElement>("monitor-url");
+const monitorError=byId("monitor-error");
+const monitorApply=byId<HTMLButtonElement>("apply-monitor");
 const joystick=byId("joystick");
 const thumb=byId("joystick-thumb");
 const interaction=byId("interaction");
@@ -30,7 +35,7 @@ const transport:Transport=new OfflineTransport();
 // Local-first Phase 1: transport is deliberately disconnected.
 void transport;
 const settings={sensitivity:4,exposure:1,reducedMotion:false};
-const state={playing:false,paused:false,time:0,toastUntil:0};
+const state={playing:false,paused:false,editingMonitor:false,time:0,toastUntil:0};
 let nearby:ReturnType<InteractionManager["closest"]>=null;
 let world:ReturnType<typeof createPartyWorld>|undefined;
 let player:PlayerController|undefined;
@@ -43,6 +48,44 @@ function showToast(message:string):void{
   toast.classList.add("visible");
   state.toastUntil=performance.now()+2700;
 }
+function openMonitor():void{
+  if(!state.playing||state.paused)return;
+  state.editingMonitor=true;
+  state.paused=true;
+  if(input){input.enabled=false;input.reset();}
+  player?.stop();
+  monitorError.textContent="";
+  monitorOverlay.classList.remove("hidden");
+}
+function closeMonitor():void{
+  if(!state.editingMonitor)return;
+  state.editingMonitor=false;
+  monitorOverlay.classList.add("hidden");
+  monitorError.textContent="";
+  if(input){input.reset();input.enabled=state.playing;}
+  state.paused=false;
+}
+async function applyMonitorImage():Promise<void>{
+  if(!world||monitorApply.disabled)return;
+  const selected=monitorFile.files?.[0];
+  const url=monitorUrl.value.trim();
+  if(!selected&&!url){monitorError.textContent="写真を選ぶか画像URLを入力してください";return;}
+  monitorApply.disabled=true;
+  monitorApply.textContent="読み込み中…";
+  monitorError.textContent="";
+  try{
+    if(selected)await world.monitor.setFile(selected);
+    else await world.monitor.setUrl(url);
+    monitorFile.value="";
+    closeMonitor();
+    showToast("モニターに画像を表示しました 📸");
+  }catch(error){
+    monitorError.textContent=error instanceof Error?error.message:"画像を表示できませんでした";
+  }finally{
+    monitorApply.disabled=false;
+    monitorApply.textContent="モニターに表示する";
+  }
+}
 function start():void{
   if(!world||!input)return;
   state.playing=true;state.paused=false;
@@ -54,6 +97,7 @@ function start():void{
   window.setTimeout(()=>tips.classList.add("fading"),6900);
 }
 function openMenu():void{
+  if(state.editingMonitor)return;
   state.paused=true;
   input?.reset();if(input)input.enabled=false;
   player?.stop();
@@ -66,6 +110,7 @@ function closeMenu():void{
   input?.reset();if(input)input.enabled=state.playing;
 }
 function backToTitle():void{
+  closeMonitor();
   closeMenu();state.playing=false;
   if(input)input.enabled=false;
   player?.reset();camera?.reset();
@@ -109,7 +154,30 @@ function registerUi():void{
   byId("close-menu").addEventListener("click",closeMenu);
   byId("resume-button").addEventListener("click",closeMenu);
   byId("return-title").addEventListener("click",backToTitle);
-  byId("jump-button").addEventListener("click",()=>{if(state.playing&&!state.paused)player?.jump()});
+  const jumpButton=byId<HTMLButtonElement>("jump-button");
+  // iOS Safari may suppress a second-finger synthesized click while the left
+  // thumb is moving on the canvas. Handle touch/pen immediately on pointerdown.
+  let lastTouchJump=-Infinity;
+  jumpButton.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="mouse"){
+      e.preventDefault();e.stopPropagation();
+      lastTouchJump=performance.now();
+      if(state.playing&&!state.paused)player?.jump();
+    }
+  },{passive:false});
+  // Click remains the keyboard/mouse accessibility fallback.
+  jumpButton.addEventListener("click",()=>{
+    // Ignore synthetic click generated after touch pointerdown to prevent a second jump.
+    if(performance.now()-lastTouchJump<1000)return;
+    if(state.playing&&!state.paused)player?.jump();
+  });
+  byId("close-monitor").addEventListener("click",closeMonitor);
+  byId("apply-monitor").addEventListener("click",()=>{void applyMonitorImage();});
+  byId("reset-monitor").addEventListener("click",()=>{
+    world?.monitor.clear();
+    monitorFile.value="";monitorUrl.value="";
+    closeMonitor();showToast("モニターを初期表示に戻しました");
+  });
   byId("interact-button").addEventListener("click",doInteraction);
   byId<HTMLInputElement>("sensitivity").addEventListener("input",e=>{
     settings.sensitivity=Number((e.target as HTMLInputElement).value);
@@ -133,7 +201,7 @@ function registerUi():void{
   });
 }
 function initialize():void{
-  world=createPartyWorld(canvas,showToast);
+  world=createPartyWorld(canvas,showToast,openMonitor);
   player=new PlayerController(world.colliders);
   camera=new CameraController(world.camera);
   players=new PlayerManager(world.scene);

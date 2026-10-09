@@ -32,3 +32,25 @@ test("jump returns to the ground and can jump again",()=>{
   player.update(.016,{x:0,y:0},0);
   assert.ok(player.position.y>1.65);
 });
+
+test("jump during forward movement preserves horizontal travel",()=>{
+  const player=new PlayerController([]);
+  for(let i=0;i<12;i++)player.update(.016,{x:0,y:1},0);
+  const beforeZ=player.position.z;
+  player.jump();
+  assert.equal(player.grounded,false);
+  for(let i=0;i<15;i++)player.update(.016,{x:0,y:1},0);
+  assert.ok(player.position.y>1.65,"jump should gain altitude");
+  assert.ok(player.position.z<beforeZ,"forward movement must continue during jump");
+});
+test("airborne jump input does not double-jump",()=>{
+  const player=new PlayerController([]);
+  player.jump();
+  for(let i=0;i<5;i++)player.update(.016,{x:0,y:1},0);
+  const initialY=player.position.y;
+  player.jump();
+  player.update(.016,{x:0,y:1},0);
+  assert.ok(player.position.y>initialY,"original jump arc should continue");
+  for(let i=0;i<170;i++)player.update(.016,{x:0,y:0},0);
+  assert.equal(player.grounded,true);
+});

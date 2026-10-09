@@ -2,14 +2,16 @@
 // Isolated as a rendering module during the 2.0 TypeScript migration.
 // The geometry, lights, decor and collision placements remain unchanged.
 import * as THREE from "three";
+import { MediaMonitor } from "./MediaMonitor.ts";
 
 const el = { canvas: null };
 const cfg = { exposure:1, reducedMotion:false };
 const game = { partyMode:false, time:0 };
 const p = { x:0,y:1.65,z:15,yaw:0,pitch:0 };
 const colliders=[], balloons=[], floorMats=[], lamps=[], targets=[];
-let renderer,scene,camera,ball;
+let renderer,scene,camera,ball,monitor;
 let toastHandler = () => {};
+let monitorEditHandler = () => {};
 function showToast(message){toastHandler(message);}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let randomSeed=87241;
@@ -262,6 +264,9 @@ function populate(){
   }
   arcade(-6.55,-13.6,"ARCADE","#95cbff");
   arcade(6.55,-13.6,"MINI GAMES","#f7a0ce");
+  // Wall-mounted display on the right, near the main room entrance.
+  monitor=new MediaMonitor(scene,9.60,2.24,4.1);
+  targets.push({x:7.55,z:4.1,label:"モニターに画像を表示",action:()=>monitorEditHandler()});
   cube(0,1.07,-13.8,1.43,2.12,.77,mat("#493353",{emissive:"#803e89",emissiveIntensity:.22}),true);
   const switchFace=new THREE.Mesh(new THREE.PlaneGeometry(1.25,.72),
     new THREE.MeshBasicMaterial({map:textImage("LIGHT SHOW","PRESS TO TOGGLE","#ffe79b"),transparent:true}));
@@ -283,12 +288,13 @@ function resize(){
   renderer.setSize(w,h,false);
 }
 
-export function createPartyWorld(canvas,onToast){
+export function createPartyWorld(canvas,onToast,onEditMonitor){
   el.canvas=canvas;
   toastHandler=onToast;
+  monitorEditHandler=onEditMonitor;
   populate();
   return {
-    scene,camera,renderer,colliders,targets,
+    scene,camera,renderer,colliders,targets,monitor,
     resize,
     update(dt,t,reducedMotion=false){
       cfg.reducedMotion=reducedMotion;
