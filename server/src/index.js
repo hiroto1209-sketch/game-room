@@ -60,11 +60,10 @@ export class RoomHub extends DurableObject {
       const existing=this.members();
       if(existing.length>=MAX_PLAYERS){ws.close(1013,"Room full");return;}
       const id=crypto.randomUUID();
-      const spawn={
-        x:Math.max(-1.6,Math.min(1.6,(existing.length%5-2)*.65)),
-        y:1.65,
-        z:15-Math.floor(existing.length/5)*1.2
-      };
+      // Phase 2 client starts at (0, 1.65, 15). Keep the initial authoritative
+      // snapshot in sync, otherwise a first move may fail displacement validation.
+      // Avatars are non-blocking; spawn spacing can be negotiated in a later protocol.
+      const spawn={x:0,y:1.65,z:15};
       const player={id,displayName:safeName(m.displayName),position:spawn,yaw:0,pitch:0,sequence:0};
       ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0});
       send(ws,{type:"welcome",playerId:id,roomId:session.roomId});
