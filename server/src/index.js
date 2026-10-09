@@ -33,7 +33,8 @@ export default {
 /**
  * One SQLite-backed Durable Object per 192-bit invite room code.
  * Membership and positions are carried as per-socket hibernation attachments.
- * The room does not record photos, chat, account details or long-term position history.
+ * Photos are stored only as constrained, consented JPEG room state in Durable Object storage.
+ * No chat, account details or long-term position history are stored.
  */
 export class RoomHub extends DurableObject {
   constructor(ctx,env){super(ctx,env)}
@@ -47,10 +48,10 @@ export class RoomHub extends DurableObject {
     const pair=new WebSocketPair();
     const [client,server]=Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0});
+    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0});
     return new Response(null,{status:101,webSocket:client});
   }
-  webSocketMessage(ws,raw){
+  async webSocketMessage(ws,raw){
     const session=attachment(ws);
     if(!session){ws.close(1008,"Missing session");return;}
     const m=decodeMessage(raw);
@@ -68,10 +69,36 @@ export class RoomHub extends DurableObject {
       ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0});
       send(ws,{type:"welcome",playerId:id,roomId:session.roomId});
       send(ws,{type:"snapshot",players:existing.map(s=>publicPlayer(attachment(s))).filter(Boolean)});
+      const saved=await this.ctx.storage.get("shared_room_v1");
+      send(ws,{type:"room_state",revision:saved?.revision??0,
+        monitorImage:saved?.monitorImage??null,lightShow:saved?.lightShow??false});
       for(const client of existing)send(client,{type:"joined",player});
       return;
     }
     if(!isJoined(session)){ws.close(1008,"Join first");return;}
+    if(m.type==="room_update"){
+      const now=Date.now();
+      const image=m.key==="monitorImage";
+      if(now-(image?(session.lastImageAt??0):(session.lastLightAt??0))<(image?2500:400)){
+        send(ws,{type:"error",reason:"変更が速すぎます。少し待ってください"});return;
+      }
+      const old=await this.ctx.storage.get("shared_room_v1");
+      const saved={
+        revision:(old?.revision??0)+1,
+        monitorImage:old?.monitorImage??null,
+        lightShow:old?.lightShow??false,
+      };
+      saved[m.key]=m.value;
+      await this.ctx.storage.put("shared_room_v1",saved);
+      // Delete room customization after seven days of no edits to limit photo retention.
+      await this.ctx.storage.setAlarm(now+7*24*60*60*1000);
+      ws.serializeAttachment({
+        ...session,
+        ...(image?{lastImageAt:now}:{lastLightAt:now})
+      });
+      for(const peer of this.members())send(peer,{type:"room_state",...saved});
+      return;
+    }
     if(m.type!=="move")return;
     const now=Date.now();
     if(m.sequence<=session.player.sequence)return;
@@ -83,6 +110,9 @@ export class RoomHub extends DurableObject {
     const player={...session.player,position:m.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
     ws.serializeAttachment({...session,player,lastMoveAt:now,lastPacketAt:now});
     for(const peer of this.members())if(peer!==ws)send(peer,{type:"joined",player});
+  }
+  async alarm(){
+    await this.ctx.storage.delete("shared_room_v1");
   }
   webSocketClose(ws,code,reason){
     this.onDisconnect(ws);
