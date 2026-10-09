@@ -349,8 +349,9 @@ function colliding(x,z){
 }
 function updatePlayer(dt,t){
   const m=intent();
-  const desireX=(Math.cos(p.yaw)*m.x+Math.sin(p.yaw)*m.z)*4.2;
-  const desireZ=(Math.sin(p.yaw)*m.x-Math.cos(p.yaw)*m.z)*4.2;
+  // Three.js camera looks along local -Z: derive horizontal forward/right from yaw.
+  const desireX=(Math.cos(p.yaw)*m.x-Math.sin(p.yaw)*m.z)*4.2;
+  const desireZ=(-Math.sin(p.yaw)*m.x-Math.cos(p.yaw)*m.z)*4.2;
   const factor=1-Math.exp(-dt*(m.strength>0?11:15));
   p.vx+=(desireX-p.vx)*factor;p.vz+=(desireZ-p.vz)*factor;
   const nx=p.x+p.vx*dt;
