@@ -1,76 +1,101 @@
-# GAME ROOM 🎉
-iPhone / iPad のブラウザで自由に歩き回れる、一人称3Dパーティーワールドの Phase 1。
+# GAME ROOM 2.0 — Modular Multiplayer-Ready Party World 🎉
 
-> 参考作は「開始画面 → 一人称3D空間 → 左半分で移動／右半分で視点」の操作設計です。参考サイトの素材やコードはコピーせず、独自に作成したパーティールームです。
+**Status: Phase 1 — single-player / offline only.** This version does **not** connect to a multiplayer server. Two devices cannot join each other until the next phase.
 
-## 操作方法
+A browser-based first-person party world. Supports iPhone/iPad Safari and desktop browsers, with left-half floating joystick and right-half free-look touch controls. The original hallway, neon room, decorations, jump and settings are retained.
 
-| 入力 | 操作 |
+- Public URL (unchanged): https://hiroto1209-sketch.github.io/game-room/
+- Repository: https://github.com/hiroto1209-sketch/game-room
+- Pre-migration restore point: [backup/phase1-2026-10-09](https://github.com/hiroto1209-sketch/game-room/tree/backup/phase1-2026-10-09)
+- Development branch: [feature/game-room-2-phase1](https://github.com/hiroto1209-sketch/game-room/tree/feature/game-room-2-phase1)
+
+## Gameplay
+
+- Tap **スタート** to enter the hall and walk toward the neon party room.
+- On touchscreens: **left half = walk** (floating joystick), **right half = look**. Both pointers are tracked independently.
+- **JUMP** to jump; nearby interactables show an **あそぶ** button.
+- On PC: **WASD**, **mouse drag**, **Space** to jump, **E** to interact, **Esc** for settings.
+- Settings include sensitivity, brightness, reduced motion, and an optional generated WebAudio melody.
+- **Preview-only developer switch**: add `?previewAvatars=1` to see a placeholder guest model. It is local-only and **not a connected player**.
+
+## Technical structure
+
+| Module | Responsibility |
 | --- | --- |
-| スマホ左半分の任意地点をタッチしてスライド | フローティングジョイスティックで移動 |
-| スマホ右半分をドラッグ | カメラを自由に回転 |
-| 左右同時タッチ | 移動しながら視点を変更 |
-| JUMPボタン | ジャンプ |
-| オブジェクトの近くの「遊ぶ」 | 光のショーを切り替える・将来のゲームをプレビュー |
-| PC: W/A/S/D | 移動 |
-| PC: マウスドラッグ | カメラを回転 |
-| PC: Space | ジャンプ |
-| PC: E | オブジェクトとインタラクト |
-| PC: Esc | 設定を開く／閉じる |
+| `src/main.ts` | Bootstrapping, UI state, render loop, feature integration |
+| `src/world/PartyWorld.js` | Original procedural scene generation and decor animation, isolated unchanged for safe migration |
+| `src/world/PartyWorld.d.ts` | Typed public boundary for world renderer, colliders, interactables |
+| `src/world/InteractionManager.ts` | Find nearby interactive objects |
+| `src/input/DualTouchController.ts` | Independent pointer IDs, keyboard, pointer cancellation and safe reset |
+| `src/input/joystickMath.ts` | Pure joystick mapping (dead zone, direction, normalization) |
+| `src/player/PlayerController.ts` | Acceleration, camera-relative motion, simple collisions and jumping |
+| `src/camera/CameraController.ts` | Look rotation, pitch limits and camera follow |
+| `src/player/PlayerManager.ts` | Player ID and **remote avatar presentation** (placeholder meshes + labels + interpolation) |
+| `src/types/Player.ts` | Shared player state and validation helpers |
+| `src/network/protocol.ts` | Random URL-safe room IDs, typed messages, inbound/outbound validation |
+| `src/network/Transport.ts` | Disconnected offline default + optional encrypted WebSocket transport abstraction |
+| `src/audio/MusicController.ts` | Opt-in synthesized music, independent from game logic |
+| `tests/core.test.mjs` | Node tests for joystick input, random room IDs and message validation |
+| `.github/workflows/pages.yml` | TypeScript typecheck, unit tests, Vite production build and GitHub Pages deploy |
 
-## GitHub Pages 公開
+**Migration note:** Three.js procedural geometry is kept in a standalone JavaScript module with TypeScript declarations. This is intentional: avoid redrawing/changing the existing visual scene while migrating the rest of the application to strict TypeScript. A full typed scene rewrite is an optional later step.
 
-1. リポジトリ `hiroto1209-sketch/game-room` を開く。
-2. **Settings → Pages** に進む。
-3. **Build and deployment → Source** を **Deploy from a branch** にする。
-4. **Branch: main** と **/(root)** を選んで **Save**。
-5. 数分後、`https://hiroto1209-sketch.github.io/game-room/` にアクセスする。
+## Building
 
-CDNからThree.jsを読み込むため、初回のロードにはインターネット接続が必要です。GitHub Pagesで動かすためのビルド、Node、サーバーは不要です。
-
-## Phase 1 実装済み
-
-- 開始時に3D廊下が暗く見えるオーバーレイと「スタート」ボタン
-- 廊下から広いパーティールームへのシームレスな移動
-- 左右のタッチを別のpointerIdで処理する独立2指操作
-- カメラ相対移動／一人称視点／歩行／ジャンプ
-- 壁／家具との簡易水平衝突判定
-- 風船、ガーランド、レトロな壁紙、照明、ネオンサイン、ダンスフロア、スピーカー、ケーキ、ソファ、アーケード
-- 動きのある風船、ディスコボール、ライトショー
-- 設定メニュー（視点感度、明るさ、シンプルなWebAudio BGM、動き低減）
-- モバイルのセーフエリア対応・縦横画面対応
-- CDN以外の外部画像・モデルファイルは不要
-
-## 制限事項
-
-- 現在は**単一ワールドのプロトタイプ**です。ARCADE / MINI GAMES は今後追加する案内ゲートで、未実装のゲームは起動しません。
-- 壁や家具の衝突判定は、カプセル物理ではなく軽量な2D矩形判定です。段差・落下・高度な物理は次フェーズでRapier導入を検討してください。
-- WebAudioによるBGMはブラウザの許可に従い、操作後に再生します。
-- Safari / iPhone / iPad の**実機での操作確認が必要**です。
-
-## ファイル
-
-```text
-index.html    UIとスタート画面
-style.css     レスポンシブCSSとHUD
-main.js       Three.jsワールドと操作・衝突・演出
-.nojekyll     GitHub Pages向けの静的ファイル設定
-README.md     説明と公開手順
-```
-
-### ローカルで確認する場合
-
-モジュール読み込みの都合上、ファイルを直接開かずにHTTPサーバーで配信してください。
+Requires Node.js 22+.
 
 ```bash
-python3 -m http.server 8000
+npm install
+npm run dev
+npm run typecheck
+npm test
+npm run build
 ```
 
-ブラウザで `http://localhost:8000/` を開きます。
+The Vite production output is in `dist/`; build base is explicitly set to `/game-room/`.
 
-## 次のフェーズ
+## GitHub Pages migration
 
-1. iPhoneとiPadで移動・感度を調整。
-2. Rapierで床・段差・衝突の物理を改善。
-3. ポータルからミニゲームのシーンへ遷移させるWorldManagerを追加。
-4. ルームカスタマイズやキャラクターを追加。
+1. In **Settings → Pages**, switch **Build and deployment → Source** from **Deploy from a branch** to **GitHub Actions**.
+2. The workflow `.github/workflows/pages.yml` deploys **only after quality checks pass on `main`**.
+3. The Pages URL remains **https://hiroto1209-sketch.github.io/game-room/**.
+4. The old `main.js` file is deliberately preserved for rollback, but Vite uses `src/main.ts` as its entrypoint. You can revert to the backup branch if a major regression is discovered.
+
+**If Pages is still configured as “Deploy from a branch”, do not interpret the source `index.html` as a standalone production site:** browsers cannot execute the TypeScript entrypoint directly. The built `dist` artifact must be deployed through GitHub Actions.
+
+## Architecture and threat model
+
+- Offline mode uses `OfflineTransport` and **never attempts a WebSocket connection**.
+- An online server URL is not hard-coded, and no secrets are shipped in client assets.
+- `WebSocketTransport` only allows `wss://`, validates incoming messages and limits packet size.
+- Room codes use `crypto.getRandomValues` and 192-bit random identifiers. A room code is an **unguessable locator**, **not** a replacement for server-side authorization.
+- Future server must enforce room membership, maximum concurrent players, rate limits, game rules and authoritative score verification. Client-side validation alone is insufficient.
+- `PlayerManager` supports validated remote snapshots with monotonic sequence numbers, interpolation and avatar cleanup; **no snapshot sender exists yet**.
+
+## Regression matrix
+
+| Test | Target |
+| --- | --- |
+| UI title → game → title | Same start screen and world reset |
+| Tap any point on left half | Joystick originates at touch position |
+| Drag right while walking | No unintended joystick release |
+| Drag either pointer across midline | Pointer ownership remains fixed |
+| Hold a pointer then pause/switch away | Input clears safely |
+| Walk forward after yaw rotation | Move in camera forward direction |
+| Jump near furniture/walls | Preserve simple collision and ground behavior |
+| iPhone Safari, iPad Safari, desktop | Verify touch feel, layout, FPS and lighting |
+| Node tests & Vite build | Run automatically on pull requests |
+
+### Performance comparison
+
+Phase 1 keeps the **same procedural world-building functions, same decorative meshes and same 1.75 maximum pixel ratio** as the previous single-player version. A measured comparison of load time, frame rate, memory and bundle size has **not yet been completed**. Before claiming an improvement or performance regression, capture measurements on the **same iPhone, browser version and network** and record them here.
+
+## Next Phase (not implemented)
+
+1. Cloudflare Durable Object authoritative room server and WebSocket transport integration.
+2. Create room, copy invite link, join from a second iPhone.
+3. Remote avatar spawn/despawn, smoothing, reconnect handling and heartbeat.
+4. First two-player minigame, server-owned rules and scores.
+5. Persistence, abuse prevention, privacy/security hardening.
+
+Do not describe Phase 1 as an online multiplayer product: it is a modularized offline client designed to support that future feature.
