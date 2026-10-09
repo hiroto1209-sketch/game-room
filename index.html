@@ -64,6 +64,11 @@
         <div class="monitor-or">または</div>
         <label class="monitor-label" for="monitor-url">画像URL（HTTPS・CORS許可が必要）</label>
         <input id="monitor-url" type="url" autocomplete="url" inputmode="url" placeholder="https://example.com/photo.jpg" />
+        <label id="monitor-share-row" class="monitor-share hidden">
+          <input id="monitor-share" type="checkbox" />
+          <span>オンラインの参加者全員へ共有する</span>
+        </label>
+        <p id="monitor-share-detail" class="monitor-share-detail hidden">共有すると縮小したJPEG画像がCloudflareに保存され、招待URLから参加した人も閲覧できます。7日間変更がなければ自動削除されます。プライベートな画像は共有しないでください。</p>
         <div id="monitor-error" role="status" aria-live="polite"></div>
         <button id="apply-monitor" class="primary-menu-button">モニターに表示する</button>
         <button id="reset-monitor" class="plain-menu-button">画像をリセットする</button>
