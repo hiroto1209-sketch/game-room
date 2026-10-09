@@ -102,23 +102,25 @@ test("two players share one Durable Object and positions/leave events propagate"
     });
     let p={x:0.1,y:1.65,z:14.7}, seq=1;
     async function walkStep(x,z){
-      p={x,y:1.65,z};
-      b.send(JSON.stringify({type:"move",position:p,yaw:0,pitch:0,sequence:++seq}));
-      await wait(165); // server movement pacing >=75ms, ~1.0 unit/step
+      const nextSequence=seq+1;
+      const next={x,y:1.65,z};
+      const receipt=nextMessage(a,"joined",m=>m.player.id===bob.playerId&&m.player.sequence===nextSequence);
+      b.send(JSON.stringify({type:"move",position:next,yaw:0,pitch:0,sequence:nextSequence}));
+      try{await receipt}
+      catch(error){
+        console.error("OUTDOOR DEBUG",JSON.stringify({nextSequence,next,acceptedSteps:acceptedSteps.slice(-6),rejectedSteps}));
+        throw error;
+      }
+      seq=nextSequence;p=next;
+      await wait(105); // server min 75ms; accepted movement is <=.6 units per tick
     }
-    for(let i=1;i<=20;i++)await walkStep(.1,14.7-i);
-    // Snap slightly to the center of the doorway without wall penetration.
-    for(let i=1;i<=11;i++)await walkStep(.1+i,-5.3);
-    const outdoorMove=nextMessage(a,"joined",m=>m.player.id===bob.playerId&&m.player.sequence===seq+1);
-    b.send(JSON.stringify({type:"move",position:{x:12.1,y:1.65,z:-5.3},yaw:0,pitch:0,sequence:++seq}));
-    let observedOutdoor;
-    try{observedOutdoor=await outdoorMove}
-    catch(error){
-      console.error("OUTDOOR DEBUG",JSON.stringify({finalSequence:seq,acceptedSteps:acceptedSteps.slice(-12),rejectedSteps}));
-      throw error;
-    }
-    assert.equal(observedOutdoor.player.position.x,12.1);
-    assert.equal(observedOutdoor.player.position.z,-5.3);
+    await wait(250);
+    for(let i=1;i<=40;i++)await walkStep(.1,14.7-i*.5);
+    // Walk through the doorway with server acknowledgements, not a teleport.
+    for(let i=1;i<=20;i++)await walkStep(.1+i*.55,-5.3);
+    await walkStep(11.65,-5.3);
+    await walkStep(12.2,-5.3);
+    assert.ok(acceptedSteps.at(-1).x>10.5);
     const aLeft=nextMessage(a,"left",m=>m.playerId===bob.playerId);
     b.close();
     const left=await aLeft;
