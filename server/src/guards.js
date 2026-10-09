@@ -1,3 +1,4 @@
+import { validWorldPosition, validWorldStep } from "../../shared/worldRules.js";
 // Pure protocol/security helpers shared with Node unit tests (no Worker globals).
 export const ROOM_ID=/^[A-Za-z0-9_-]{32}$/;
 export const MAX_PLAYERS=8;
@@ -17,10 +18,7 @@ export function safeName(value){
   return value.replace(/[<>\u0000-\u001f]/g,"").trim().slice(0,MAX_NAME_LENGTH)||"Guest";
 }
 export function validRoomId(value){return typeof value==="string"&&ROOM_ID.test(value)}
-export function validPosition(p){
-  return p!==null&&typeof p==="object"&&["x","y","z"].every(k=>typeof p[k]==="number"&&Number.isFinite(p[k]))
-    &&p.x>=-10&&p.x<=10&&p.y>=1.60&&p.y<=4.9&&p.z>=-16&&p.z<=18;
-}
+export function validPosition(p){return validWorldPosition(p)}
 export function decodeMessage(raw){
   if(typeof raw!=="string"||raw.length>MAX_SHARED_PACKET_BYTES)return null;
   // A large frame is allowed only for explicit bounded JPEG room-update messages.
@@ -45,7 +43,7 @@ export function permittedOrigin(value){
   return value==="https://hiroto1209-sketch.github.io" || value==="http://localhost:5173" || value==="http://127.0.0.1:5173";
 }
 export function withinMovementSpeed(prev,next,elapsedMs){
-  if(!validPosition(next))return false;
+  if(!validWorldStep(prev,next))return false;
   const dx=next.x-prev.x,dy=next.y-prev.y,dz=next.z-prev.z;
   const horizontal=Math.hypot(dx,dz);
   // Generous tolerance for frame stalls and normal speed ~4.2m/s; not full authoritative physics.
