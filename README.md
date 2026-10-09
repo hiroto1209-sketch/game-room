@@ -167,6 +167,7 @@ Then open GitHub Actions → **Game Room 2.0 — test, build and deploy** → **
 ```bash
 npm install
 npm run check
+npm run test:realtime
 npx wrangler dev --config server/wrangler.jsonc
 ```
 
