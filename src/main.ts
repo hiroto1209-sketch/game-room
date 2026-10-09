@@ -6,7 +6,8 @@ import { PlayerController } from "./player/PlayerController";
 import { PlayerManager } from "./player/PlayerManager";
 import { DualTouchController } from "./input/DualTouchController";
 import { MusicController } from "./audio/MusicController";
-import { OfflineTransport, type Transport } from "./network/Transport";
+import { RealtimeRoomClient, type RoomConnectionState } from "./network/RealtimeRoomClient";
+import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
@@ -30,10 +31,18 @@ const interaction=byId("interaction");
 const interactionText=byId("interaction-text");
 const toast=byId("toast");
 const tips=byId("tips");
+const onlinePanel=byId("online-panel");
+const onlineNote=byId("online-note");
+const roomName=byId<HTMLInputElement>("room-name");
+const createRoomButton=byId<HTMLButtonElement>("create-room");
+const joinRoomButton=byId<HTMLButtonElement>("join-room");
+const roomHud=byId("room-hud");
+const roomState=byId("room-state");
+const roomCount=byId("room-count");
 const music=new MusicController();
-const transport:Transport=new OfflineTransport();
-// Local-first Phase 1: transport is deliberately disconnected.
-void transport;
+const configuredServer=(import.meta.env.VITE_GAME_ROOM_SERVER_URL??"").trim();
+const invitation=new URLSearchParams(window.location.search).get("room");
+const inviteRoomId=invitation&&isValidRoomId(invitation)?invitation:null;
 const settings={sensitivity:4,exposure:1,reducedMotion:false};
 const state={playing:false,paused:false,editingMonitor:false,time:0,toastUntil:0};
 let nearby:ReturnType<InteractionManager["closest"]>=null;
@@ -43,6 +52,67 @@ let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
 const clock=new THREE.Clock();
+const roomClient=new RealtimeRoomClient({
+  onState:(connection:RoomConnectionState,count:number)=>{
+    roomState.textContent=connection==="online"?"オンライン":connection==="offline"?"オフライン":connection==="connecting"?"接続中…":"再接続中…";
+    roomCount.textContent=count+"人";
+    roomHud.classList.toggle("hidden",connection==="offline");
+    onlineNote.textContent=connection==="online"?"ルームに接続しました":
+      connection==="reconnecting"?"通信を再接続しています":"オンラインルームを準備しています";
+  },
+  onSnapshot:remotePlayers=>{
+    players?.clear();
+    for(const member of remotePlayers)players?.upsertRemote(member);
+  },
+  onPlayer:member=>{players?.upsertRemote(member);},
+  onLeave:id=>{players?.removeRemote(id);},
+  onError:message=>showToast(message)
+},configuredServer);
+function clearRoomQuery():void{
+  const url=new URL(window.location.href);
+  url.searchParams.delete("room");
+  window.history.replaceState(null,"",url.toString());
+}
+function currentInviteLink():string{
+  const url=new URL(window.location.href);
+  url.searchParams.set("room",roomClient.roomId);
+  url.searchParams.delete("previewAvatars");
+  return url.toString();
+}
+async function connectRoom(roomId:string):Promise<void>{
+  if(!roomClient.supported){
+    onlineNote.textContent="Cloudflareサーバー未設定：オンライン機能は準備中です";
+    return;
+  }
+  start();
+  try{
+    await roomClient.join(roomId,roomName.value);
+    const link=new URL(window.location.href);
+    link.searchParams.set("room",roomId);
+    window.history.replaceState(null,"",link.toString());
+  }catch(error){
+    roomClient.leave();
+    onlineNote.textContent=error instanceof Error?error.message:"接続に失敗しました";
+    showToast(onlineNote.textContent);
+  }
+}
+async function copyInvitation():Promise<void>{
+  if(!roomClient.roomId)return;
+  const value=currentInviteLink();
+  try{
+    await navigator.clipboard.writeText(value);
+    showToast("招待リンクをコピーしました 📋");
+  }catch{
+    // Safari may deny clipboard API when outside a secure/user gesture context.
+    window.prompt("このリンクをコピーして友達に送ってください",value);
+  }
+}
+function leaveOnlineRoom():void{
+  roomClient.leave();
+  clearRoomQuery();
+  showToast("オンラインルームから退出しました。ソロプレイを続けられます");
+}
+
 function showToast(message:string):void{
   toast.textContent=message;
   toast.classList.add("visible");
@@ -111,7 +181,7 @@ function closeMenu():void{
 }
 function backToTitle():void{
   closeMonitor();
-  closeMenu();state.playing=false;
+  closeMenu();roomClient.leave();clearRoomQuery();state.playing=false;
   if(input)input.enabled=false;
   player?.reset();camera?.reset();
   if(player&&camera)camera.update(player.position);
@@ -137,6 +207,9 @@ function update(dt:number):void{
     const bob=player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion);
     camera.update(player.position,bob);
     updateInteraction();
+    roomClient.tick(performance.now(),{
+      position:{...player.position},yaw:camera.yaw,pitch:camera.pitch
+    });
   }
   world.update(dt,state.time,settings.reducedMotion);
   players.update(dt,world.camera);
@@ -149,6 +222,19 @@ function frame():void{
   update(Math.min(.04,clock.getDelta()));
 }
 function registerUi():void{
+  onlinePanel.style.display="flex";
+  onlineNote.textContent=roomClient.supported?
+    (inviteRoomId?"招待されたルームに参加できます":"友達と同じ部屋で遊ぶ"):
+    "オンラインサーバー未設定（ソロプレイ可能）";
+  createRoomButton.disabled=!roomClient.supported;
+  joinRoomButton.disabled=!roomClient.supported;
+  joinRoomButton.classList.toggle("hidden",!inviteRoomId);
+  createRoomButton.addEventListener("click",()=>{void connectRoom(createRoomId());});
+  joinRoomButton.addEventListener("click",()=>{
+    if(inviteRoomId)void connectRoom(inviteRoomId);
+  });
+  byId("copy-invite").addEventListener("click",()=>{void copyInvitation();});
+  byId("leave-room").addEventListener("click",leaveOnlineRoom);
   byId("start-button").addEventListener("click",start);
   byId("menu-button").addEventListener("click",()=>state.paused?closeMenu():openMenu());
   byId("close-menu").addEventListener("click",closeMenu);
@@ -206,10 +292,10 @@ function initialize():void{
   camera=new CameraController(world.camera);
   players=new PlayerManager(world.scene);
   const safeName=safeDisplayName("Guest");
-  console.info("GAME ROOM 2.0 Phase 1",{
+  console.info("GAME ROOM Phase 2",{
     mode:"offline",displayName:safeName,
     playerId:players.localId,
-    renderer:"Three.js",serverConnected:false
+    renderer:"Three.js",serverConfigured:roomClient.supported
   });
   input=new DualTouchController(canvas,joystick,thumb,{
     onLook:(dx,dy)=>{

@@ -23,6 +23,15 @@
       <div class="start-heading"><span class="overline">WELCOME TO YOUR OWN WORLD</span><span class="start-title">GAME ROOM</span><span class="subheading">THE PARTY STARTS HERE</span></div>
       <button id="start-button" class="start-button">スタート <span aria-hidden="true">→</span></button>
       <p class="start-caption">歩き回れる、あなたのパーティーワールド</p>
+      <section id="online-panel" class="online-panel" aria-label="オンラインルーム">
+        <div id="online-note" class="online-note">オンライン機能を準備中</div>
+        <label class="online-name" for="room-name">プレイヤー名</label>
+        <input id="room-name" maxlength="24" autocomplete="nickname" placeholder="Guest" value="Guest" />
+        <div class="online-actions">
+          <button id="create-room" type="button" class="online-create">ルームを作る</button>
+          <button id="join-room" type="button" class="online-create hidden">招待ルームに参加</button>
+        </div>
+      </section>
     </div>
 
     <div id="hud" class="hidden">
@@ -35,6 +44,12 @@
         <button id="interact-button">あそぶ</button>
       </div>
       <div id="toast" role="status"></div>
+      <div id="room-hud" class="room-hud hidden" aria-live="polite">
+        <span id="room-state">接続中…</span>
+        <span id="room-count">1人</span>
+        <button id="copy-invite" type="button">招待リンク</button>
+        <button id="leave-room" type="button">退出</button>
+      </div>
     </div>
 
     <div id="monitor-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="monitor-title">

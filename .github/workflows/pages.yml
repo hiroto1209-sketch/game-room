@@ -33,7 +33,13 @@ jobs:
       - name: Protocol and input tests
         run: npm test
       - name: Production build
+        env:
+          VITE_GAME_ROOM_SERVER_URL: ${{ vars.GAME_ROOM_SERVER_URL }}
         run: npm run build
+      - name: Validate Cloudflare Worker bundle
+        run: npm run check:worker
+      - name: Two-client local Durable Object smoke
+        run: npm run test:realtime
       - name: Archive built output
         uses: actions/upload-artifact@v4
         with:
@@ -43,7 +49,7 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: quality
     runs-on: ubuntu-latest
     permissions:
@@ -61,6 +67,8 @@ jobs:
       - name: Install pinned dependencies
         run: npm install --no-audit --no-fund
       - name: Production build
+        env:
+          VITE_GAME_ROOM_SERVER_URL: ${{ vars.GAME_ROOM_SERVER_URL }}
         run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

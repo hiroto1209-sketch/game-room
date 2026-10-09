@@ -1,0 +1,15 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "game-room-realtime",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM_HUB", "class_name": "RoomHub" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoomHub"] }
+  ]
+}

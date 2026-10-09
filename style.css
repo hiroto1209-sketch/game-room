@@ -73,3 +73,18 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #monitor-error{min-height:0;color:#ffc09d;font-size:12px;line-height:1.5}
 .monitor-footnote{color:#ccbbcb;font-size:11px;line-height:1.65;margin:0}
 #jump-button{touch-action:none;-webkit-user-select:none;user-select:none}
+
+/* Phase 2 — invite rooms (hidden in legacy direct-branch deployment). */
+.online-panel{display:none;flex-direction:column;gap:9px;width:min(300px,78vw);padding:14px;border-radius:14px;background:rgba(19,13,26,.82);border:1px solid rgba(250,204,226,.3);backdrop-filter:blur(12px);margin-top:5px}
+.online-note{color:#fcd0e1;text-align:center;font-size:11px;line-height:1.45}
+.online-name{font-size:10px;letter-spacing:.1em;color:#fff6edc9}
+#room-name{min-height:36px;border-radius:9px;border:1px solid #ffffff43;background:#130f1d;color:#fff6ef;padding:6px 11px;font-size:13px}
+.online-actions{display:flex;gap:8px}
+.online-create{width:100%;border:1px solid #ffc8df75;border-radius:10px;background:#9e5981;color:#fff6ed;padding:11px 12px;font-size:13px;font-weight:700}
+.online-create:disabled{cursor:not-allowed;opacity:.48}
+.room-hud{position:absolute;top:calc(max(20px,env(safe-area-inset-top)) + 65px);left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;pointer-events:none}
+.room-hud>*{pointer-events:auto;background:#1f1528cc;color:#fff1e6;padding:8px 10px;border:1px solid #ffffff38;border-radius:9px;font-size:11px;white-space:nowrap}
+.room-hud button{background:#6c3a64;font-weight:700}
+#room-state{max-width:33vw;overflow:hidden;text-overflow:ellipsis}
+@media(max-height:700px){.start-heading{margin-bottom:13px}.start-title{font-size:clamp(28px,7vw,51px)}.start-caption{display:none}.start-button{min-height:52px;font-size:20px}.online-panel{padding:9px;gap:5px}.online-create{padding:8px}}
+@media(max-width:380px){.room-hud{gap:5px}.room-hud>*{padding:6px 7px;font-size:10px}}

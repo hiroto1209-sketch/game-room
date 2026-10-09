@@ -1,0 +1,75 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import WebSocket from "ws";
+import {spawn} from "node:child_process";
+import {setTimeout as wait} from "node:timers/promises";
+
+const PORT=8987, ROOT="http://127.0.0.1:"+PORT;
+const ROOM="ABCDEFGHIJKLMNOPQRSTUVWXabcdefgh"; // 32 URL-safe characters
+const ORIGIN="http://localhost:5173";
+async function available(){
+  for(let i=0;i<80;i++){
+    try{const response=await fetch(ROOT+"/api/health");if(response.ok)return;}
+    catch{}
+    await wait(350);
+  }
+  throw Error("Local Wrangler Worker did not respond");
+}
+function connected(url){
+  return new Promise((resolve,reject)=>{
+    const socket=new WebSocket(url,{headers:{Origin:ORIGIN}});
+    const timeout=setTimeout(()=>reject(Error("WebSocket connect timeout")),8000);
+    socket.once("open",()=>{clearTimeout(timeout);resolve(socket);});
+    socket.once("error",error=>{clearTimeout(timeout);reject(error)});
+  });
+}
+function nextMessage(socket,type,predicate=()=>true){
+  return new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>{cleanup();reject(Error("Message timeout: "+type))},8000);
+    const onData=buffer=>{
+      let message;try{message=JSON.parse(buffer.toString())}catch{return}
+      if(message.type!==type||!predicate(message))return;
+      cleanup();resolve(message);
+    };
+    const onError=e=>{cleanup();reject(e)};
+    const cleanup=()=>{clearTimeout(timeout);socket.off("message",onData);socket.off("error",onError)};
+    socket.on("message",onData);socket.on("error",onError);
+  });
+}
+test("two players share one Durable Object and positions/leave events propagate", {timeout:65000},async()=>{
+  const server=spawn(process.execPath,["./node_modules/wrangler/bin/wrangler.js","dev",
+    "--config","server/wrangler.jsonc","--port",String(PORT),"--ip","127.0.0.1","--local"],{stdio:"ignore"});
+  let a,b;
+  try{
+    await available();
+    const url="ws://127.0.0.1:"+PORT+"/rooms/"+ROOM;
+    a=await connected(url);
+    const aWelcome=nextMessage(a,"welcome");
+    a.send(JSON.stringify({type:"join",roomId:ROOM,displayName:"Alice"}));
+    const alice=await aWelcome;
+    assert.equal(alice.roomId,ROOM);
+    assert.ok(alice.playerId);
+    b=await connected(url);
+    const bWelcome=nextMessage(b,"welcome");
+    const bSnapshot=nextMessage(b,"snapshot");
+    const aJoined=nextMessage(a,"joined");
+    b.send(JSON.stringify({type:"join",roomId:ROOM,displayName:"Bob"}));
+    const bob=await bWelcome;
+    const snapshot=await bSnapshot;
+    const joined=await aJoined;
+    assert.equal(snapshot.players.some(x=>x.id===alice.playerId),true);
+    assert.equal(joined.player.id,bob.playerId);
+    await wait(130);
+    const aMove=nextMessage(a,"joined",m=>m.player.id===bob.playerId&&m.player.sequence===1);
+    b.send(JSON.stringify({type:"move",position:{x:0.1,y:1.65,z:14.7},yaw:0.3,pitch:0,sequence:1}));
+    const move=await aMove;
+    assert.equal(move.player.position.z,14.7);
+    const aLeft=nextMessage(a,"left",m=>m.playerId===bob.playerId);
+    b.close();
+    const left=await aLeft;
+    assert.equal(left.playerId,bob.playerId);
+  }finally{
+    a?.close();b?.close();
+    server.kill("SIGTERM");
+  }
+});

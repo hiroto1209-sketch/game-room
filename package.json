@@ -1,16 +1,18 @@
 {
   "name": "game-room",
-  "version": "2.0.0-phase1",
+  "version": "2.0.0-phase2",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs",
+    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs tests/server.test.mjs",
     "build": "vite build",
-    "check": "npm run typecheck && npm run test && npm run build",
+    "check": "npm run typecheck && npm test && npm run build && npm run check:worker",
     "test:browser": "node tests/browser.test.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:worker": "wrangler deploy --dry-run --config server/wrangler.jsonc",
+    "test:realtime": "node --test tests/realtime.test.mjs"
   },
   "dependencies": {
     "three": "0.160.1"
@@ -20,6 +22,8 @@
     "@types/three": "0.160.0",
     "typescript": "5.8.3",
     "vite": "6.3.5",
-    "playwright": "1.55.0"
+    "playwright": "1.55.0",
+    "wrangler": "4.45.0",
+    "ws": "8.18.3"
   }
 }
