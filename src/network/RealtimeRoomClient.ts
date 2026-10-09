@@ -98,11 +98,16 @@ export class RealtimeRoomClient {
       this.handshakeTimer=setTimeout(()=>{
         if(gen===this.connectGeneration&&!this.isReady){
           this.callbacks.onError("サーバーから入室確認が届きません");
+          this.state="reconnecting";
+          this.attempts++;
+          this.nextAttemptAt=performance.now()+2000;
           transport.disconnect();
+          this.emit();
         }
       },9000);
     }catch(error){
       if(gen!==this.connectGeneration)return;
+      transport.disconnect();
       this.nextAttemptAt=performance.now()+Math.min(16000,1000*2**this.attempts);
       this.attempts++;
       this.state="reconnecting";this.emit();
@@ -113,6 +118,12 @@ export class RealtimeRoomClient {
   tick(now:number,player:Omit<PlayerSnapshot,"id"|"displayName"|"sequence">):void{
     if(!this.desired)return;
     if(this.transport?.status==="offline"){
+      if(!this.isReady&&this.state==="connecting"){
+        this.state="reconnecting";
+        this.attempts++;
+        this.nextAttemptAt=now+2000;
+        this.emit();
+      }
       if(this.isReady){
         this.isReady=false;
         this.callbacks.onSnapshot([]);
