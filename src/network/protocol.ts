@@ -1,4 +1,4 @@
-import { isFiniteVector3, safeDisplayName, type PlayerSnapshot } from "../types/Player";
+import { isFiniteVector3, safeDisplayName, type PlayerSnapshot } from "../types/Player.ts";
 export const MAX_MESSAGE_BYTES=4096;
 export const ROOM_ID_PATTERN=/^[A-Za-z0-9_-]{32}$/;
 export const PLAYER_ID_PATTERN=/^[A-Za-z0-9_-]{8,64}$/;
