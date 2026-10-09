@@ -2,6 +2,15 @@
 export const ROOM_ID=/^[A-Za-z0-9_-]{32}$/;
 export const MAX_PLAYERS=8;
 export const MAX_PACKET_BYTES=4096;
+// Shared JPEG is deliberately downscaled and bounded; this is a prototype, not R2 storage.
+export const MAX_SHARED_IMAGE_CHARS=110000;
+export const MAX_SHARED_PACKET_BYTES=150000;
+export function validSharedImage(value){
+  return value===null || (
+    typeof value==="string" && value.length<=MAX_SHARED_IMAGE_CHARS
+    && /^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]*={0,2}$/.test(value)
+  );
+}
 export const MAX_NAME_LENGTH=24;
 export function safeName(value){
   if(typeof value!=="string")return "Guest";
@@ -13,10 +22,16 @@ export function validPosition(p){
     &&p.x>=-10&&p.x<=10&&p.y>=1.60&&p.y<=4.9&&p.z>=-16&&p.z<=18;
 }
 export function decodeMessage(raw){
-  if(typeof raw!=="string"||new TextEncoder().encode(raw).byteLength>MAX_PACKET_BYTES)return null;
+  if(typeof raw!=="string"||raw.length>MAX_SHARED_PACKET_BYTES)return null;
+  // A large frame is allowed only for explicit bounded JPEG room-update messages.
+  if(raw.length>MAX_PACKET_BYTES && !raw.startsWith('{"type":"room_update","key":"monitorImage",'))return null;
   try{
     const m=JSON.parse(raw);
     if(!m||typeof m!=="object"||Array.isArray(m))return null;
+    if(m.type==="room_update" && m.key==="monitorImage" && validSharedImage(m.value))
+      return {type:"room_update",key:"monitorImage",value:m.value};
+    if(m.type==="room_update" && m.key==="lightShow" && typeof m.value==="boolean")
+      return {type:"room_update",key:"lightShow",value:m.value};
     if(m.type==="join"&&validRoomId(m.roomId)&&typeof m.displayName==="string"&&m.displayName.length<=80)
       return {type:"join",roomId:m.roomId,displayName:safeName(m.displayName)};
     if(m.type==="move"&&validPosition(m.position)&&typeof m.yaw==="number"&&Number.isFinite(m.yaw)
