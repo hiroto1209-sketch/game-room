@@ -236,9 +236,10 @@ function update(dt:number):void{
       lastOutdoorZone=inOutdoor;
       showToast(inOutdoor?"🌿 THE DOOR — ようこそ月夜の世界へ！":"🏠 パーティールームにおかえり！");
     }
-    zoneIndicator.textContent=inOutdoor?
+    const nextZone=inOutdoor?
       (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"BLOCK GROVE":"MOONLIT PLAZA") :
       "PARTY LOUNGE · 東側の扉から外へ";
+    if(zoneIndicator.textContent!==nextZone)zoneIndicator.textContent=nextZone;
     updateInteraction();
     roomClient.tick(performance.now(),{
       position:{...player.position},yaw:camera.yaw,pitch:camera.pitch
