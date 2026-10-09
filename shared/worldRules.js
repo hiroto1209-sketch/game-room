@@ -84,7 +84,7 @@ export function outsideBounds(x,z,radius=0){
     z<OUTDOOR.minZ+radius||z>OUTDOOR.maxZ-radius;
 }
 export function worldBlocked(x,z,radius=.36){
-  if(!outdoorRegion(x,z))return false; // original indoor colliders remain authoritative locally
+  if(x<DOOR.x+.28||!outdoorRegion(x,z))return false; // indoor navigation stays unchanged; exterior applies beyond door
   if(outsideBounds(x,z,radius)||insidePond(x,z,radius))return true;
   for(const c of colliders){
     const dx=x-Math.max(c.x0,Math.min(c.x1,x));
