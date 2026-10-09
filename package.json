@@ -11,7 +11,8 @@
     "check": "npm run typecheck && npm test && npm run build && npm run check:worker",
     "test:browser": "node tests/browser.test.mjs",
     "preview": "vite preview",
-    "check:worker": "wrangler deploy --dry-run --config server/wrangler.jsonc"
+    "check:worker": "wrangler deploy --dry-run --config server/wrangler.jsonc",
+    "test:realtime": "node --test tests/realtime.test.mjs"
   },
   "dependencies": {
     "three": "0.160.1"
@@ -22,6 +23,7 @@
     "typescript": "5.8.3",
     "vite": "6.3.5",
     "playwright": "1.55.0",
-    "wrangler": "4.45.0"
+    "wrangler": "4.45.0",
+    "ws": "8.18.3"
   }
 }
