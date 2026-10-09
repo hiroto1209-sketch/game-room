@@ -157,16 +157,19 @@ function registerUi():void{
   const jumpButton=byId<HTMLButtonElement>("jump-button");
   // iOS Safari may suppress a second-finger synthesized click while the left
   // thumb is moving on the canvas. Handle touch/pen immediately on pointerdown.
+  let lastTouchJump=-Infinity;
   jumpButton.addEventListener("pointerdown",e=>{
     if(e.pointerType!=="mouse"){
       e.preventDefault();e.stopPropagation();
+      lastTouchJump=performance.now();
       if(state.playing&&!state.paused)player?.jump();
     }
   },{passive:false});
   // Click remains the keyboard/mouse accessibility fallback.
-  jumpButton.addEventListener("click",e=>{
-    if(e.detail===0||(e instanceof MouseEvent && e.sourceCapabilities?.firesTouchEvents!==true))
-      if(state.playing&&!state.paused)player?.jump();
+  jumpButton.addEventListener("click",()=>{
+    // Ignore synthetic click generated after touch pointerdown to prevent a second jump.
+    if(performance.now()-lastTouchJump<1000)return;
+    if(state.playing&&!state.paused)player?.jump();
   });
   byId("close-monitor").addEventListener("click",closeMonitor);
   byId("apply-monitor").addEventListener("click",()=>{void applyMonitorImage();});
