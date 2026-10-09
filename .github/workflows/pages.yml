@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: game-room-pages-${{ github.ref }}
+  group: game-room-v2-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
