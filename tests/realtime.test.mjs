@@ -94,9 +94,9 @@ test("two players share one Durable Object and positions/leave events propagate"
       b.send(JSON.stringify({type:"move",position:p,yaw:0,pitch:0,sequence:++seq}));
       await wait(165); // server movement pacing >=75ms, ~1.0 unit/step
     }
-    for(let z=13.7;z>=-5.3;z-=1)await walkStep(.1,z);
+    for(let i=1;i<=20;i++)await walkStep(.1,14.7-i);
     // Snap slightly to the center of the doorway without wall penetration.
-    for(let x=1.1;x<=11.1;x+=1)await walkStep(x,-5.3);
+    for(let i=1;i<=11;i++)await walkStep(.1+i,-5.3);
     const outdoorMove=nextMessage(a,"joined",m=>m.player.id===bob.playerId&&m.player.sequence===seq+1);
     b.send(JSON.stringify({type:"move",position:{x:12.1,y:1.65,z:-5.3},yaw:0,pitch:0,sequence:++seq}));
     const observedOutdoor=await outdoorMove;
