@@ -37,8 +37,15 @@
     <div id="hud" class="hidden">
       <div id="crosshair" aria-hidden="true"></div>
       <div id="zone-indicator">PARTY LOUNGE · 東側の扉から外へ</div>
+      <div id="combat-hud" class="hidden" aria-live="polite">
+        <span class="combat-title">NEON ARENA</span>
+        <span id="hp-label">HP 100 / 100</span>
+        <div class="hp-track"><div id="hp-fill"></div></div>
+        <span id="combat-note">アリーナ内のみ対戦可能</span>
+      </div>
       <div id="tips">左側をスライドで移動 <span>•</span> 右側をスライドで見渡す</div>
       <div id="joystick" aria-hidden="true"><div id="joystick-thumb"></div></div>
+      <button id="shoot-button" class="round-action hidden" type="button" aria-label="エネルギーブラスターを発射"><span>✦</span><small>FIRE</small></button>
       <button id="jump-button" class="round-action" aria-label="ジャンプ"><span>↑</span><small>JUMP</small></button>
       <div id="interaction" class="hidden">
         <div id="interaction-text">LIGHT SHOW</div>
@@ -50,6 +57,20 @@
         <span id="room-count">1人</span>
         <button id="copy-invite" type="button">招待リンク</button>
         <button id="leave-room" type="button">退出</button>
+      </div>
+    </div>
+
+    <div id="sign-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="sign-editor-title">
+      <div class="monitor-card">
+        <div class="menu-head"><div><span class="overline">LIVE SIGN · WORLD SHARED</span>
+          <h2 id="sign-editor-title">流れる看板を編集</h2></div>
+          <button id="close-sign" class="icon-button" aria-label="閉じる">×</button></div>
+        <p class="monitor-help">看板の文章は最大80文字。オンラインでは招待ルーム全員へ反映されます。</p>
+        <label class="monitor-label" for="sign-text">流したい文章</label>
+        <input id="sign-text" type="text" maxlength="80" placeholder="WELCOME TO GAME ROOM" autocomplete="off" />
+        <div id="sign-error" role="status" aria-live="polite"></div>
+        <button id="save-sign" class="primary-menu-button" type="button">看板を変更する</button>
+        <p class="monitor-footnote">招待リンクを知っている参加者は変更できます。個人情報や秘密の内容を書かないでください。</p>
       </div>
     </div>
 
