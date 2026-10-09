@@ -14,7 +14,7 @@ async function waitForServer(){
   throw Error("Vite preview did not become ready");
 }
 test("mobile Game Room boots and retains start, two-finger controls and menu",async()=>{
-  const process=spawn("npm",["run","preview","--","--host","127.0.0.1","--port",String(PORT),"--strictPort"],{stdio:"pipe"});
+  const server=spawn(process.execPath,["./node_modules/vite/bin/vite.js","preview","--host","127.0.0.1","--port",String(PORT),"--strictPort"],{stdio:"ignore"});
   let browser;
   try{
     await waitForServer();
@@ -58,6 +58,6 @@ test("mobile Game Room boots and retains start, two-finger controls and menu",as
     await context.close();
   }finally{
     await browser?.close();
-    process.kill("SIGTERM");
+    server.kill("SIGTERM");
   }
 });
