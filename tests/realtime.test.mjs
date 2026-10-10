@@ -71,6 +71,7 @@ test("two players share one Durable Object and positions/leave events propagate"
     const move=await aMove;
     assert.equal(move.player.position.z,14.7);
     // Invalid position receives an authoritative correction, not a perpetual toast.
+    await wait(135); // respect the existing per-socket movement packet interval
     const correction=nextMessage(b,"position_correction");
     b.send(JSON.stringify({type:"move",position:{x:101,y:1.65,z:30},yaw:0,pitch:0,sequence:2}));
     assert.equal((await correction).position.z,14.7);
