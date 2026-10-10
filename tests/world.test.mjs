@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   OUTDOOR,DOOR,POND,chunkData,hashCell,groundHeightAt,insidePond,
-  validWorldPosition,validWorldStep,worldBlocked,crossesClosedEastWall
+  validWorldPosition,validWorldStep,worldBlocked,crossesClosedEastWall,shotObstructed
 } from "../shared/worldRules.js";
 import {PlayerController} from "../src/player/PlayerController.ts";
 import {withinMovementSpeed} from "../server/src/guards.js";
@@ -60,4 +60,20 @@ test("server allows small outdoor steps but denies wall crossing and teleports",
   assert.equal(withinMovementSpeed({x:9.5,y:1.65,z:-5},{x:10.7,y:1.65,z:-5},180),true);
   assert.equal(withinMovementSpeed({x:9.5,y:1.65,z:-9},{x:10.7,y:1.65,z:-9},180),false);
   assert.equal(withinMovementSpeed({x:12,y:1.65,z:-5},{x:99,y:1.65,z:30},500),false);
+});
+
+test("static coastal terrain varies but keeps paths and existing indoor flat",()=>{
+  assert.equal(groundHeightAt(0,0),0);
+  assert.equal(groundHeightAt(14,-5),0);
+  assert.equal(groundHeightAt(52,-5),0);
+  const hills=[groundHeightAt(58,19),groundHeightAt(73,28),groundHeightAt(91,18)];
+  assert.ok(hills.some(v=>v>.2));
+  assert.notEqual(hills[0],hills[1]);
+  const x=73,z=28,h=groundHeightAt(x,z);
+  assert.ok(validWorldStep({x:x-.3,y:1.65+groundHeightAt(x-.3,z),z},
+    {x,y:1.65+h,z}));
+});
+test("indoor wall blocks shots while real exit passage stays open",()=>{
+  assert.equal(shotObstructed({x:8,y:1.65,z:-9},{x:12,y:1.65,z:-9}),true);
+  assert.equal(shotObstructed({x:8,y:1.65,z:-5},{x:12,y:1.65,z:-5}),false);
 });
