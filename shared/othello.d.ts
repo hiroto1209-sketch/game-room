@@ -1,5 +1,5 @@
 export type Disc=0|1|2;
-export type MatchStatus="idle"|"waiting"|"playing"|"finished";
+export type MatchStatus="idle"|"waiting"|"playing"|"paused"|"finished";
 export interface OthelloMatch{
   revision:number;status:MatchStatus;board:Disc[];turn:1|2;
   blackId:string;whiteId:string;blackName:string;whiteName:string;
