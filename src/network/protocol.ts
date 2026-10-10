@@ -1,5 +1,6 @@
 import { isFiniteVector3, safeDisplayName, type PlayerSnapshot } from "../types/Player.ts";
 import {validSignText} from "../../shared/combatRules.js";
+import {validMatch,type OthelloMatch} from "../../shared/othello.js";
 export const MAX_MESSAGE_BYTES=4096;
 export const MAX_ROOM_STATE_BYTES=150000;
 export const MAX_SHARED_IMAGE_CHARS=110000;
@@ -24,12 +25,15 @@ export type IncomingMessage=
   | {type:"health_state";playerId:string;hp:number;respawnAt:number}
   | {type:"fire_result";sequence:number;hit:boolean;targetId?:string;damage:number}
   | {type:"fire_event";shooterId:string;position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
-  | {type:"respawn";position:{x:number;y:number;z:number};health:number};
+  | {type:"respawn";position:{x:number;y:number;z:number};health:number}
+  | {type:"othello_state";match:OthelloMatch};
 export type OutgoingMessage=
   | {type:"join";roomId:string;displayName:string}
   | {type:"move";position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
   | RoomStateUpdate
-  | {type:"fire";sequence:number;yaw:number;pitch:number};
+  | {type:"fire";sequence:number;yaw:number;pitch:number}
+  | {type:"othello";action:"start"|"join"|"reset"}
+  | {type:"othello";action:"place";index:number};
 export function createRoomId():string{
   const bytes=new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -63,6 +67,8 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   try{parsed=JSON.parse(raw)}catch{return null}
   if(!parsed||typeof parsed!=="object")return null;
   const o=parsed as Record<string,unknown>;
+  if(o.type==="othello_state"&&validMatch(o.match))
+    return {type:"othello_state",match:o.match};
   if(o.type==="room_state"&&Number.isSafeInteger(o.revision)&&Number(o.revision)>=0
     &&typeof o.lightShow==="boolean"&&validSharedImage(o.monitorImage)
     &&(o.signText===undefined||validSignText(o.signText)))
@@ -103,6 +109,9 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   return null;
 }
 export function validateOutgoing(message:OutgoingMessage):boolean{
+  if(message.type==="othello")return message.action==="place"?
+    Number.isInteger(message.index)&&message.index>=0&&message.index<64:
+    ["start","join","reset"].includes(message.action);
   if(message.type==="room_update"){
     if(message.key==="lightShow")return typeof message.value==="boolean";
     if(message.key==="monitorImage")return validSharedImage(message.value);
