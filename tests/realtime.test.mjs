@@ -60,9 +60,9 @@ test("two players share one Durable Object and positions/leave events propagate"
     const joined=await aJoined;
     const initialHP=await bHealth;
     assert.equal(initialHP.players.find(p=>p.playerId===bob.playerId)?.hp,100);
-    const deniedFire=nextMessage(b,"error",m=>m.reason.includes("アリーナ"));
+    const deniedFire=nextMessage(b,"error",m=>m.reason.includes("解放"));
     b.send(JSON.stringify({type:"fire",sequence:1,yaw:0,pitch:0}));
-    assert.ok((await deniedFire).reason.includes("アリーナ"));
+    assert.ok((await deniedFire).reason.includes("解放"));
     assert.equal(snapshot.players.some(x=>x.id===alice.playerId),true);
     assert.equal(joined.player.id,bob.playerId);
     await wait(130);
@@ -70,6 +70,38 @@ test("two players share one Durable Object and positions/leave events propagate"
     b.send(JSON.stringify({type:"move",position:{x:0.1,y:1.65,z:14.7},yaw:0.3,pitch:0,sequence:1}));
     const move=await aMove;
     assert.equal(move.player.position.z,14.7);
+    // Invalid position receives an authoritative correction, not a perpetual toast.
+    const correction=nextMessage(b,"position_correction");
+    b.send(JSON.stringify({type:"move",position:{x:101,y:1.65,z:30},yaw:0,pitch:0,sequence:2}));
+    assert.equal((await correction).position.z,14.7);
+    // Server validates the publicly discoverable easter-egg code, not client flags.
+    const badUnlock=nextMessage(a,"error",m=>m.reason.includes("コマンド"));
+    a.send(JSON.stringify({type:"unlock_weapon",code:"WRONG"}));
+    assert.ok((await badUnlock).reason.includes("コマンド"));
+    await wait(1600);
+    const weaponA=nextMessage(a,"weapon_state",m=>m.unlocked);
+    const weaponB=nextMessage(b,"weapon_state",m=>m.unlocked);
+    a.send(JSON.stringify({type:"unlock_weapon",code:"NEON777"}));
+    b.send(JSON.stringify({type:"unlock_weapon",code:"NEON777"}));
+    assert.equal((await weaponA).peaceful,false);
+    assert.equal((await weaponB).peaceful,false);
+    // On the first room spawn, b is directly in front of a. After spawn
+    // shields expire, a hit must be assigned by the server even outside ARENA.
+    await wait(2100);
+    const damaged=nextMessage(b,"health_state",m=>m.playerId===bob.playerId&&m.hp===75);
+    const result=nextMessage(a,"fire_result",m=>m.hit===true);
+    a.send(JSON.stringify({type:"fire",sequence:1,yaw:0,pitch:0}));
+    assert.equal((await damaged).hp,75);
+    assert.equal((await result).damage,25);
+    const peacefulState=nextMessage(b,"weapon_state",m=>m.peaceful===true);
+    b.send(JSON.stringify({type:"peace_mode",enabled:true}));
+    assert.equal((await peacefulState).peaceful,true);
+    await wait(440);
+    const misses=nextMessage(a,"fire_result",m=>m.sequence===2);
+    a.send(JSON.stringify({type:"fire",sequence:2,yaw:0,pitch:0}));
+    assert.equal((await misses).hit,false);
+    // Resume PVP status for ongoing room traversal.
+    b.send(JSON.stringify({type:"peace_mode",enabled:false}));
     const lightA=nextMessage(a,"room_state",m=>m.revision>=1&&m.lightShow===true);
     const lightB=nextMessage(b,"room_state",m=>m.revision>=1&&m.lightShow===true);
     a.send(JSON.stringify({type:"room_update",key:"lightShow",value:true}));
