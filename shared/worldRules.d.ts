@@ -7,6 +7,8 @@ export const DOOR:{x:number;minZ:number;maxZ:number};
 export const POND:{x:number;z:number;rx:number;rz:number};
 export const SPAWN:{x:number;y:number;z:number};
 export function groundHeightAt(x:number,z:number):number;
+export function terrainSlopeAt(x:number,z:number):number;
+export function shotObstructed(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number}):boolean;
 export function hashCell(cx:number,cz:number,seed?:number):number;
 export function chunkData(cx:number,cz:number,seed?:number):ChunkData|null;
 export function insidePond(x:number,z:number,margin?:number):boolean;
