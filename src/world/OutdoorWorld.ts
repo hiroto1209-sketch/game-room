@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { chunkData, OUTDOOR, POND, WORLD_SEED, groundHeightAt } from "../../shared/worldRules.js";
+import { chunkData, OUTDOOR, POND, WORLD_SEED, groundHeightAt, terrainVisualHeightAt } from "../../shared/worldRules.js";
 import {ARENA} from "../../shared/combatRules.js";
 
 /**
@@ -57,6 +57,11 @@ export class OutdoorWorld {
   private populateStatic():void{
     // Low-density fallback floor hides the edge of currently inactive chunks.
     this.boxMesh(96,.28,96,0x1d352a,56,-.45,0);
+    // The previous land began at x=8, leaving the entire west/back side of
+    // the PARTY HOUSE suspended above the void. Match y=-.016 at the seam x=8.
+    this.boxMesh(32,.24,96,0x315642,-8,-.136,0);
+    // A gentle static landscaping accent signals that this is real walkable land.
+    this.boxMesh(30,.018,3.0,0x71846e,-7,-.023,27.5);
     this.boxMesh(43,.055,3.4,0x87796f,32,-.04,-5);
     this.boxMesh(2.8,.055,23,0x797b72,44,-.039,-17);
     this.boxMesh(22,.055,2.4,0x777e6d,45,-.038,-19);
@@ -92,13 +97,13 @@ export class OutdoorWorld {
       new THREE.MeshStandardMaterial({color:0x6e7659,roughness:1,side:THREE.DoubleSide}));
     shore.rotation.x=-Math.PI/2;
     shore.scale.set(POND.rx+1.45,POND.rz+1.45,1);
-    shore.position.set(POND.x,-.02,POND.z);
+    shore.position.set(POND.x,.018,POND.z);
     this.root.add(shore);this.sharedScenery.push(shore);
-    this.water=new THREE.Mesh(new THREE.CircleGeometry(1,48),
+    this.water=new THREE.Mesh(new THREE.CircleGeometry(1,64),
       new THREE.MeshBasicMaterial({color:0x368c9a,transparent:true,opacity:.84,side:THREE.DoubleSide,depthWrite:false}));
     this.water.rotation.x=-Math.PI/2;
     this.water.scale.set(POND.rx,POND.rz,1);
-    this.water.position.set(POND.x,.02,POND.z);
+    this.water.position.set(POND.x,.075,POND.z);
     this.root.add(this.water);this.sharedScenery.push(this.water);
     // Lilies + reeds are few and shared; the lake boundary is a blocked gameplay zone.
     const padGeometry=new THREE.CircleGeometry(.45,9);
@@ -181,13 +186,14 @@ export class OutdoorWorld {
     if(!d)return null;
     const group=new THREE.Group();
     group.name="outside-chunk-"+cx+"-"+cz;
-    const geometry=new THREE.PlaneGeometry(16,16,10,10);
+    // 0.5-unit static grid resolves the shore without tessellation per frame.
+    const geometry=new THREE.PlaneGeometry(16,16,32,32);
     geometry.rotateX(-Math.PI/2);
     const attr=geometry.attributes.position;
     const rgb:number[]=[];
     for(let i=0;i<attr.count;i++){
       const x=d.centerX+attr.getX(i),z=d.centerZ+attr.getZ(i);
-      const elevation=groundHeightAt(x,z);
+      const elevation=terrainVisualHeightAt(x,z);
       attr.setY(i,elevation-.016);
       const tint=new THREE.Color().setHSL(.33+(elevation*.013),.19+elevation*.04,
         .21+Math.min(.065,elevation*.025));
@@ -221,8 +227,8 @@ export class OutdoorWorld {
   }
   update(position:{x:number;z:number},time:number):void{
     // Indoor starts without dense outside vegetation; scenery wakes near exit.
-    const inExterior=position.x>5.6;
-    const cx=Math.max(0,Math.min(OUTDOOR.columns-1,Math.floor((position.x-OUTDOOR.minX)/16)));
+    const inExterior=position.x>5.6&&!Number.isNaN(position.x);
+    const cx=Math.max(0,Math.min(OUTDOOR.columns-1,Math.floor((position.x-8)/16)));
     const cz=Math.max(0,Math.min(OUTDOOR.rows-1,Math.floor((position.z-OUTDOOR.minZ)/16)));
     const radius=inExterior?1:0;
     const key=inExterior?cx+":"+cz+":"+radius:"indoor";
