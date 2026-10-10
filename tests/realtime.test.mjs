@@ -143,6 +143,18 @@ test("two players share one Durable Object and positions/leave events propagate"
     const whiteMove=nextMessage(a,"othello_state",m=>m.match.lastMove===20);
     b.send(JSON.stringify({type:"othello",action:"place",index:20}));
     assert.equal((await whiteMove).match.board[20],2);
+    // Pause preserves the shared board; every player sees the same status.
+    const pausedA=nextMessage(a,"othello_state",m=>m.match.status==="paused");
+    const pausedB=nextMessage(b,"othello_state",m=>m.match.status==="paused");
+    a.send(JSON.stringify({type:"othello",action:"pause"}));
+    assert.equal((await pausedA).match.lastMove,20);
+    assert.equal((await pausedB).match.status,"paused");
+    const pausedRejection=nextMessage(b,"error",m=>m.reason.includes("手番"));
+    b.send(JSON.stringify({type:"othello",action:"place",index:34}));
+    assert.ok((await pausedRejection).reason.includes("手番"));
+    const resumed=nextMessage(a,"othello_state",m=>m.match.status==="playing"&&m.match.lastMove===20);
+    a.send(JSON.stringify({type:"othello",action:"resume"}));
+    assert.equal((await resumed).match.board[20],2);
     // Late joiners receive the last persisted state, rather than a private client texture.
     c=await connected(url);
     const cWelcome=nextMessage(c,"welcome");

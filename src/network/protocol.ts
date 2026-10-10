@@ -34,7 +34,7 @@ export type OutgoingMessage=
   | {type:"move";position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
   | RoomStateUpdate
   | {type:"fire";sequence:number;yaw:number;pitch:number}
-  | {type:"othello";action:"start"|"join"|"reset"}
+  | {type:"othello";action:"start"|"join"|"pause"|"resume"|"reset"}
   | {type:"othello";action:"place";index:number}
   | {type:"unlock_weapon";code:string}
   | {type:"peace_mode";enabled:boolean};
@@ -123,7 +123,7 @@ export function validateOutgoing(message:OutgoingMessage):boolean{
   if(message.type==="peace_mode")return typeof message.enabled==="boolean";
   if(message.type==="othello")return message.action==="place"?
     Number.isInteger(message.index)&&message.index>=0&&message.index<64:
-    ["start","join","reset"].includes(message.action);
+    ["start","join","pause","resume","reset"].includes(message.action);
   if(message.type==="room_update"){
     if(message.key==="lightShow")return typeof message.value==="boolean";
     if(message.key==="monitorImage")return validSharedImage(message.value);

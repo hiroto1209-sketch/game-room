@@ -60,7 +60,7 @@ export class RealtimeRoomClient {
     if(!this.online)return false;
     return this.transport?.send({type:"fire",sequence:++this.fireSequence,yaw,pitch})??false;
   }
-  othello(action:"start"|"join"|"reset"|"place",index?:number):boolean{
+  othello(action:"start"|"join"|"pause"|"resume"|"reset"|"place",index?:number):boolean{
     if(!this.online)return false;
     if(action==="place"){
       if(index===undefined)return false;

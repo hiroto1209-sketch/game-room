@@ -40,6 +40,7 @@ const hpFill=byId("hp-fill");
 const combatNote=byId("combat-note");
 const combatHud=byId("combat-hud");
 const shootButton=byId<HTMLButtonElement>("shoot-button");
+const aimButton=byId<HTMLButtonElement>("aim-button");
 const crosshair=byId("crosshair");
 const secretTrigger=byId<HTMLButtonElement>("secret-trigger");
 const secretOverlay=byId("secret-overlay");
@@ -66,12 +67,16 @@ const othelloPanel=byId("othello-panel");
 const othelloStatus=byId("othello-status");
 const othelloScore=byId("othello-score");
 const othelloAction=byId<HTMLButtonElement>("othello-action");
+const othelloPause=byId<HTMLButtonElement>("othello-pause");
+const othelloReset=byId<HTMLButtonElement>("othello-reset");
+const othelloQuickState=byId("othello-quick-state");
+const miniGamesOverlay=byId("minigames-overlay");
 const music=new MusicController();
 const configuredServer=(import.meta.env.VITE_GAME_ROOM_SERVER_URL??"").trim();
 const invitation=new URLSearchParams(window.location.search).get("room");
 const inviteRoomId=invitation&&isValidRoomId(invitation)?invitation:null;
 const settings={sensitivity:4,exposure:1,reducedMotion:false};
-const state={playing:false,paused:false,editingMonitor:false,editingSign:false,editingSecret:false,time:0,toastUntil:0};
+const state={playing:false,paused:false,editingMonitor:false,editingSign:false,editingSecret:false,editingMiniGames:false,time:0,toastUntil:0};
 let nearby:ReturnType<InteractionManager["closest"]>=null;
 let world:ReturnType<typeof createPartyWorld>|undefined;
 let player:PlayerController|undefined;
@@ -81,6 +86,26 @@ let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
+let aiming=false;
+let fireHeld:ReturnType<typeof setInterval>|null=null;
+let firePointerId:number|null=null,aimPointerId:number|null=null;
+function setAimMode(enabled:boolean):void{
+  if(!world)return;
+  aiming=enabled&&weaponUnlocked&&!peaceful&&state.playing&&!state.paused;
+  aimButton.classList.toggle("aiming",aiming);
+  crosshair.classList.toggle("aiming",aiming);
+  world.camera.fov=aiming?55:window.innerWidth<window.innerHeight?76:71;
+  world.camera.updateProjectionMatrix();
+}
+function stopFiring():void{
+  if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
+}
+function startFiring():void{
+  if(!state.playing||state.paused||!weaponUnlocked||peaceful)return;
+  stopFiring();
+  fireBlaster();
+  fireHeld=setInterval(()=>{if(state.playing&&!state.paused)fireBlaster();else stopFiring()},425);
+}
 let weaponUnlocked=false,peaceful=true,weaponWanted=false;
 let logoTaps=0,lastLogoTapAt=0,lastCorrectionToast=0;
 try{weaponWanted=sessionStorage.getItem("game-room-weapon-easteregg")==="1"}catch{}
@@ -130,41 +155,91 @@ function isMyOthelloTurn():boolean{
   if(!roomClient.online)return true; // Offline hot-seat uses one device.
   return (currentMatch.turn===BLACK?currentMatch.blackId:currentMatch.whiteId)===roomClient.playerId;
 }
+function isOthelloParticipant():boolean{
+  return !roomClient.online ||
+    currentMatch.blackId===roomClient.playerId||currentMatch.whiteId===roomClient.playerId;
+}
 function updateOthelloPanel():void{
-  const match=currentMatch,score=counts(match.board);
+  const m=currentMatch,score=counts(m.board);
   othelloScore.textContent="● "+score.black+" — "+score.white+" ○";
-  const names=match.blackName+" vs "+(match.whiteName||"参加待ち");
-  if(match.status==="idle"){
-    othelloStatus.textContent="床が8×8のオセロ盤に変わります";
-    othelloAction.textContent="対局を始める";othelloAction.disabled=false;
-  }else if(match.status==="waiting"){
-    othelloStatus.textContent=names+" · 白プレイヤー募集中";
-    const owner=roomClient.online&&match.blackId===roomClient.playerId;
-    othelloAction.textContent=owner?"対局をキャンセル":"白で参加する";
-    othelloAction.disabled=!roomClient.online;
-  }else if(match.status==="playing"){
-    othelloStatus.textContent=(match.turn===BLACK?"● 黒":"○ 白")+" の番"+(match.pass?" · パス発生":"");
-    const participant=roomClient.online&&(match.blackId===roomClient.playerId||match.whiteId===roomClient.playerId);
-    othelloAction.textContent=roomClient.online?(participant?"対局を終了":"観戦中"):"交互に石を置いてください";
-    othelloAction.disabled=!participant;
+  const participant=isOthelloParticipant();
+  othelloAction.disabled=false;
+  othelloPause.classList.add("hidden");
+  othelloReset.classList.add("hidden");
+  if(m.status==="idle"){
+    othelloStatus.textContent="8×8の床タイルでオセロ";
+    othelloAction.textContent="オセロを始める";
+  }else if(m.status==="waiting"){
+    othelloStatus.textContent=m.blackName+" · 白プレイヤー参加待ち";
+    othelloAction.textContent=m.blackId===roomClient.playerId?"白の参加を待っています":"白で参加する";
+    othelloAction.disabled=m.blackId===roomClient.playerId;
+    if(participant&&!(!roomClient.online))othelloReset.classList.remove("hidden");
+  }else if(m.status==="playing"||m.status==="paused"){
+    const paused=m.status==="paused";
+    othelloStatus.textContent=(paused?"⏸ 中断中 · ":"")+
+      (m.turn===BLACK?"● 黒":"○ 白")+"の番"+
+      (m.pass?" · パス発生":"");
+    othelloQuickState.textContent=(paused?"⏸ 中断":"●"+score.black+" ○"+score.white);
+    othelloAction.textContent=participant?"床の照準で石を置く":"対局を観戦する";
+    othelloAction.disabled=false;
+    if(participant){
+      othelloPause.classList.remove("hidden");
+      othelloPause.textContent=paused?"対局を再開":"対局を中断";
+      othelloReset.classList.remove("hidden");
+    }
   }else{
-    othelloStatus.textContent=match.winner===3?"引き分け":(match.winner===BLACK?"● 黒":"○ 白")+" の勝利！";
-    othelloAction.textContent="もう一度遊ぶ";othelloAction.disabled=false;
+    othelloStatus.textContent=m.winner===3?"引き分け":
+      (m.winner===BLACK?"● 黒":"○ 白")+"の勝利";
+    othelloAction.textContent="新しい対局を始める";
   }
 }
+function openMiniGames():void{
+  if(!state.playing||state.editingSecret||state.editingMonitor||state.editingSign)return;
+  state.editingMiniGames=true;state.paused=true;
+  menu.classList.add("hidden");
+  player?.stop();input?.reset();if(input)input.enabled=false;
+  updateOthelloPanel();
+  miniGamesOverlay.classList.remove("hidden");
+}
+function closeMiniGames():void{
+  if(!state.editingMiniGames)return;
+  state.editingMiniGames=false;state.paused=false;
+  miniGamesOverlay.classList.add("hidden");
+  input?.reset();if(input)input.enabled=state.playing;
+}
 function othelloPrimaryAction():void{
-  if(!state.playing||state.paused)return;
+  if(!state.playing||!state.editingMiniGames)return;
   if(roomClient.online){
-    if(currentMatch.status==="idle"||currentMatch.status==="finished")roomClient.othello("start");
-    else if(currentMatch.status==="waiting")roomClient.othello(currentMatch.blackId===roomClient.playerId?"reset":"join");
-    else if(currentMatch.status==="playing")roomClient.othello("reset");
+    if(currentMatch.status==="idle"||currentMatch.status==="finished"){
+      roomClient.othello("start");closeMiniGames();
+    }else if(currentMatch.status==="waiting" && currentMatch.blackId!==roomClient.playerId){
+      roomClient.othello("join");closeMiniGames();
+    }else if(currentMatch.status==="playing"||currentMatch.status==="paused"){
+      closeMiniGames();showToast("光る床マスを中央の照準で選んでください");
+    }
     return;
   }
   if(currentMatch.status==="idle"||currentMatch.status==="finished"){
     setOthelloMatch({...freshMatch("PRACTICE_BLACK","BLACK"),
       whiteId:"PRACTICE_WHITE",whiteName:"WHITE",status:"playing",revision:currentMatch.revision+1});
-    showToast("● ○ FLOOR OTHELLO 開始！");
-  }
+    closeMiniGames();showToast("● ○ FLOOR OTHELLO 開始！");
+  }else closeMiniGames();
+}
+function toggleOthelloPause():void{
+  if(!state.editingMiniGames||!isOthelloParticipant())return;
+  const paused=currentMatch.status==="paused";
+  if(!paused&&currentMatch.status!=="playing")return;
+  if(roomClient.online)roomClient.othello(paused?"resume":"pause");
+  else setOthelloMatch({...currentMatch,status:paused?"playing":"paused",
+    revision:currentMatch.revision+1});
+  closeMiniGames();
+  showToast(paused?"オセロを再開しました":"対局を中断しました。盤面は保持されます");
+}
+function endOthello():void{
+  if(!state.editingMiniGames||!isOthelloParticipant())return;
+  if(roomClient.online)roomClient.othello("reset");
+  else setOthelloMatch({...freshMatch(),revision:currentMatch.revision+1});
+  closeMiniGames();showToast("対局を終了しました");
 }
 function placeOthello(index:number):void{
   if(!isMyOthelloTurn()){showToast("対戦者の手番になるまで観戦できます");return;}
@@ -405,7 +480,8 @@ function start():void{
   window.setTimeout(()=>tips.classList.add("fading"),6900);
 }
 function openMenu():void{
-  if(state.editingMonitor||state.editingSign||state.editingSecret)return;
+  stopFiring();setAimMode(false);
+  if(state.editingMonitor||state.editingSign||state.editingSecret||state.editingMiniGames)return;
   state.paused=true;
   input?.reset();if(input)input.enabled=false;
   player?.stop();
@@ -418,6 +494,8 @@ function closeMenu():void{
   input?.reset();if(input)input.enabled=state.playing;
 }
 function backToTitle():void{
+  stopFiring();setAimMode(false);
+  closeMiniGames();
   closeSecret();
   closeSign();
   closeMonitor();
@@ -484,11 +562,21 @@ function update(dt:number):void{
       zoneVisibleUntil=0;zoneIndicator.classList.remove("show");
     }
     const nearBoard=Math.abs(player.position.x)<7.5&&player.position.z>-11&&player.position.z<0;
-    othelloPanel.classList.toggle("hidden",!nearBoard);
-    aimOthelloIndex=nearBoard?world.othelloBoard.aim(world.camera):null;
+    // No large interactive panels in the left-thumb movement region.
+    // Only show a tiny, touch-transparent match indicator near the floor.
+    const matchVisible=nearBoard&&currentMatch.status!=="idle";
+    othelloPanel.classList.toggle("hidden",!matchVisible);
+    aimOthelloIndex=nearBoard&&currentMatch.status==="playing"?
+      world.othelloBoard.aim(world.camera):null;
+    if(matchVisible)othelloQuickState.textContent=
+      currentMatch.status==="paused"?"⏸ 中断中":
+      currentMatch.status==="waiting"?"参加待ち":
+      currentMatch.status==="finished"?"終了":
+      "● "+counts(currentMatch.board).black+" / ○ "+counts(currentMatch.board).white;
     const armed=weaponUnlocked&&!peaceful;
     combatHud.classList.remove("hidden");
     shootButton.classList.toggle("hidden",!armed);
+    aimButton.classList.toggle("hidden",!armed);
     crosshair.classList.toggle("armed",armed);
     const candidate=armed?findHitscanTarget(
       {id:roomClient.playerId||"local",hp:currentHp,position:player.position},
@@ -549,15 +637,46 @@ function registerUi():void{
     }else{peaceful=desired;syncWeaponInfo();}
   });
   othelloAction.addEventListener("click",othelloPrimaryAction);
+  othelloPause.addEventListener("click",toggleOthelloPause);
+  othelloReset.addEventListener("click",endOthello);
+  byId("minigames-close").addEventListener("click",closeMiniGames);
+  byId("minigames-return").addEventListener("click",closeMiniGames);
+  byId("open-minigames").addEventListener("click",openMiniGames);
   byId("close-sign").addEventListener("click",closeSign);
   byId("save-sign").addEventListener("click",saveSign);
   signText.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveSign()}});
   shootButton.addEventListener("pointerdown",e=>{
-    if(e.pointerType!=="mouse"){
-      e.preventDefault();e.stopPropagation();fireBlaster();
-    }
+    e.preventDefault();e.stopPropagation();firePointerId=e.pointerId;startFiring();
   },{passive:false});
-  shootButton.addEventListener("click",fireBlaster);
+  for(const event of ["pointerup","pointercancel","lostpointercapture"]){
+    shootButton.addEventListener(event,e=>{if(firePointerId===(e as PointerEvent).pointerId){firePointerId=null;stopFiring();}});
+  }
+  shootButton.addEventListener("click",e=>{
+    if(e.detail===0)fireBlaster(); // keyboard accessibility
+  });
+  aimButton.addEventListener("pointerdown",e=>{
+    e.preventDefault();e.stopPropagation();aimPointerId=e.pointerId;setAimMode(true);
+  },{passive:false});
+  for(const event of ["pointerup","pointercancel","lostpointercapture"]){
+    aimButton.addEventListener(event,e=>{if(aimPointerId===(e as PointerEvent).pointerId){aimPointerId=null;setAimMode(false);}});
+  }
+  const releaseWeaponPointer=(e:PointerEvent)=>{
+    // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
+    if(e.pointerId===firePointerId){firePointerId=null;stopFiring();}
+    if(e.pointerId===aimPointerId){aimPointerId=null;setAimMode(false);}
+  };
+  window.addEventListener("pointerup",releaseWeaponPointer);
+  window.addEventListener("pointercancel",releaseWeaponPointer);
+  window.addEventListener("blur",()=>{stopFiring();setAimMode(false);});
+  canvas.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="mouse"){
+      if(e.button===0){firePointerId=e.pointerId;startFiring();}
+      if(e.button===2){aimPointerId=e.pointerId;setAimMode(true);}
+    }
+  });
+  canvas.addEventListener("pointerup",e=>{
+    if(e.pointerType==="mouse")releaseWeaponPointer(e);
+  });
   window.addEventListener("keydown",e=>{
     if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!state.editingSecret&&!(document.activeElement instanceof HTMLInputElement))
       fireBlaster();
@@ -620,7 +739,7 @@ function initialize():void{
     // Solo mode stays local; joined rooms persist light-show changes for all peers.
     if(roomClient.online && !roomClient.setLightShow(enabled))
       showToast("照明の共有に失敗しました");
-  },openSign,openSecret);
+  },openSign,openSecret,openMiniGames);
   blaster=new BlasterEffects(world.scene);
   setOthelloMatch(currentMatch);
   player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
@@ -634,10 +753,10 @@ function initialize():void{
   });
   input=new DualTouchController(canvas,joystick,thumb,{
     onLook:(dx,dy)=>{
-      if(!state.paused&&state.playing)camera?.drag(dx,dy,settings.sensitivity);
+      if(!state.paused&&state.playing)camera?.drag(dx,dy,settings.sensitivity*(aiming?.62:1));
     },
     onJump:()=>{if(state.playing&&!state.paused)player?.jump()},
-    onMenu:()=>state.paused?closeMenu():openMenu(),
+    onMenu:()=>state.editingMiniGames?closeMiniGames():state.paused?closeMenu():openMenu(),
     onInteract:doInteraction
   });
   input.enabled=false;

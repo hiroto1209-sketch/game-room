@@ -320,3 +320,23 @@ This version is a prototype: no advanced lag compensation, comprehensive host pe
 - Shot obstruction is a coarse deterministic 3D sampling approximation for current static geometry; it is not a complete moving-furniture/navmesh anti-cheat solution.
 - The new terrain uses static vertex colors and a cheap height field, not a full production terrain texture-splatting pipeline.
 - Client geometry and server movement both use shared height data, but obstacles and legacy AABBs still limit steep slopes. Do not declare advanced climbing or perfect physics.
+
+## World stability & MINI GAMES update (release notes)
+
+**Observed defect:** The old OutdoorWorld drew a dark 96×96 fallback ground, a separate 32×96 backyard slab, and 16×16 dynamically created terrain patches at varying colors/heights. As the camera moved, the patches appeared/disappeared over the fallback, making the map look layered and unstable. The pond and garden path also had separate geometry. The floor Othello panel (with active `pointer-events`) blocked iPhone's left-half virtual joystick.
+
+### Fix
+- One persistent `TerrainSurface` covers the entire `OUTDOOR` bounds. The cached static mesh has 128×96 grid segments, vertex colors, and uses the same visual height function as the former chunks. The house footprint is lowered under the real indoor floor; the pond depression is preserved. The overlapping 96×96 fallback ground, backyard ground slab, and dynamically swapped chunk terrain are removed. Vegetation alone remains instance-streamed, with no idle animation.
+- The world **MINI GAMES** machine, found at the back-right of the party lounge (`x≈6.55,z≈-13.6`), opens an actual game selection dialog. The menu can also be opened from the ☰ settings menu. Start Othello, join as white, spectate, pause/resume or end a game there. Pausing uses server-owned `othello_state.status="paused"`, persists the board and cannot be bypassed by remote moves. Single-player uses the same pause logic in a local match.
+- There is **no auto-opening Othello action panel** when approaching the floor. During a match, only a tiny noninteractive status chip appears near the floor, and `#combat-hud`, `#othello-panel`, and other info banners all have `pointer-events:none`. Movement/swipe passes through to the 3D canvas.
+- Krunker-inspired **control concepts** (not its assets/code) are optional hold-to-fire and held ADS / precision aim. While an unlocked player is not in Peace Mode, press and hold the FIRE button to repeat at the existing server-approved ~425ms cadence, or press and hold AIM to zoom slightly and reduce look sensitivity. Desktop mouse left-click fires while dragged, right-click aims, and WASD+Space remain. Distinct pointer IDs ensure lifting left-move thumb never cancels right-hand firing or zoom. This is not a Krunker gameplay clone or its complete bunny-hop physics.
+- Cloudflare Worker must deploy **before** updated Pages because the old Worker doesn't recognize `othello.pause` or `othello.resume`. Existing room photo, sign, health, outdoor collision, anti-cheat, and arena data remain intact.
+
+### Manual iPhone release checklist
+1. With old/backup and new build, walk the outside lawn across former chunk boundaries and confirm **no dark underlay or sudden terrain tile pop-in**. Inspect the pond and house edges; take screenshots.
+2. Join from 3 devices. MINI GAMES cabinet opens the menu, two users begin/join an Othello match and a spectator sees the stones. Suspend, reload spectator, resume: board must stay unchanged.
+3. Hold left joystick directly through the translucent HP badge and Othello chip. Movement must continue uninterrupted, including when another finger holds FIRE or AIM.
+4. Unlock NEON777 at ARMORY, deactivate Peace Mode, hold FIRE while moving and aiming. Verify server HP changes only at its allowed cadence, no touch conflicts. Repeat with desktop mouse.
+5. Retest shared JPEG/sign, door and rear-armory movement, respawn, server corrections, and iPhone/desktop performance. CI success does not prove measured mobile FPS.
+
+Rollback branch: `backup/pre-world-stability-minigames-fps`.

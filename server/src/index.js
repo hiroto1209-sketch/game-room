@@ -125,7 +125,7 @@ export class RoomHub extends DurableObject {
         const playerId=session.player.id,name=safeName(session.player.displayName);
         let next=null;
         if(m.action==="start"){
-          if(match.status==="playing"||match.status==="waiting"){
+          if(match.status==="playing"||match.status==="paused"||match.status==="waiting"){
             send(ws,{type:"error",reason:"オセロの対戦中です"});return;
           }
           next={...freshMatch(playerId,name),revision:match.revision+1};
@@ -134,6 +134,15 @@ export class RoomHub extends DurableObject {
             send(ws,{type:"error",reason:"参加できる白席がありません"});return;
           }
           next={...match,whiteId:playerId,whiteName:name,status:"playing",revision:match.revision+1};
+        }else if(m.action==="pause"||m.action==="resume"){
+          if(match.blackId!==playerId&&match.whiteId!==playerId){
+            send(ws,{type:"error",reason:"対局者だけが中断・再開できます"});return;
+          }
+          if((m.action==="pause"&&match.status!=="playing")||
+            (m.action==="resume"&&match.status!=="paused")){
+            send(ws,{type:"error",reason:"その状態では中断・再開できません"});return;
+          }
+          next={...match,status:m.action==="pause"?"paused":"playing",revision:match.revision+1};
         }else if(m.action==="reset"){
           if(match.blackId!==playerId&&match.whiteId!==playerId){
             send(ws,{type:"error",reason:"対戦者だけが終了できます"});return;

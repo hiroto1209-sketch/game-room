@@ -44,13 +44,12 @@
         <span id="combat-note">探索モード</span>
       </div>
       <div id="othello-panel" class="hidden" aria-live="polite">
-        <span class="othello-caption">FLOOR OTHELLO</span>
-        <span id="othello-status">床でオセロを始めよう</span>
-        <span id="othello-score">● 2 — 2 ○</span>
-        <button id="othello-action" type="button">対局を始める</button>
+        <span class="othello-caption">OTHELLO</span>
+        <span id="othello-quick-state">● 黒の番</span>
       </div>
       <div id="tips">左で移動・右で視点操作 <span>•</span> 入口奥に武器ATM</div>
       <div id="joystick" aria-hidden="true"><div id="joystick-thumb"></div></div>
+      <button id="aim-button" class="round-action hidden" type="button" aria-label="押している間、精密エイム">◎<small>AIM</small></button>
       <button id="shoot-button" class="round-action hidden" type="button" aria-label="エネルギーブラスターを発射"><span>✦</span><small>FIRE</small></button>
       <button id="jump-button" class="round-action" aria-label="ジャンプ"><span>↑</span><small>JUMP</small></button>
       <div id="interaction" class="hidden">
@@ -59,6 +58,26 @@
       </div>
       <div id="toast" role="status"></div>
 
+    </div>
+
+    <div id="minigames-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="minigames-title">
+      <div class="monitor-card mini-games-card">
+        <div class="menu-head"><div><span class="overline">PARTY WORLD / ARCADE</span>
+          <h2 id="minigames-title">MINI GAMES</h2></div>
+          <button id="minigames-close" type="button" class="icon-button" aria-label="ゲーム選択を閉じる">×</button></div>
+        <div class="minigame-tile">
+          <span class="othello-caption">01 · FLOOR OTHELLO</span>
+          <strong id="othello-status">床タイルで遊べる8×8オセロ</strong>
+          <span id="othello-score">● 2 — 2 ○</span>
+          <button id="othello-action" class="primary-menu-button" type="button">対局を始める</button>
+          <div class="mini-game-buttons">
+            <button id="othello-pause" class="plain-menu-button hidden" type="button">中断する</button>
+            <button id="othello-reset" class="plain-menu-button hidden" type="button">対局を終了</button>
+          </div>
+        </div>
+        <p class="monitor-help">対局中は中央エイムで光る床マスを選び、「あそぶ」で置けます。中断しても石の配置は残ります。</p>
+        <button id="minigames-return" type="button" class="plain-menu-button">ワールドへ戻る</button>
+      </div>
     </div>
 
     <div id="secret-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="secret-title">
@@ -129,6 +148,7 @@
         <label class="toggle"><span>ピースモード（他プレイヤーからのダメージを防ぐ）</span><input id="peace-mode" type="checkbox" checked /></label>
         <div id="weapon-info" class="monitor-help">ブラスター未解放 · ロゴに秘密があるかも</div>
         <label class="toggle"><span>動きを控えめにする</span><input id="reduced-motion" type="checkbox" /></label>
+        <button id="open-minigames" class="plain-menu-button" type="button">🎮 ミニゲームを選ぶ</button>
         <button id="resume-button" class="primary-menu-button">ワールドへ戻る</button>
         <button id="return-title" class="plain-menu-button">タイトルに戻る</button>
         <div class="menu-footer">iPhone / iPad / PC 対応 · Phase 1</div>
