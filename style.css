@@ -178,3 +178,26 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #aim-button.aiming{background:rgba(81,202,174,.50);box-shadow:0 0 15px #6cfbe062}
 #crosshair.aiming{box-shadow:0 0 0 4px #ffffff4e,0 0 7px #ffffff97}
 @media(max-height:570px){#aim-button{bottom:calc(max(9px,env(safe-area-inset-bottom)) + 143px)}}
+
+/* PvP readiness: fixed top-left HP below the top logo, outside move thumb. */
+#combat-hud{
+  top:calc(max(12px,env(safe-area-inset-top)) + 58px);
+  bottom:auto;left:max(12px,env(safe-area-inset-left));z-index:12;
+  width:132px;padding:7px 10px;border-radius:12px;opacity:.79;
+  pointer-events:none!important;background:rgba(19,30,31,.40);
+  backdrop-filter:blur(6px);
+}
+#combat-hud *{pointer-events:none!important}
+@media(max-width:420px){#combat-hud{top:calc(max(12px,env(safe-area-inset-top)) + 54px);bottom:auto;width:126px}}
+@media(max-height:570px){#combat-hud{top:calc(max(5px,env(safe-area-inset-top)) + 48px);bottom:auto}}
+/* Two instant DOM-only games, no extra WebGL draws. */
+#quick-game-overlay{z-index:39;background:rgba(9,7,18,.82);padding:16px;backdrop-filter:blur(10px)}
+.quick-arcade-card{max-height:88dvh}
+.quick-game-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:min(295px,72vw);margin:6px auto}
+.quick-game-cell{aspect-ratio:1;border:1px solid rgba(199,168,220,.48);border-radius:13px;background:rgba(35,29,56,.86);
+ color:#fff1e3;font-size:clamp(24px,7vw,38px);font-weight:800;min-height:58px;
+ touch-action:manipulation;user-select:none;transition:background .08s}
+.quick-game-cell.target-active{background:rgba(103,205,187,.35);border-color:#aeffdb;box-shadow:inset 0 0 23px #76ffcb27;color:#bffff2}
+.quick-game-cell:disabled{opacity:.8}
+.quick-game-grid.tic-board .quick-game-cell{background:rgba(45,40,70,.74)}
+.quick-game-grid.tic-board .quick-game-cell:disabled{color:#f4d8ee}
