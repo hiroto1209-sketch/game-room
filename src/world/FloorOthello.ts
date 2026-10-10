@@ -9,7 +9,7 @@ export class FloorOthello {
   private readonly tileGeo=new THREE.PlaneGeometry(.755,.755);
   private readonly discGeo=new THREE.CylinderGeometry(.30,.30,.11,20);
   private readonly hintGeo=new THREE.SphereGeometry(.072,7,5);
-  private readonly tileMat=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide});
+  private readonly tileMat=new THREE.MeshBasicMaterial({side:THREE.DoubleSide});
   private readonly blackMat=new THREE.MeshStandardMaterial({color:0x1a1b31,metalness:.23,roughness:.31});
   private readonly whiteMat=new THREE.MeshStandardMaterial({color:0xfff2dd,metalness:.1,roughness:.4});
   private readonly hintMat=new THREE.MeshBasicMaterial({color:0xffd78f,transparent:true,opacity:.8});
