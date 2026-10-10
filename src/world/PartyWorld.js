@@ -5,13 +5,14 @@ import * as THREE from "three";
 import { MediaMonitor } from "./MediaMonitor.ts";
 import { OutdoorWorld } from "./OutdoorWorld.ts";
 import {SignMarquee} from "./SignMarquee.ts";
+import {FloorOthello} from "./FloorOthello.ts";
 
 const el = { canvas: null };
 const cfg = { exposure:1, reducedMotion:false };
 const game = { partyMode:false, time:0 };
 const p = { x:0,y:1.65,z:15,yaw:0,pitch:0 };
 const colliders=[], balloons=[], floorMats=[], lamps=[], targets=[];
-let renderer,scene,camera,ball,monitor,outdoor,signBoard;
+let renderer,scene,camera,ball,monitor,outdoor,signBoard,othelloBoard;
 let toastHandler = () => {};
 let monitorEditHandler = () => {};
 let lightEditHandler = () => {};
@@ -249,13 +250,16 @@ function populate(){
   cube(2.23,2,7.93,.16,4,.17,brass);
   cube(0,3.97,7.93,4.55,.14,.17,brass);
   sign("PARTY INSIDE","FOLLOW THE LIGHTS",0,3.42,7.78,3.6,.64,"#ffc6df");
-  sign("GAME ROOM","PARTY WORLD · WELCOME",0,2.5,-15.75,7.4,1.65,"#ff94cb");
+  // Make the entire former GAME ROOM title panel editable rather than a tiny footer.
+  cube(0,2.5,-15.74,7.64,1.81,.14,mat("#1f162a"));
+  cube(0,3.42,-15.71,7.7,.055,.08,mat("#e8aed0",{emissive:"#b963a0",emissiveIntensity:.45}));
   signBoard=new SignMarquee(scene);
   fairyLights(1);fairyLights(-10.9);bunting(3);
   balloonBunch(-7.8,5);balloonBunch(7.8,5);
   balloonBunch(-8.1,-11.7);balloonBunch(8.1,-11.7);
   balloonBunch(-1.05,10.4);balloonBunch(1.1,10.4);
   danceFloor();
+  othelloBoard=new FloorOthello(scene);
   ball=globe(0,3.17,-5.7,.46,mat("#ece1ed",{metalness:.9,roughness:.13}));
   cube(0,3.84,-5.7,.021,.53,.021,mat("#c1acbd"));
   lamps.push(light(0xf9a1d9,2.6,0,3,-5.7,7));
@@ -280,16 +284,9 @@ function populate(){
   // Wall-mounted display on the right, near the main room entrance.
   monitor=new MediaMonitor(scene,9.60,2.24,4.1);
   targets.push({x:7.55,z:4.1,label:"モニターに画像を表示",action:()=>monitorEditHandler()});
-  cube(0,1.07,-13.8,1.43,2.12,.77,mat("#493353",{emissive:"#803e89",emissiveIntensity:.22}),true);
-  const switchFace=new THREE.Mesh(new THREE.PlaneGeometry(1.25,.72),
-    new THREE.MeshBasicMaterial({map:textImage("LIGHT SHOW","PRESS TO TOGGLE","#ffe79b"),transparent:true}));
-  switchFace.position.set(0,1.61,-13.39);scene.add(switchFace);
-  targets.push({x:-2.15,z:-13.2,label:"お知らせ看板を編集",action:()=>signEditHandler()});
-  targets.push({x:0,z:-12.2,label:"ライトショーの切り替え",action:()=>{
-    game.partyMode=!game.partyMode;
-    lightEditHandler(game.partyMode);
-    showToast(game.partyMode?"✨ PARTY LIGHT SHOW ON!":"ライトショーをオフにしました");
-  }});
+  // Central LIGHT SHOW pillar and its blocking AABB are removed.
+  // Keep the dance floor open for the new 8x8 Othello board.
+  targets.push({x:-1.45,z:-13.2,label:"大型メッセージ看板を編集",action:()=>signEditHandler()});
   // Outdoor is independent from all original indoor meshes/props.
   outdoor=new OutdoorWorld(scene);
   scene.add(new THREE.DirectionalLight(0xb4d8d4,.30));
@@ -314,7 +311,7 @@ export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEdi
   signEditHandler=onEditSign;
   populate();
   return {
-    scene,camera,renderer,colliders,targets,monitor,outdoor,signBoard,
+    scene,camera,renderer,colliders,targets,monitor,outdoor,signBoard,othelloBoard,
     resize,
     update(dt,t,reducedMotion=false){
       cfg.reducedMotion=reducedMotion;
@@ -329,7 +326,7 @@ export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEdi
         if(ball)ball.rotation.y+=dt*.36;
       }
       for(let i=0;i<floorMats.length;i++){
-        floorMats[i].emissiveIntensity=.22+(game.partyMode?1:.25)*(.5+.5*Math.sin(t*(game.partyMode?3.8:.9)+i));
+        floorMats[i].emissiveIntensity=othelloBoard.active?.03:.22+(.25)*(.5+.5*Math.sin(t*.9+i));
       }
     },
     setExposure(value){cfg.exposure=value;renderer.toneMappingExposure=value;},
