@@ -43,7 +43,7 @@ export function decodeMessage(raw){
       && typeof m.yaw==="number"&&Number.isFinite(m.yaw)&&Math.abs(m.yaw)<=1e6
       && typeof m.pitch==="number"&&Number.isFinite(m.pitch)&&Math.abs(m.pitch)<=1.22)
       return {type:"fire",sequence:m.sequence,yaw:m.yaw,pitch:m.pitch};
-    if(m.type==="othello" && ["start","join","place","reset"].includes(m.action)
+    if(m.type==="othello" && ["start","join","place","pause","resume","reset"].includes(m.action)
       && (m.action!=="place"||(Number.isInteger(m.index)&&m.index>=0&&m.index<64))
       && Object.keys(m).every(k=>["type","action","index"].includes(k)))
       return m.action==="place"?{type:"othello",action:m.action,index:m.index}:{type:"othello",action:m.action};
