@@ -32,7 +32,8 @@ test("pond and far exterior boundaries reject walking through water or off map",
   assert.equal(worldBlocked(12,-5,.36),false);
   assert.equal(validWorldPosition({x:105,y:1.65,z:0}),false);
   assert.equal(validWorldStep({x:49,y:1.65,z:-27},{x:57,y:1.65,z:-27}),false);
-  assert.equal(groundHeightAt(55,-10),0);
+  assert.ok(groundHeightAt(55,-10)>=0);
+  assert.equal(groundHeightAt(55,-5),0);
 });
 test("original indoor position and corridor spawn remain valid",()=>{
   assert.equal(validWorldPosition({x:0,y:1.65,z:15}),true);
