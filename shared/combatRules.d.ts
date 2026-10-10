@@ -8,4 +8,7 @@ export function validSignText(value:unknown):boolean;
 export function signText(value:unknown):string|null;
 export function aimDirection(yaw:number,pitch:number):Position;
 export function raySphereDistance(origin:Position,direction:Position,center:Position,radius:number):number|null;
-export function findHitscanTarget(shooter:Combatant,players:Combatant[],yaw:number,pitch:number):Combatant|null;
+export function findHitscanTarget(shooter:Combatant,players:Combatant[],yaw:number,pitch:number,occluded?:(from:Position,to:Position)=>boolean):Combatant|null;
+
+export const WEAPON_CODE:string;
+export function validUnlockCode(v:unknown):v is string;
