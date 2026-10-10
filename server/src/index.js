@@ -211,16 +211,32 @@ export class RoomHub extends DurableObject {
     await this.ctx.storage.put("shared_room_v1",next);
     for(const peer of this.members())send(peer,{type:"room_state",...next});
   }
-  webSocketClose(ws,code,reason){
-    this.onDisconnect(ws);
+  async webSocketClose(ws,code,reason){
+    await this.onDisconnect(ws);
     try{ws.close(code,reason)}catch{}
   }
-  webSocketError(ws){this.onDisconnect(ws);try{ws.close(1011,"Connection error")}catch{}}
-  onDisconnect(ws){
+  async webSocketError(ws){
+    await this.onDisconnect(ws);
+    try{ws.close(1011,"Connection error")}catch{}
+  }
+  async onDisconnect(ws){
     const session=attachment(ws);
     if(!isJoined(session))return;
+    const departedId=session.player.id;
     ws.serializeAttachment({...session,player:null});
-    for(const peer of this.members())if(peer!==ws)send(peer,{type:"left",playerId:session.player.id});
+    for(const peer of this.members())if(peer!==ws)send(peer,{type:"left",playerId:departedId});
     this.sendHealth();
+    await this.ctx.blockConcurrencyWhile(async()=>{
+      const old=await this.ctx.storage.get("othello_match_v1");
+      if(!validMatch(old)||old.status==="idle"||old.status==="finished")return;
+      if(old.blackId!==departedId&&old.whiteId!==departedId)return;
+      // A seat leaving cannot strand a board in "waiting" forever.
+      const next=old.status==="waiting"?
+        {...freshMatch(),revision:old.revision+1}:
+        {...old,status:"finished",winner:old.blackId===departedId?WHITE:BLACK,
+          revision:old.revision+1};
+      await this.ctx.storage.put("othello_match_v1",next);
+      for(const peer of this.members())send(peer,{type:"othello_state",match:next});
+    });
   }
 }
