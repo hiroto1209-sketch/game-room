@@ -88,6 +88,7 @@ let currentHp=MAX_HP;
 let lastShotAt=0;
 let aiming=false;
 let fireHeld:ReturnType<typeof setInterval>|null=null;
+let firePointerId:number|null=null,aimPointerId:number|null=null;
 function setAimMode(enabled:boolean):void{
   if(!world)return;
   aiming=enabled&&weaponUnlocked&&!peaceful&&state.playing&&!state.paused;
@@ -645,31 +646,36 @@ function registerUi():void{
   byId("save-sign").addEventListener("click",saveSign);
   signText.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveSign()}});
   shootButton.addEventListener("pointerdown",e=>{
-    e.preventDefault();e.stopPropagation();startFiring();
+    e.preventDefault();e.stopPropagation();firePointerId=e.pointerId;startFiring();
   },{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    shootButton.addEventListener(event,stopFiring);
+    shootButton.addEventListener(event,e=>{if(firePointerId===e.pointerId){firePointerId=null;stopFiring();}});
   }
   shootButton.addEventListener("click",e=>{
     if(e.detail===0)fireBlaster(); // keyboard accessibility
   });
   aimButton.addEventListener("pointerdown",e=>{
-    e.preventDefault();e.stopPropagation();setAimMode(true);
+    e.preventDefault();e.stopPropagation();aimPointerId=e.pointerId;setAimMode(true);
   },{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    aimButton.addEventListener(event,()=>setAimMode(false));
+    aimButton.addEventListener(event,e=>{if(aimPointerId===e.pointerId){aimPointerId=null;setAimMode(false);}});
   }
-  window.addEventListener("pointerup",()=>{stopFiring();setAimMode(false);});
-  window.addEventListener("pointercancel",()=>{stopFiring();setAimMode(false);});
+  const releaseWeaponPointer=(e:PointerEvent)=>{
+    // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
+    if(e.pointerId===firePointerId){firePointerId=null;stopFiring();}
+    if(e.pointerId===aimPointerId){aimPointerId=null;setAimMode(false);}
+  };
+  window.addEventListener("pointerup",releaseWeaponPointer);
+  window.addEventListener("pointercancel",releaseWeaponPointer);
   window.addEventListener("blur",()=>{stopFiring();setAimMode(false);});
   canvas.addEventListener("pointerdown",e=>{
     if(e.pointerType==="mouse"){
-      if(e.button===0)startFiring();
-      if(e.button===2)setAimMode(true);
+      if(e.button===0){firePointerId=e.pointerId;startFiring();}
+      if(e.button===2){aimPointerId=e.pointerId;setAimMode(true);}
     }
   });
   canvas.addEventListener("pointerup",e=>{
-    if(e.pointerType==="mouse"){stopFiring();if(e.button===2)setAimMode(false);}
+    if(e.pointerType==="mouse")releaseWeaponPointer(e);
   });
   window.addEventListener("keydown",e=>{
     if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!state.editingSecret&&!(document.activeElement instanceof HTMLInputElement))
