@@ -211,27 +211,6 @@ export class OutdoorWorld {
     // 0.5-unit static grid resolves the shore without tessellation per frame.
     // Ground is *not* streamed: one continuous static mesh persists outside
     // camera view. Only foliage and scenery use 16x16 chunk streaming.
-    /*
-    const geometry=new THREE.PlaneGeometry(16,16,32,32);
-    geometry.rotateX(-Math.PI/2);
-    const attr=geometry.attributes.position;
-    const rgb:number[]=[];
-    for(let i=0;i<attr.count;i++){
-      const x=d.centerX+attr.getX(i),z=d.centerZ+attr.getZ(i);
-      const elevation=terrainVisualHeightAt(x,z);
-      attr.setY(i,elevation-.016);
-      const tint=new THREE.Color().setHSL(.33+(elevation*.013),.19+elevation*.04,
-        .21+Math.min(.065,elevation*.025));
-      rgb.push(tint.r,tint.g,tint.b);
-    }
-    attr.needsUpdate=true;geometry.setAttribute("color",new THREE.Float32BufferAttribute(rgb,3));
-    geometry.computeVertexNormals();
-    const tile=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({
-      color:0xffffff,vertexColors:true,roughness:1,side:THREE.FrontSide
-    }));
-    tile.position.set(d.centerX,0,d.centerZ);
-    group.add(tile);
-    */
     this.instance(group,this.grass,this.materials.grass,d.grass,(e,o)=>{
       o.position.set(e.x,groundHeightAt(e.x,e.z)+.15,e.z);o.scale.set(e.size??.4,.52+(e.size??.4)*.5,e.size??.4);o.rotation.y=e.twist??0;
     });
