@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
 import { inArena, findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, ARENA_RESPAWN } from "../../shared/combatRules.js";
 import { validRoomId, permittedOrigin, decodeMessage, safeName, MAX_PLAYERS, withinMovementSpeed } from "./guards.js";
 
@@ -80,6 +81,8 @@ export class RoomHub extends DurableObject {
         signText:saved?.signText??"WELCOME TO GAME ROOM"});
       for(const client of existing)send(client,{type:"joined",player});
       this.sendHealth();
+      const match=await this.ctx.storage.get("othello_match_v1");
+      send(ws,{type:"othello_state",match:validMatch(match)?match:freshMatch()});
       return;
     }
     if(!isJoined(session)){ws.close(1008,"Join first");return;}
@@ -107,6 +110,44 @@ export class RoomHub extends DurableObject {
         ...(image?{lastImageAt:now}:sign?{lastSignAt:now}:{lastLightAt:now})
       });
       for(const peer of this.members())send(peer,{type:"room_state",...saved});
+      return;
+    }
+    if(m.type==="othello"){
+      // Server alone owns both seats, legal moves and the final board.
+      // blockConcurrencyWhile serializes read-modify-write across sockets.
+      await this.ctx.blockConcurrencyWhile(async()=>{
+        const old=await this.ctx.storage.get("othello_match_v1");
+        const match=validMatch(old)?old:freshMatch();
+        const playerId=session.player.id,name=safeName(session.player.displayName);
+        let next=null;
+        if(m.action==="start"){
+          if(match.status==="playing"||match.status==="waiting"){
+            send(ws,{type:"error",reason:"オセロの対戦中です"});return;
+          }
+          next={...freshMatch(playerId,name),revision:match.revision+1};
+        }else if(m.action==="join"){
+          if(match.status!=="waiting"||match.blackId===playerId){
+            send(ws,{type:"error",reason:"参加できる白席がありません"});return;
+          }
+          next={...match,whiteId:playerId,whiteName:name,status:"playing",revision:match.revision+1};
+        }else if(m.action==="reset"){
+          if(match.blackId!==playerId&&match.whiteId!==playerId){
+            send(ws,{type:"error",reason:"対戦者だけが終了できます"});return;
+          }
+          next={...freshMatch(),revision:match.revision+1};
+        }else if(m.action==="place"){
+          if(match.status!=="playing"||
+            (match.turn===BLACK?match.blackId:match.whiteId)!==playerId){
+            send(ws,{type:"error",reason:"あなたの手番ではありません"});return;
+          }
+          next=applyMove(match,m.index);
+          if(!next){send(ws,{type:"error",reason:"そこには置けません"});return;}
+        }
+        if(next){
+          await this.ctx.storage.put("othello_match_v1",next);
+          for(const peer of this.members())send(peer,{type:"othello_state",match:next});
+        }
+      });
       return;
     }
     const now=Date.now();
