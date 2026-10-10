@@ -17,4 +17,4 @@ export interface PartyWorld {
   resize():void; update(dt:number,time:number,reducedMotion?:boolean):void;
   setExposure(value:number):void;resetParty():void;setPartyMode(enabled:boolean):void;dispose():void;
 }
-export function createPartyWorld(canvas:HTMLCanvasElement,onToast:(text:string)=>void,onEditMonitor:()=>void,onEditLights:(enabled:boolean)=>void,onEditSign:()=>void,onArmory:()=>void):PartyWorld;
+export function createPartyWorld(canvas:HTMLCanvasElement,onToast:(text:string)=>void,onEditMonitor:()=>void,onEditLights:(enabled:boolean)=>void,onEditSign:()=>void,onArmory:()=>void,onMiniGames:()=>void):PartyWorld;
