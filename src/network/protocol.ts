@@ -1,5 +1,5 @@
 import { isFiniteVector3, safeDisplayName, type PlayerSnapshot } from "../types/Player.ts";
-import {validSignText} from "../../shared/combatRules.js";
+import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
 import {validMatch,type OthelloMatch} from "../../shared/othello.js";
 export const MAX_MESSAGE_BYTES=4096;
 export const MAX_ROOM_STATE_BYTES=150000;
@@ -15,7 +15,7 @@ export function validSharedImage(value:unknown):value is string|null{
 export const ROOM_ID_PATTERN=/^[A-Za-z0-9_-]{32}$/;
 export const PLAYER_ID_PATTERN=/^[A-Za-z0-9_-]{8,64}$/;
 export type IncomingMessage=
-  | {type:"welcome";playerId:string;roomId:string}
+  | {type:"welcome";playerId:string;roomId:string;position?:{x:number;y:number;z:number}}
   | {type:"snapshot";players:PlayerSnapshot[]}
   | {type:"joined";player:PlayerSnapshot}
   | {type:"left";playerId:string}
@@ -26,14 +26,18 @@ export type IncomingMessage=
   | {type:"fire_result";sequence:number;hit:boolean;targetId?:string;damage:number}
   | {type:"fire_event";shooterId:string;position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
   | {type:"respawn";position:{x:number;y:number;z:number};health:number}
-  | {type:"othello_state";match:OthelloMatch};
+  | {type:"othello_state";match:OthelloMatch}
+  | {type:"weapon_state";unlocked:boolean;peaceful:boolean}
+  | {type:"position_correction";position:{x:number;y:number;z:number};sequence:number};
 export type OutgoingMessage=
   | {type:"join";roomId:string;displayName:string}
   | {type:"move";position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
   | RoomStateUpdate
   | {type:"fire";sequence:number;yaw:number;pitch:number}
   | {type:"othello";action:"start"|"join"|"reset"}
-  | {type:"othello";action:"place";index:number};
+  | {type:"othello";action:"place";index:number}
+  | {type:"unlock_weapon";code:string}
+  | {type:"peace_mode";enabled:boolean};
 export function createRoomId():string{
   const bytes=new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -67,6 +71,10 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   try{parsed=JSON.parse(raw)}catch{return null}
   if(!parsed||typeof parsed!=="object")return null;
   const o=parsed as Record<string,unknown>;
+  if(o.type==="weapon_state"&&typeof o.unlocked==="boolean"&&typeof o.peaceful==="boolean")
+    return {type:"weapon_state",unlocked:o.unlocked,peaceful:o.peaceful};
+  if(o.type==="position_correction"&&isFiniteVector3(o.position)&&Number.isSafeInteger(o.sequence)&&Number(o.sequence)>=0)
+    return {type:"position_correction",position:o.position,sequence:Number(o.sequence)};
   if(o.type==="othello_state"&&validMatch(o.match))
     return {type:"othello_state",match:o.match};
   if(o.type==="room_state"&&Number.isSafeInteger(o.revision)&&Number(o.revision)>=0
@@ -96,8 +104,10 @@ export function parseIncoming(raw:string):IncomingMessage|null{
     return {type:"fire_event",shooterId:o.shooterId,position:o.position,yaw:o.yaw,pitch:o.pitch,sequence:Number(o.sequence)};
   if(o.type==="respawn"&&isFiniteVector3(o.position)&&o.health===100)
     return {type:"respawn",position:o.position,health:o.health};
-  if(o.type==="welcome"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)&&isValidRoomId(o.roomId))
-    return {type:"welcome",playerId:o.playerId,roomId:o.roomId};
+  if(o.type==="welcome"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)&&isValidRoomId(o.roomId)
+    &&(o.position===undefined||isFiniteVector3(o.position)))
+    return {type:"welcome",playerId:o.playerId,roomId:o.roomId,
+      ...(o.position!==undefined?{position:o.position}:{})};
   if(o.type==="snapshot"&&Array.isArray(o.players)&&o.players.length<=24&&o.players.every(validPlayer))
     return {type:"snapshot",players:o.players.map(p=>({...p,displayName:safeDisplayName(p.displayName)}))};
   if(o.type==="joined"&&validPlayer(o.player))
@@ -109,6 +119,8 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   return null;
 }
 export function validateOutgoing(message:OutgoingMessage):boolean{
+  if(message.type==="unlock_weapon")return validUnlockCode(message.code);
+  if(message.type==="peace_mode")return typeof message.enabled==="boolean";
   if(message.type==="othello")return message.action==="place"?
     Number.isInteger(message.index)&&message.index>=0&&message.index<64:
     ["start","join","reset"].includes(message.action);
