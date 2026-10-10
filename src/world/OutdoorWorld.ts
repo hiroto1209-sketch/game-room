@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { chunkData, OUTDOOR, POND, WORLD_SEED, groundHeightAt, terrainVisualHeightAt } from "../../shared/worldRules.js";
 import {ARENA} from "../../shared/combatRules.js";
+import {TerrainSurface} from "./TerrainSurface";
 
 /**
  * Procedural outdoor preview linked to the existing lobby.
@@ -10,6 +11,7 @@ import {ARENA} from "../../shared/combatRules.js";
 export class OutdoorWorld {
   readonly seed=WORLD_SEED;
   private readonly root=new THREE.Group();
+  private readonly terrain:TerrainSurface;
   private readonly chunks=new Map<string,THREE.Group>();
   private readonly box=new THREE.BoxGeometry(16,.26,16);
   private readonly trunk=new THREE.CylinderGeometry(.18,.25,1,5);
@@ -36,6 +38,7 @@ export class OutdoorWorld {
   constructor(private scene:THREE.Scene){
     this.root.name="THE DOOR / MOONLIT OUTSIDE";
     scene.add(this.root);
+    this.terrain=new TerrainSurface(this.root);
     this.populateStatic();
   }
   private boxMesh(w:number,h:number,d:number,color:number,x:number,y:number,z:number):THREE.Mesh{
@@ -55,11 +58,8 @@ export class OutdoorWorld {
     face.position.set(x,3.3,z);face.rotation.y=-Math.PI/2;this.root.add(face);this.sharedScenery.push(face);
   }
   private populateStatic():void{
-    // Low-density fallback floor hides the edge of currently inactive chunks.
-    this.boxMesh(96,.28,96,0x1d352a,56,-.45,0);
-    // The previous land began at x=8, leaving the entire west/back side of
-    // the PARTY HOUSE suspended above the void. Match y=-.016 at the seam x=8.
-    this.boxMesh(32,.24,96,0x315642,-8,-.136,0);
+    // Ground is a continuous static TerrainSurface. No overlap with another
+    // floor, no dark fallback showing when distant vegetation unloads.
     // A gentle static landscaping accent signals that this is real walkable land.
     this.boxMesh(30,.018,3.0,0x71846e,-7,-.023,27.5);
     // Low, entirely decorative garden tufts around the house: one draw call,
@@ -209,6 +209,9 @@ export class OutdoorWorld {
     const group=new THREE.Group();
     group.name="outside-chunk-"+cx+"-"+cz;
     // 0.5-unit static grid resolves the shore without tessellation per frame.
+    // Ground is *not* streamed: one continuous static mesh persists outside
+    // camera view. Only foliage and scenery use 16x16 chunk streaming.
+    /*
     const geometry=new THREE.PlaneGeometry(16,16,32,32);
     geometry.rotateX(-Math.PI/2);
     const attr=geometry.attributes.position;
@@ -228,6 +231,7 @@ export class OutdoorWorld {
     }));
     tile.position.set(d.centerX,0,d.centerZ);
     group.add(tile);
+    */
     this.instance(group,this.grass,this.materials.grass,d.grass,(e,o)=>{
       o.position.set(e.x,groundHeightAt(e.x,e.z)+.15,e.z);o.scale.set(e.size??.4,.52+(e.size??.4)*.5,e.size??.4);o.rotation.y=e.twist??0;
     });
@@ -289,6 +293,7 @@ export class OutdoorWorld {
   }
   dispose():void{
     this.root.parent?.remove(this.root);
+    this.terrain.dispose();
     for(const group of this.chunks.values())this.root.remove(group);
     this.chunks.clear();
     for(const mesh of this.sharedScenery){
