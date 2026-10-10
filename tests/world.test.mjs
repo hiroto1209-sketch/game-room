@@ -108,3 +108,18 @@ test("extended armory has a real internal route, solid walls and ceiling",()=>{
   assert.equal(crossesClosedEastWall({x:9.8,z:-21},{x:10.4,z:-21}),false,
     "east exit wall does not extend infinitely along z");
 });
+
+test("terrain geometry is a single persistent surface with matching world bounds",async()=>{
+  const THREE=await import("three");
+  const {TerrainSurface}=await import("../src/world/TerrainSurface.ts");
+  const group=new THREE.Group();
+  const land=new TerrainSurface(group);
+  assert.equal(group.children.length,1);
+  assert.equal(land.mesh.name,"SINGLE_CONTINUOUS_TERRAIN");
+  const geometry=land.mesh.geometry;
+  assert.equal(geometry.parameters.width,OUTDOOR.maxX-OUTDOOR.minX);
+  assert.equal(geometry.parameters.height,OUTDOOR.maxZ-OUTDOOR.minZ);
+  assert.ok(geometry.attributes.position.count>=12000);
+  land.dispose();
+  assert.equal(group.children.length,0);
+});
