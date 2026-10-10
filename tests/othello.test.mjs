@@ -52,3 +52,17 @@ test("client validates Othello snapshot shape and rejects malformed data",()=>{
   assert.equal(parseIncoming(JSON.stringify({type:"othello_state",match:{...match,board:[1]}})),null);
   assert.equal(parseIncoming(JSON.stringify({type:"othello_state",match:{...match,turn:300}})),null);
 });
+
+test("paused Othello snapshot is valid but prevents all placements",()=>{
+  const match={...freshMatch("black","Black"),whiteId:"white",whiteName:"White",
+    status:"playing",revision:12};
+  const frozen={...match,status:"paused",revision:13};
+  assert.equal(validMatch(frozen),true);
+  assert.equal(applyMove(frozen,19),null);
+  assert.equal(applyMove({...frozen,status:"playing"},19)?.board[19],BLACK);
+  assert.deepEqual(decodeMessage('{"type":"othello","action":"pause"}'),
+    {type:"othello",action:"pause"});
+  assert.deepEqual(decodeMessage('{"type":"othello","action":"resume"}'),
+    {type:"othello",action:"resume"});
+  assert.equal(validateOutgoing({type:"othello",action:"pause"}),true);
+});
