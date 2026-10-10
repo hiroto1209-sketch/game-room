@@ -75,8 +75,26 @@
             <button id="othello-reset" class="plain-menu-button hidden" type="button">対局を終了</button>
           </div>
         </div>
+        <div class="minigame-tile">
+          <span class="othello-caption">02 · TIC TAC TOE</span>
+          <strong>三目並べ · CPU対戦</strong>
+          <p class="monitor-help">3×3の盤面でCPUと気軽に対戦できます。</p>
+          <button type="button" id="tic-tac-toe-open" class="primary-menu-button">三目並べで遊ぶ</button>
+        </div>
         <p class="monitor-help">対局中は中央エイムで光る床マスを選び、「あそぶ」で置けます。中断しても石の配置は残ります。</p>
         <button id="minigames-return" type="button" class="plain-menu-button">ワールドへ戻る</button>
+      </div>
+    </div>
+
+    <div id="quick-game-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="quick-game-title">
+      <div class="monitor-card quick-arcade-card">
+        <div class="menu-head"><div><span class="overline">GAME ROOM · ARCADE</span>
+          <h2 id="quick-game-title">NEON ARCADE</h2></div>
+          <button type="button" class="icon-button" id="quick-game-close" aria-label="ゲームを閉じる">×</button></div>
+        <p id="quick-game-info" class="monitor-help" aria-live="polite"></p>
+        <div id="quick-game-grid" class="quick-game-grid" role="group" aria-label="3×3ゲーム盤"></div>
+        <button type="button" id="quick-game-restart" class="primary-menu-button">もう一度遊ぶ</button>
+        <p class="monitor-footnote">端末内で遊べる軽量ミニゲームです。オンライン対戦は今後の拡張です。</p>
       </div>
     </div>
 
