@@ -169,3 +169,12 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 .mini-game-buttons>*{flex:1;min-width:0}
 #othello-score{font-size:13px;color:#ffe0ec;font-weight:700}
 #shoot-button,#jump-button{touch-action:none}
+
+/* Snappy, optional FPS aim: ADS held by second thumb; the world remains primary. */
+#aim-button{right:max(109px,calc(env(safe-area-inset-right) + 105px));bottom:calc(max(13px,env(safe-area-inset-bottom)) + 176px);
+  width:47px;height:47px;font-size:17px;color:#d1fbee;border-color:#8be4d88c;
+  background:rgba(15,45,52,.57);z-index:14;touch-action:none;user-select:none}
+#aim-button small{font-size:8px}
+#aim-button.aiming{background:rgba(81,202,174,.50);box-shadow:0 0 15px #6cfbe062}
+#crosshair.aiming{box-shadow:0 0 0 4px #ffffff4e,0 0 7px #ffffff97}
+@media(max-height:570px){#aim-button{bottom:calc(max(9px,env(safe-area-inset-bottom)) + 143px)}}
