@@ -291,3 +291,32 @@ This version is a prototype: no advanced lag compensation, comprehensive host pe
 - No built-in CPU, tournament lobby, timers, host-only permissions or room-wide leaderboards yet.
 - Othello accepts a move only while joined online and assigned to the correct color. Offline mode is practice/hot-seat, not AI.
 - iOS Safari visual and touch testing still requires real devices; three-device CI tests are a server-side WebSocket integration, not real Safari.
+
+## WORLD EVOLUTION 5.0 — performance-first terrain and global secret blaster
+
+**Status:** code branch implementation; actual iPhone 30/60fps, three-device live play and production deployment must be verified separately.
+
+- **Static Coastal-inspired terrain** uses a deterministic low-amplitude hill height function in `shared/worldRules.js` and low-poly, vertex-colored terrain patches in `src/world/OutdoorWorld.ts`. Existing interior, entrance, pond, protected walkways and arena remain navigable. Instanced grass, trees, rocks and blocks use the same terrain height and shared world seed. This is an **original** environment, not Coastal World assets.
+- **Performance:** replaces continuous balloon/disco/tile-light animations and pond/firefly opacity updates with static scenery. QualityManager observes frame times and slowly lowers or restores `WebGLRenderer.pixelRatio` within safe bounds. No per-leaf/grass animation, expensive water reflections or continuous particle system is introduced. Three.js doesn't promise FPS; measure the actual device before claiming success.
+- **Movement correction:** movement failures that violate the **existing** server limits now emit a bounded `position_correction` with last accepted position and sequence. The local PlayerController resets its velocity/position on receipt rather than continuing to send impossible coordinates and repeated Invalid movement errors. Initial connection also sends authoritative spawn. The legal outdoor bounds, pond blocking, anti-teleport thresholds and door-wall validation are **not disabled**.
+- **Hidden gun:** five taps within 2.4s on the upper left GAME ROOM logo (while playing) show a code input. Enter `NEON777` to request server authorization. The worker validates the code with rate limiting, enables the blaster and turns off Peace Mode for the player. The easter egg is not an authentication credential or real security barrier.
+- **Reconnect:** the browser records only a session-level "previously unlocked" flag and **re-sends the code** after each new online spawn. The server revalidates on every new connection. Offline sessions can use local visual-only blasts after discovery.
+- **Global Health:** every joined player already has HP=100 in server state; the browser now shows a tiny HP HUD across the world. Unlocking enables firing *everywhere*; server checks firing cooldown, previously authorized weapon state, firing/target Peace Mode, alive state, muzzle direction, 28-unit range and coarse ground/static-object/building occlusion. Damage remains 25 per hit; HP0 respawns at the safe original lobby spawn after ~4 seconds and gains 2 seconds shield.
+- **Peace Mode:** on joining, all guests are peaceful by default. Unlocking the weapon automatically opts the unlocking player into PvP; players can enable Peace Mode again from the existing settings menu to opt out of dealing and receiving PvP damage. It does not remove HP. Guests who never unlock remain protected from shots.
+- **Retention and safety:** no new Cloudflare product, API token, secrets, third-party assets or Durable Object migration. Existing photo/sign/othello room state remains unaffected. This is a hobby-world combat prototype; professional lag compensation/anti-cheat, true account identity and full 3D authoritative physics remain future work.
+
+### Controlled rollout
+
+1. Verify GitHub CI: TypeScript, unit, Vite build, Worker dry run and local Durable Object multi-WebSocket integration must be green. Keep `backup/pre-world-evolution-5` for recovery.
+2. Run **[Cloudflare Worker deploy](https://github.com/hiroto1209-sketch/game-room/actions/workflows/deploy-realtime.yml)** on `main` FIRST.
+3. Run **[GitHub Pages deploy](https://github.com/hiroto1209-sketch/game-room/actions/workflows/pages.yml)** on `main` SECOND. Pages remains manual-only.
+4. With three devices in the same room, verify roof/door, hilly ground, no water entry, photo sharing, sign, Othello, motion/jump. Then tap GAME ROOM logo 5 times, unlock with `NEON777` on two devices, aim from outside ARENA and verify HP decreases on both screens. Toggle Peace Mode and confirm a shot no longer damages the protected player.
+5. Disconnect/rejoin and verify code auto-revalidated, HP resumes at server-provided spawn; test deliberate impossible movement only in local dev scripts to ensure reconciliation and wall/teleport prevention.
+6. On actual iPhone/iPad, record p50/p95 frame times, frame calls, resolution scaling, initial load and memory compared to the pre-update backup; **test success is not a substitute for FPS measurement**.
+
+### Known constraints
+
+- Player identity is transient per WebSocket; the 5-tap discovery is restored only per browser tab session via `sessionStorage`, not as a permanent server-owned user achievement. Persisted identity would require authentication.
+- Shot obstruction is a coarse deterministic 3D sampling approximation for current static geometry; it is not a complete moving-furniture/navmesh anti-cheat solution.
+- The new terrain uses static vertex colors and a cheap height field, not a full production terrain texture-splatting pipeline.
+- Client geometry and server movement both use shared height data, but obstacles and legacy AABBs still limit steep slopes. Do not declare advanced climbing or perfect physics.
