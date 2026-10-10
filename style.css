@@ -151,3 +151,21 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 
 /* Underlying #top-bar deliberately disables pointer-events, so enable the logo itself. */
 #secret-trigger{pointer-events:auto;cursor:pointer}
+
+/* Stable controls: informative HUDs NEVER intercept left-thumb movement. */
+#combat-hud,#combat-hud *,#othello-panel,#othello-panel *,#toast,#tips{pointer-events:none!important}
+#combat-hud{background:rgba(22,23,30,.38);border:1px solid rgba(176,221,205,.28);backdrop-filter:blur(5px);opacity:.65}
+#othello-panel{left:50%;bottom:auto;top:calc(max(11px,env(safe-area-inset-top)) + 60px);transform:translateX(-50%);
+  width:auto;min-width:0;max-width:55vw;display:flex;flex-direction:row;gap:8px;
+  padding:6px 10px;background:rgba(20,18,28,.48);border-radius:999px;white-space:nowrap;
+  backdrop-filter:blur(5px);border:1px solid #ffffff36}
+#othello-panel .othello-caption{font-size:9px}
+#othello-quick-state{font-size:10px;color:#f5ebe7}
+#minigames-overlay{z-index:38;background:rgba(9,7,17,.76);backdrop-filter:blur(10px);padding:16px}
+.mini-games-card{max-height:86dvh}
+.minigame-tile{display:flex;flex-direction:column;gap:12px;border:1px solid #f4b4da54;background:rgba(69,38,65,.44);padding:17px;border-radius:15px}
+.minigame-tile strong{font-size:15px;color:#fff1e7}
+.mini-game-buttons{display:flex;gap:9px}
+.mini-game-buttons>*{flex:1;min-width:0}
+#othello-score{font-size:13px;color:#ffe0ec;font-weight:700}
+#shoot-button,#jump-button{touch-action:none}
