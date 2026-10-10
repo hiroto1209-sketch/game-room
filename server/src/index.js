@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
-import { inArena, findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, ARENA_RESPAWN } from "../../shared/combatRules.js";
+import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE } from "../../shared/combatRules.js";
+import {SPAWN,shotObstructed} from "../../shared/worldRules.js";
 import { validRoomId, permittedOrigin, decodeMessage, safeName, MAX_PLAYERS, withinMovementSpeed } from "./guards.js";
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{
@@ -54,7 +55,7 @@ export class RoomHub extends DurableObject {
     const pair=new WebSocketPair();
     const [client,server]=Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0});
+    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0,weaponUnlocked:false,peaceful:true,lastUnlockAt:0,lastCorrectionAt:0});
     return new Response(null,{status:101,webSocket:client});
   }
   async webSocketMessage(ws,raw){
@@ -70,10 +71,13 @@ export class RoomHub extends DurableObject {
       // Phase 2 client starts at (0, 1.65, 15). Keep the initial authoritative
       // snapshot in sync, otherwise a first move may fail displacement validation.
       // Avatars are non-blocking; spawn spacing can be negotiated in a later protocol.
-      const spawn={x:0,y:1.65,z:15};
+      const spawn={...SPAWN};
       const player={id,displayName:safeName(m.displayName),position:spawn,yaw:0,pitch:0,sequence:0};
-      ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:Date.now()+2000});
-      send(ws,{type:"welcome",playerId:id,roomId:session.roomId});
+      ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0,hp:MAX_HP,
+        respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:false,peaceful:true,
+        lastShotAt:0,lastFireSeq:0});
+      send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn});
+      send(ws,{type:"weapon_state",unlocked:false,peaceful:true});
       send(ws,{type:"snapshot",players:existing.map(s=>publicPlayer(attachment(s))).filter(Boolean)});
       const saved=await this.ctx.storage.get("shared_room_v1");
       send(ws,{type:"room_state",revision:saved?.revision??0,
@@ -151,10 +155,27 @@ export class RoomHub extends DurableObject {
       return;
     }
     const now=Date.now();
+    if(m.type==="unlock_weapon"){
+      if(now-(session.lastUnlockAt??0)<1500){
+        send(ws,{type:"error",reason:"コマンドの入力間隔を空けてください"});return;
+      }
+      if(m.code!==WEAPON_CODE){
+        ws.serializeAttachment({...session,lastUnlockAt:now});
+        send(ws,{type:"error",reason:"隠しコマンドが違います"});return;
+      }
+      ws.serializeAttachment({...session,lastUnlockAt:now,weaponUnlocked:true,peaceful:false});
+      send(ws,{type:"weapon_state",unlocked:true,peaceful:false});
+      return;
+    }
+    if(m.type==="peace_mode"){
+      ws.serializeAttachment({...session,peaceful:m.enabled});
+      send(ws,{type:"weapon_state",unlocked:session.weaponUnlocked===true,peaceful:m.enabled});
+      return;
+    }
     // Respawn is computed on the first message after the timer expires. The
     // authoritative player position is reset before any movement is accepted.
     if(session.respawnAt && now>=session.respawnAt){
-      const revived={...session.player,position:{...ARENA_RESPAWN},sequence:session.player.sequence+1};
+      const revived={...session.player,position:{...SPAWN}};
       ws.serializeAttachment({...session,player:revived,hp:MAX_HP,respawnAt:0,
         invulnerableUntil:now+SPAWN_SHIELD_MS,lastMoveAt:now,lastPacketAt:now});
       send(ws,{type:"respawn",position:revived.position,health:MAX_HP});
@@ -165,8 +186,11 @@ export class RoomHub extends DurableObject {
     if(m.type==="fire"){
       if(m.sequence<=session.lastFireSeq)return;
       if(now-(session.lastShotAt??0)<SHOT_COOLDOWN_MS)return;
-      if(session.hp<=0 || !inArena(session.player.position)){
-        send(ws,{type:"error",reason:"ブラスターはアリーナ内だけで使えます"});return;
+      if(session.hp<=0 || !session.weaponUnlocked){
+        send(ws,{type:"error",reason:"隠しコマンドでブラスターを解放してください"});return;
+      }
+      if(session.peaceful){
+        send(ws,{type:"error",reason:"ピースモードを解除してください"});return;
       }
       const yawDiff=Math.atan2(Math.sin(m.yaw-session.player.yaw),Math.cos(m.yaw-session.player.yaw));
       if(Math.abs(yawDiff)>1.4||Math.abs(m.pitch-session.player.pitch)>.9){
@@ -175,9 +199,9 @@ export class RoomHub extends DurableObject {
       ws.serializeAttachment({...session,lastShotAt:now,lastFireSeq:m.sequence});
       const others=this.members().filter(peer=>peer!==ws);
       const candidates=others.map(sock=>({sock,data:attachment(sock)}))
-        .filter(({data})=>data.hp>0&&now>=data.invulnerableUntil)
+        .filter(({data})=>data.hp>0&&!data.peaceful&&now>=data.invulnerableUntil)
         .map(({sock,data})=>({sock,id:data.player.id,hp:data.hp,position:data.player.position}));
-      const victim=findHitscanTarget({id:session.player.id,hp:session.hp,position:session.player.position},candidates,m.yaw,m.pitch);
+      const victim=findHitscanTarget({id:session.player.id,hp:session.hp,position:session.player.position},candidates,m.yaw,m.pitch,shotObstructed);
       // This broadcast is cosmetic; client-supplied damage and target IDs are ignored.
       for(const peer of this.members())send(peer,{type:"fire_event",shooterId:session.player.id,
         position:session.player.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence});
@@ -196,7 +220,14 @@ export class RoomHub extends DurableObject {
     if(now-session.lastPacketAt<75)return; // per-socket max ~13 updates/s
     const elapsed=Math.max(0,Math.min(2000,now-session.lastMoveAt));
     if(!withinMovementSpeed(session.player.position,m.position,elapsed)){
-      send(ws,{type:"error",reason:"Invalid movement"});return;
+      // Do not merely report "Invalid movement" forever. Send the last
+      // server-approved position and let the client gracefully reconcile.
+      if(now-(session.lastCorrectionAt??0)>=700){
+        ws.serializeAttachment({...session,lastCorrectionAt:now});
+        send(ws,{type:"position_correction",position:session.player.position,
+          sequence:session.player.sequence});
+      }
+      return;
     }
     const player={...session.player,position:m.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
     ws.serializeAttachment({...session,player,lastMoveAt:now,lastPacketAt:now});

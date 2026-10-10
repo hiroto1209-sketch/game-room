@@ -1,4 +1,4 @@
-import {validSignText} from "../../shared/combatRules.js";
+import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
 import { validWorldPosition, validWorldStep } from "../../shared/worldRules.js";
 // Pure protocol/security helpers shared with Node unit tests (no Worker globals).
 export const ROOM_ID=/^[A-Za-z0-9_-]{32}$/;
@@ -33,6 +33,12 @@ export function decodeMessage(raw){
       return {type:"room_update",key:"lightShow",value:m.value};
     if(m.type==="room_update" && m.key==="signText" && validSignText(m.value))
       return {type:"room_update",key:"signText",value:m.value.trim()||"WELCOME TO GAME ROOM"};
+    if(m.type==="unlock_weapon" && validUnlockCode(m.code) &&
+      Object.keys(m).every(k=>["type","code"].includes(k)))
+      return {type:"unlock_weapon",code:m.code};
+    if(m.type==="peace_mode"&&typeof m.enabled==="boolean"&&
+      Object.keys(m).every(k=>["type","enabled"].includes(k)))
+      return {type:"peace_mode",enabled:m.enabled};
     if(m.type==="fire" && Number.isSafeInteger(m.sequence) && m.sequence>0 && m.sequence<=1000000000
       && typeof m.yaw==="number"&&Number.isFinite(m.yaw)&&Math.abs(m.yaw)<=1e6
       && typeof m.pitch==="number"&&Number.isFinite(m.pitch)&&Math.abs(m.pitch)<=1.22)

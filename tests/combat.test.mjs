@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {ARENA,MAX_HP,DAMAGE,inArena,validSignText,signText,aimDirection,
-  raySphereDistance,findHitscanTarget} from "../shared/combatRules.js";
+  raySphereDistance,findHitscanTarget,WEAPON_CODE} from "../shared/combatRules.js";
 import {decodeMessage} from "../server/src/guards.js";
 import {parseIncoming,validateOutgoing} from "../src/network/protocol.ts";
 
@@ -52,4 +52,23 @@ test("clients send fire direction and sequence, never victim or damage",()=>{
   assert.equal(decodeMessage(JSON.stringify({...outgoing,pitch:3})),null);
   assert.equal(parseIncoming(JSON.stringify({type:"health_state",playerId:"12345678",hp:55,respawnAt:0}))?.type,"health_state");
   assert.equal(parseIncoming(JSON.stringify({type:"respawn",position:{x:88,y:1.65,z:-38},health:100}))?.type,"respawn");
+});
+
+test("secret weapon packets are validated and local enemy picks no longer require arena",()=>{
+  assert.equal(WEAPON_CODE,"NEON777");
+  assert.deepEqual(decodeMessage('{"type":"unlock_weapon","code":"NEON777"}'),
+    {type:"unlock_weapon",code:"NEON777"});
+  assert.equal(decodeMessage('{"type":"unlock_weapon","code":"<invalid>"}'),null);
+  assert.equal(decodeMessage('{"type":"unlock_weapon","code":"NEON777","admin":true}'),null);
+  assert.deepEqual(decodeMessage('{"type":"peace_mode","enabled":true}'),
+    {type:"peace_mode",enabled:true});
+  assert.equal(decodeMessage('{"type":"peace_mode","enabled":"true"}'),null);
+  assert.equal(parseIncoming('{"type":"weapon_state","unlocked":true,"peaceful":false}')?.type,
+    "weapon_state");
+  assert.equal(parseIncoming('{"type":"position_correction","position":{"x":0,"y":1.65,"z":15},"sequence":1}')?.type,
+    "position_correction");
+  const first={id:"one",hp:100,position:{x:0,y:1.65,z:15}};
+  const second={id:"two",hp:100,position:{x:0,y:1.65,z:10}};
+  assert.equal(findHitscanTarget(first,[second],0,0)?.id,second.id);
+  assert.equal(findHitscanTarget(first,[second],0,0,()=>true),null);
 });

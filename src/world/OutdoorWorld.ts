@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { chunkData, OUTDOOR, POND, WORLD_SEED } from "../../shared/worldRules.js";
+import { chunkData, OUTDOOR, POND, WORLD_SEED, groundHeightAt } from "../../shared/worldRules.js";
 import {ARENA} from "../../shared/combatRules.js";
 
 /**
@@ -56,7 +56,7 @@ export class OutdoorWorld {
   }
   private populateStatic():void{
     // Low-density fallback floor hides the edge of currently inactive chunks.
-    this.boxMesh(96,.28,96,0x1d352a,56,-.35,0);
+    this.boxMesh(96,.28,96,0x1d352a,56,-.45,0);
     this.boxMesh(43,.055,3.4,0x87796f,32,-.04,-5);
     this.boxMesh(2.8,.055,23,0x797b72,44,-.039,-17);
     this.boxMesh(22,.055,2.4,0x777e6d,45,-.038,-19);
@@ -94,8 +94,8 @@ export class OutdoorWorld {
     shore.scale.set(POND.rx+1.45,POND.rz+1.45,1);
     shore.position.set(POND.x,-.02,POND.z);
     this.root.add(shore);this.sharedScenery.push(shore);
-    this.water=new THREE.Mesh(new THREE.CircleGeometry(1,64),
-      new THREE.MeshBasicMaterial({color:0x2f8f9b,transparent:true,opacity:.77,side:THREE.DoubleSide,depthWrite:false}));
+    this.water=new THREE.Mesh(new THREE.CircleGeometry(1,48),
+      new THREE.MeshBasicMaterial({color:0x368c9a,transparent:true,opacity:.84,side:THREE.DoubleSide,depthWrite:false}));
     this.water.rotation.x=-Math.PI/2;
     this.water.scale.set(POND.rx,POND.rz,1);
     this.water.position.set(POND.x,.02,POND.z);
@@ -181,25 +181,41 @@ export class OutdoorWorld {
     if(!d)return null;
     const group=new THREE.Group();
     group.name="outside-chunk-"+cx+"-"+cz;
-    const tile=new THREE.Mesh(this.box,this.materials.grounds[(cx+cz*2)%3]);
-    tile.position.set(d.centerX,-.155,d.centerZ);
+    const geometry=new THREE.PlaneGeometry(16,16,10,10);
+    geometry.rotateX(-Math.PI/2);
+    const attr=geometry.attributes.position;
+    const rgb:number[]=[];
+    for(let i=0;i<attr.count;i++){
+      const x=d.centerX+attr.getX(i),z=d.centerZ+attr.getZ(i);
+      const elevation=groundHeightAt(x,z);
+      attr.setY(i,elevation-.016);
+      const tint=new THREE.Color().setHSL(.33+(elevation*.013),.19+elevation*.04,
+        .21+Math.min(.065,elevation*.025));
+      rgb.push(tint.r,tint.g,tint.b);
+    }
+    attr.needsUpdate=true;geometry.setAttribute("color",new THREE.Float32BufferAttribute(rgb,3));
+    geometry.computeVertexNormals();
+    const tile=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({
+      color:0xffffff,vertexColors:true,roughness:1,side:THREE.FrontSide
+    }));
+    tile.position.set(d.centerX,0,d.centerZ);
     group.add(tile);
     this.instance(group,this.grass,this.materials.grass,d.grass,(e,o)=>{
-      o.position.set(e.x,.15,e.z);o.scale.set(e.size??.4,.52+(e.size??.4)*.5,e.size??.4);o.rotation.y=e.twist??0;
+      o.position.set(e.x,groundHeightAt(e.x,e.z)+.15,e.z);o.scale.set(e.size??.4,.52+(e.size??.4)*.5,e.size??.4);o.rotation.y=e.twist??0;
     });
     this.instance(group,this.trunk,this.materials.trunk,d.trees,(e,o)=>{
       const h=e.height??3.5;
-      o.position.set(e.x,h*.27,e.z);o.scale.set(.95,h*.55,.95);
+      o.position.set(e.x,groundHeightAt(e.x,e.z)+h*.27,e.z);o.scale.set(.95,h*.55,.95);
     });
     this.instance(group,this.crown,this.materials.leaf,d.trees,(e,o)=>{
       const h=e.height??3.5;
-      o.position.set(e.x,h*.77,e.z);o.scale.set(1.15+(h-3)*.1,h*.26,1.07+(h-3)*.1);
+      o.position.set(e.x,groundHeightAt(e.x,e.z)+h*.77,e.z);o.scale.set(1.15+(h-3)*.1,h*.26,1.07+(h-3)*.1);
     });
     this.instance(group,this.rock,this.materials.rock,d.rocks,(e,o)=>{
-      const size=e.size??.6;o.position.set(e.x,size*.35,e.z);o.scale.set(size,Math.max(.38,size*.8),size*.78);
+      const size=e.size??.6;o.position.set(e.x,groundHeightAt(e.x,e.z)+size*.35,e.z);o.scale.set(size,Math.max(.38,size*.8),size*.78);
     });
     this.instance(group,this.ruin,this.materials.ruin,d.blocks,(e,o)=>{
-      const h=e.height??2;o.position.set(e.x,h*.5,e.z);o.scale.set(1.35,h,1.35);
+      const h=e.height??2;o.position.set(e.x,groundHeightAt(e.x,e.z)+h*.5,e.z);o.scale.set(1.35,h,1.35);
     });
     return group;
   }
@@ -228,20 +244,20 @@ export class OutdoorWorld {
       for(const [k,group] of this.chunks){
         if(!wanted.has(k)){
           this.root.remove(group);this.chunks.delete(k);
-          group.traverse(o=>{if(o instanceof THREE.InstancedMesh)o.dispose();});
+          group.traverse(o=>{
+            if(o instanceof THREE.InstancedMesh)o.dispose();
+            else if(o instanceof THREE.Mesh){
+              o.geometry.dispose();
+              const mats=Array.isArray(o.material)?o.material:[o.material];
+              mats.forEach(m=>m.dispose());
+            }
+          });
           // Per-chunk instance buffers are released; shared geometries/materials stay resident.
         }
       }
       this.activeChunkCount=this.chunks.size;
     }
-    if(this.water){
-      const mat=this.water.material as THREE.MeshBasicMaterial;
-      mat.opacity=.75+.035*Math.sin(time*.72);
-    }
-    if(this.fireflies){
-      const mat=this.fireflies.material as THREE.PointsMaterial;
-      mat.opacity=.58+.16*Math.sin(time*.9);
-    }
+    // Water/vegetation/fireflies remain deliberately static for stable mobile frame time.
   }
   dispose():void{
     this.root.parent?.remove(this.root);

@@ -15,7 +15,7 @@
     <div id="loading" aria-live="polite"><span class="loader"></span><span>WORLD LOADING...</span></div>
 
     <div id="top-bar">
-      <div class="world-label"><span class="live-dot"></span><span>GAME <b>ROOM</b></span><small>PARTY WORLD / 001</small></div>
+      <button id="secret-trigger" class="world-label" type="button" aria-label="GAME ROOM"><span class="live-dot"></span><span>GAME <b>ROOM</b></span><small>PARTY WORLD / 001</small></button>
       <button id="menu-button" class="icon-button" aria-label="メニューを開く">☰</button>
     </div>
 
@@ -38,10 +38,10 @@
       <div id="crosshair" aria-hidden="true"></div>
       <div id="zone-indicator" aria-live="polite">PARTY LOUNGE</div>
       <div id="combat-hud" class="hidden" aria-live="polite">
-        <span class="combat-title">NEON ARENA</span>
+        <span class="combat-title">HEALTH</span>
         <span id="hp-label">HP 100 / 100</span>
         <div class="hp-track"><div id="hp-fill"></div></div>
-        <span id="combat-note">アリーナ内のみ対戦可能</span>
+        <span id="combat-note">探索モード</span>
       </div>
       <div id="othello-panel" class="hidden" aria-live="polite">
         <span class="othello-caption">FLOOR OTHELLO</span>
@@ -61,6 +61,17 @@
 
     </div>
 
+    <div id="secret-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="secret-title">
+      <div class="monitor-card">
+        <div class="menu-head"><div><span class="overline">HIDDEN DISCOVERY</span><h2 id="secret-title">SECRET TERMINAL</h2></div>
+          <button id="secret-close" class="icon-button" type="button" aria-label="閉じる">×</button></div>
+        <p class="monitor-help">このワールドに眠る秘密のコードを見つけてください。</p>
+        <label class="monitor-label" for="secret-code">HIDDEN CODE</label>
+        <input id="secret-code" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="********" />
+        <div id="secret-error" role="status" aria-live="polite"></div>
+        <button id="secret-unlock" class="primary-menu-button" type="button">UNLOCK</button>
+      </div>
+    </div>
     <div id="sign-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="sign-editor-title">
       <div class="monitor-card">
         <div class="menu-head"><div><span class="overline">LIVE SIGN · WORLD SHARED</span>
@@ -115,6 +126,8 @@
         <label class="setting"><span>視点の感度 <output id="sensitivity-value">4</output></span><input id="sensitivity" type="range" min="1" max="10" step="1" value="4" /></label>
         <label class="setting"><span>画面の明るさ <output id="brightness-value">1.0</output></span><input id="brightness" type="range" min="0.7" max="1.6" step="0.1" value="1.0" /></label>
         <label class="toggle"><span>音楽（シンプルなBGM）</span><input id="sound-enabled" type="checkbox" /></label>
+        <label class="toggle"><span>ピースモード（他プレイヤーからのダメージを防ぐ）</span><input id="peace-mode" type="checkbox" checked /></label>
+        <div id="weapon-info" class="monitor-help">ブラスター未解放 · ロゴに秘密があるかも</div>
         <label class="toggle"><span>動きを控えめにする</span><input id="reduced-motion" type="checkbox" /></label>
         <button id="resume-button" class="primary-menu-button">ワールドへ戻る</button>
         <button id="return-title" class="plain-menu-button">タイトルに戻る</button>

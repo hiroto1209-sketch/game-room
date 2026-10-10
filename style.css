@@ -135,3 +135,16 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #othello-action:disabled{opacity:.46}
 @media(max-width:400px){#othello-panel{width:50vw;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 91px);padding:9px}#othello-action{padding:8px 6px}}
 @media(max-height:570px){#zone-indicator{top:calc(max(5px,env(safe-area-inset-top)) + 45px)}#othello-panel{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 70px);padding:8px}}
+
+/* World Evolution 5: hidden easter egg + always-small world health. */
+#secret-trigger{cursor:default;color:inherit;border:1px solid #ffffff3b;touch-action:manipulation;appearance:none;font:inherit;text-align:left}
+#secret-overlay{z-index:45;background:rgba(9,7,20,.88);backdrop-filter:blur(15px)}
+#secret-code{width:100%;border:1px solid #a0e8d680;border-radius:12px;background:#18132a;color:#fffaf1;padding:14px;font-size:17px;letter-spacing:.18em}
+#secret-error{min-height:18px;font-size:12px;color:#ffddab}
+#combat-hud{width:124px;bottom:calc(max(11px,env(safe-area-inset-bottom)) + 14px);padding:6px 9px;gap:3px;opacity:.84;background:rgba(20,19,29,.6);border-color:#a5d8c55b}
+#combat-hud .combat-title{font-size:8px}
+#combat-hud #hp-label{font-size:11px}
+#combat-hud .hp-track{height:5px}
+#combat-hud #combat-note{font-size:9px;display:none}
+#shoot-button{right:max(109px,calc(env(safe-area-inset-right) + 105px));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 100px)}
+@media(max-height:570px){#combat-hud{bottom:calc(max(6px,env(safe-area-inset-bottom)) + 7px)}}

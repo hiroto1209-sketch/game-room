@@ -9,7 +9,24 @@ export const OUTDOOR={minX:8,maxX:104,minZ:-48,maxZ:48,chunkSize:16,columns:6,ro
 export const DOOR={x:10,minZ:-6.65,maxZ:-3.35};
 export const POND={x:57,z:-27,rx:9.5,rz:7.0};
 export const SPAWN={x:0,y:1.65,z:15};
-export function groundHeightAt(_x,_z){return 0}
+// Bounded static hills: deterministic at every coordinate, no per-frame animation.
+export function groundHeightAt(x,z){
+  if(x<24)return 0; // preserve the original room and the entrance
+  // Established paths, pond rim and combat plaza remain flat and walkable.
+  const path1=Math.max(0,1-Math.abs(z+5)/6);
+  const path2=x>=43&&x<=90?Math.max(0,1-Math.abs(z+40)/5):0;
+  const pond=Math.max(0,1-Math.hypot((x-57)/15,(z+27)/12));
+  const arena=inArena({x,z})?1:0;
+  const flatten=Math.min(1,Math.max(path1,path2,pond,arena));
+  const transition=Math.min(1,Math.max(0,(x-24)/12));
+  const wave=.46*Math.sin(x*.105+z*.057)+.36*Math.sin(z*.123-x*.038)+.22*Math.sin(x*.041+z*.19);
+  return Math.max(0,1.0+wave)*transition*(1-flatten);
+}
+export function terrainSlopeAt(x,z){
+  const delta=.4,center=groundHeightAt(x,z);
+  return Math.max(Math.abs(groundHeightAt(x+delta,z)-center),
+    Math.abs(groundHeightAt(x,z+delta)-center))/delta;
+}
 export function hashCell(cx,cz,seed=WORLD_SEED){
   let n=(Math.imul(cx+101,374761393)^Math.imul(cz+227,668265263)^seed)>>>0;
   n^=n>>>13;n=Math.imul(n,1274126177)>>>0;n^=n>>>16;
@@ -24,13 +41,13 @@ export function chunkData(cx,cz,seed=WORLD_SEED){
   // Instanced geometry only; plants never receive unique Mesh objects.
   for(let i=0;i<72;i++){
     const x=centerX+(rand()-.5)*15,z=centerZ+(rand()-.5)*15;
-    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z}))continue;
+    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z})||terrainSlopeAt(x,z)>.48)continue;
     grass.push({x,z,size:.25+rand()*.48,twist:rand()*6.28});
   }
   for(let i=0;i<8;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
     const path=Math.abs(z+5)<(x<45?7:4.5);
-    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z}))continue;
+    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z})||terrainSlopeAt(x,z)>.40)continue;
     trees.push({x,z,height:2.7+rand()*2.3,color:Math.floor(rand()*3)});
   }
   for(let i=0;i<4;i++){
@@ -56,7 +73,7 @@ export function outdoorRegion(x,z){
 }
 export function validWorldPosition(p){
   if(!p||typeof p!=="object"||!["x","y","z"].every(k=>typeof p[k]==="number"&&Number.isFinite(p[k])))return false;
-  if(p.y<1.60||p.y>4.9)return false;
+  if(p.y<1.54||p.y>5.1)return false;
   const insideMain=p.x>=-10.1&&p.x<=10.15&&p.z>=-16.15&&p.z<=8.15;
   const corridor=p.x>=-2.4&&p.x<=2.4&&p.z>=7.7&&p.z<=18.2;
   return insideMain||corridor||outdoorRegion(p.x,p.z);
@@ -98,5 +115,42 @@ export function validWorldStep(from,to){
   if(!validWorldPosition(to))return false;
   if(crossesClosedEastWall(from,to))return false;
   if(outdoorRegion(to.x,to.z)&&worldBlocked(to.x,to.z,.32))return false;
+  const floor=groundHeightAt(to.x,to.z)+1.65;
+  // Allow jumping (to 2.5+) and short frame-to-frame terrain corrections,
+  // but no underground movement or flying above the legal jump ceiling.
+  if(to.y<floor-.24||to.y>floor+2.2)return false;
   return true;
+}
+
+/**
+ * Coarse server line-of-sight for short energy rays. The original building
+ * walls and deterministic outdoor trunks/rocks/ruins are solid to weapons.
+ * World ambience and water are intentionally not bullet blockers.
+ */
+export function shotObstructed(from,to){
+  const distance=Math.hypot(to.x-from.x,to.y-from.y,to.z-from.z);
+  const count=Math.ceil(distance/.35);
+  if(!count)return false;
+  const isDoor=z=>z>=DOOR.minZ+.15&&z<=DOOR.maxZ-.15;
+  for(let i=1;i<count;i++){
+    const t=i/count;
+    const x=from.x+(to.x-from.x)*t,z=from.z+(to.z-from.z)*t;
+    const y=from.y+(to.y-from.y)*t;
+    if(y>=0&&y<=4.10){
+      if(x>=9.85&&x<=10.16&&z>=-16&&z<=8&&!isDoor(z))return true;
+      if(x>=-10.18&&x<=-9.85&&z>=-16&&z<=8)return true;
+      if(z>=-16.16&&z<=-15.85&&x>=-10&&x<=10)return true;
+      if(z>=7.85&&z<=8.16&&x>=2.4&&x<=10)return true;
+      if(z>=7.85&&z<=8.16&&x<=-2.4&&x>=-10)return true;
+      if(z>=8&&z<=18&&((x>=2.16&&x<=2.44)||(x<=-2.16&&x>=-2.44)))return true;
+    }
+    if(x>10.3&&outdoorRegion(x,z)){
+      for(const b of colliders){
+        if(x>=b.x0&&x<=b.x1&&z>=b.z0&&z<=b.z1
+          &&y>groundHeightAt(x,z)&&y<groundHeightAt(x,z)+3.2)return true;
+      }
+    }
+    if(y<groundHeightAt(x,z)+.08)return true;
+  }
+  return false;
 }

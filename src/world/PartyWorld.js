@@ -6,13 +6,14 @@ import { MediaMonitor } from "./MediaMonitor.ts";
 import { OutdoorWorld } from "./OutdoorWorld.ts";
 import {SignMarquee} from "./SignMarquee.ts";
 import {FloorOthello} from "./FloorOthello.ts";
+import {QualityManager} from "../performance/QualityManager.ts";
 
 const el = { canvas: null };
 const cfg = { exposure:1, reducedMotion:false };
 const game = { partyMode:false, time:0 };
 const p = { x:0,y:1.65,z:15,yaw:0,pitch:0 };
 const colliders=[], balloons=[], floorMats=[], lamps=[], targets=[];
-let renderer,scene,camera,ball,monitor,outdoor,signBoard,othelloBoard;
+let renderer,scene,camera,ball,monitor,outdoor,signBoard,othelloBoard,quality;
 let toastHandler = () => {};
 let monitorEditHandler = () => {};
 let lightEditHandler = () => {};
@@ -197,7 +198,7 @@ function populate(){
   scene.fog=new THREE.Fog("#19121e",13,78);
   camera=new THREE.PerspectiveCamera(76,1,.06,185);camera.rotation.order="YXZ";
   renderer=new THREE.WebGLRenderer({canvas:el.canvas,antialias:true,powerPreference:"high-performance"});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
+  quality=new QualityManager(renderer);
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure=cfg.exposure;
@@ -311,23 +312,16 @@ export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEdi
   signEditHandler=onEditSign;
   populate();
   return {
-    scene,camera,renderer,colliders,targets,monitor,outdoor,signBoard,othelloBoard,
+    scene,camera,renderer,colliders,targets,monitor,outdoor,signBoard,othelloBoard,quality,
     resize,
     update(dt,t,reducedMotion=false){
       cfg.reducedMotion=reducedMotion;
       game.time=t;
       outdoor.update(camera.position,t);
       if(camera.position.x<24)signBoard.update(dt,reducedMotion);
-      if(!cfg.reducedMotion){
-        for(const b of balloons){
-          b.group.position.y=b.y+Math.sin(t*1.15+b.phase)*.045;
-          b.group.rotation.z=Math.sin(t*.6+b.phase)*.035;
-        }
-        if(ball)ball.rotation.y+=dt*.36;
-      }
-      for(let i=0;i<floorMats.length;i++){
-        floorMats[i].emissiveIntensity=othelloBoard.active?.03:.22+(.25)*(.5+.5*Math.sin(t*.9+i));
-      }
+      // Static vegetation, balloons, disco ball and floor lights: no idle
+      // material/transform writes across dozens of meshes every frame.
+      quality.update(dt);
     },
     setExposure(value){cfg.exposure=value;renderer.toneMappingExposure=value;},
     resetParty(){game.partyMode=false;},
