@@ -113,3 +113,25 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 
 #crosshair.armed{background:#86ffe2;box-shadow:0 0 0 5px #6ee4c52d,0 0 11px #64ffe9;transition:box-shadow .15s}
 #crosshair.targeted{background:#ffb5ce;box-shadow:0 0 0 7px #f470aa43,0 0 16px #ff8da8}
+
+/* Phase 4.1 immersive HUD: only corner controls survive during world play. */
+#top-bar{top:max(12px,env(safe-area-inset-top));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+.world-label{padding:9px 11px;font-size:10px;letter-spacing:.12em;border-radius:12px;background:rgba(20,15,26,.38)}
+.world-label small{display:none}
+#top-bar .icon-button{width:43px;height:43px;border-radius:12px;font-size:21px}
+#zone-indicator{opacity:0;transform:translateY(-7px);transition:opacity .35s,transform .35s;top:calc(max(13px,env(safe-area-inset-top)) + 56px);left:50%;translate:-50% 0;max-width:85vw;text-align:center}
+#zone-indicator.show{opacity:1;transform:translateY(0)}
+.menu-online-section{border:1px solid #ffffff34;border-radius:15px;padding:14px;display:flex;flex-direction:column;gap:9px;background:#211b29}
+.menu-section-title{color:#f6c5d9;font-size:11px;letter-spacing:.15em;font-weight:750}
+#menu-online-note{color:#e9d4e1;font-size:12px}
+.room-hud{position:static;display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px;pointer-events:auto}
+.room-hud>*{font-size:12px;padding:8px 9px;background:#382b43}
+.room-hud button{min-height:38px;border:1px solid #ffffff4a;border-radius:9px}
+#othello-panel{position:absolute;left:max(14px,env(safe-area-inset-left));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 115px);width:min(238px,53vw);padding:11px 13px;display:flex;flex-direction:column;gap:7px;border-radius:15px;background:rgba(19,18,29,.82);border:1px solid #c9b2e26b;backdrop-filter:blur(12px);pointer-events:auto}
+.othello-caption{color:#f2c0dc;font-size:10px;font-weight:900;letter-spacing:.15em}
+#othello-status{font-size:12px;line-height:1.5;color:#fff3e9}
+#othello-score{font-size:13px;font-weight:800;color:#f7e6d9}
+#othello-action{padding:10px 9px;border:1px solid #ffbdda7a;background:#8d517b;border-radius:9px;color:white;font-size:12px;font-weight:800}
+#othello-action:disabled{opacity:.46}
+@media(max-width:400px){#othello-panel{width:50vw;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 91px);padding:9px}#othello-action{padding:8px 6px}}
+@media(max-height:570px){#zone-indicator{top:calc(max(5px,env(safe-area-inset-top)) + 45px)}#othello-panel{bottom:calc(max(8px,env(safe-area-inset-bottom)) + 70px);padding:8px}}
