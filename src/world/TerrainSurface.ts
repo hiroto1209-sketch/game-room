@@ -8,7 +8,7 @@ import {OUTDOOR, insideHouse, terrainVisualHeightAt} from "../../shared/worldRul
  */
 export class TerrainSurface {
   readonly mesh:THREE.Mesh<THREE.PlaneGeometry,THREE.MeshStandardMaterial>;
-  constructor(scene:THREE.Scene){
+  constructor(scene:THREE.Object3D){
     const width=OUTDOOR.maxX-OUTDOOR.minX;
     const depth=OUTDOOR.maxZ-OUTDOOR.minZ;
     // ~12k vertices / one draw call, created once. Never animated.
