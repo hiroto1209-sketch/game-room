@@ -255,3 +255,39 @@ Use a real iPhone for FPS and display measurements; code/build tests do not guar
 
 This version is a prototype: no advanced lag compensation, comprehensive host permissions, or fully hardened game anti-cheat yet. MINI GAMES and ARCADE machines are not included in Phase 4-D. For feature creation ideas, see `docs/GAME_ROOM_IDEA_AUTOPILOT.md`.
 
+
+## Phase 4.1 — Room-first UI, full-width LIVE SIGN and multiplayer FLOOR OTHELLO
+
+### What is new
+
+1. The former central **LIGHT SHOW** kiosk, sign face and **blocking collider** are gone. The dance floor and large sign behind it are visible without a pillar obstruction.
+2. The original fixed **GAME ROOM** wall lettering is replaced by a full-width editable, shared high-contrast sign. Short text is large and centered, longer text scrolls from right to left, and Reduced Motion avoids continuous scrolling. The existing **`signText`** room state remains the authoritative source (80-character validation and later-join restoration).
+3. The existing eight-by-eight dance-floor tile arrangement doubles as a **server-authoritative Othello/Reversi board**. Near the floor, press **対局を始める**; the second online player presses **白で参加する**. Everyone else spectates the same board. Aim at a glowing legal square with the screen-center crosshair, then tap **あそぶ** to place a disc. Captures, pass turns, final scores and win/draw are computed by a shared pure `shared/othello.js` reducer and accepted only by the Cloudflare server. A single browser without online connection offers offline hot-seat practice (alternate black/white).
+4. **Low overhead:** board uses five instanced draw collections (64 tiles, black discs, white discs, legal hints and a single selected-square marker), and only changes after game-state updates. Othello snapshots are separate from photo/lighting/sign room updates, so placing a disc does not re-send the shared image.
+5. Top-right hamburger now opens a menu containing **online status, player count, invite URL and leave** actions. While exploring, just the minimal logo, menu and interaction/jump/arena HUD remain visible. The zone indicator appears only for a short interval after changing areas, then fades.
+
+### Controls and rules
+
+- Black starts. White must join before online moves are accepted; other players automatically spectate.
+- Move the camera to point its crosshair at the dance-floor square. Valid destinations glow; press the existing interaction button (**あそぶ**) to place.
+- The server rejects spectator moves, out-of-turn moves and non-flipping moves. No client can claim a win or send its own board.
+- When a player disconnects, a waiting game is released or an ongoing game ends by forfeit, preventing abandoned seats from blocking a new match.
+- **In single-player mode:** enter the lounge, start Othello locally and take turns as both colors from one device. No AI opponent in Phase 4.1.
+- No change to photo-sharing permissions, light data retention, names/invites, 3-person movement, arena, outdoor boundaries or gameplay.
+
+### Production rollout (after GitHub CI passes)
+
+1. [Deploy Worker workflow](https://github.com/hiroto1209-sketch/game-room/actions/workflows/deploy-realtime.yml) → **Run workflow** on **main**. Confirm green and the existing `/api/health` endpoint responds.
+2. [Deploy Pages workflow](https://github.com/hiroto1209-sketch/game-room/actions/workflows/pages.yml) → **Run workflow** on **main**, after the Worker has been updated. Existing GitHub Secrets and `GAME_ROOM_SERVER_URL` remain unchanged.
+3. On iPhone A, join the room, approach the floor and press **対局を始める**. On iPhone B, press **白で参加する**. On iPad C, join and verify spectators see every legal move and the count. Test reload/new join restoring the current board.
+4. Enter an English and Japanese announcement and confirm the entire rear wall sign updates for all devices, including on a later join.
+5. Verify the center is no longer blocked and the menu contains **online / count / invite / leave**. Verify the zone banner disappears after its brief transition.
+6. Regression check: wall monitor photo, arena HP/FIRE, jump while walking, outdoor return and offline Start.
+7. Profile iPhone Safari. Source/build tests do not establish actual FPS or a guaranteed mobile appearance.
+
+### Known limitations
+
+- Active match persists in the existing Durable Object storage per invite room. Anyone with the invite can start a new match when idle/finished, but only seated players may cancel an active match.
+- No built-in CPU, tournament lobby, timers, host-only permissions or room-wide leaderboards yet.
+- Othello accepts a move only while joined online and assigned to the correct color. Offline mode is practice/hot-seat, not AI.
+- iOS Safari visual and touch testing still requires real devices; three-device CI tests are a server-side WebSocket integration, not real Safari.

@@ -2,6 +2,7 @@ import type { PlayerSnapshot } from "../types/Player";
 import { safeDisplayName } from "../types/Player";
 import { isValidRoomId, type RoomSharedState } from "./protocol";
 import { WebSocketTransport } from "./Transport";
+import type {OthelloMatch} from "../../shared/othello.js";
 
 export type RoomConnectionState="offline"|"connecting"|"online"|"reconnecting";
 export interface RoomCallbacks{
@@ -15,6 +16,7 @@ export interface RoomCallbacks{
   onFire(shooterId:string,position:{x:number;y:number;z:number},yaw:number,pitch:number):void;
   onFireResult(hit:boolean,damage:number,targetId?:string):void;
   onRespawn(position:{x:number;y:number;z:number}):void;
+  onOthello(match:OthelloMatch):void;
 }
 /** Holds the network lifecycle; no rendering, DOM or game rules in this module. */
 export class RealtimeRoomClient {
@@ -55,6 +57,14 @@ export class RealtimeRoomClient {
     if(!this.online)return false;
     return this.transport?.send({type:"fire",sequence:++this.fireSequence,yaw,pitch})??false;
   }
+  othello(action:"start"|"join"|"reset"|"place",index?:number):boolean{
+    if(!this.online)return false;
+    if(action==="place"){
+      if(index===undefined)return false;
+      return this.transport?.send({type:"othello",action:"place",index})??false;
+    }
+    return this.transport?.send({type:"othello",action})??false;
+  }
   setLightShow(enabled:boolean):boolean{
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"lightShow",value:enabled})??false;
@@ -90,7 +100,9 @@ export class RealtimeRoomClient {
     const url=server+"/rooms/"+this.currentRoomId;
     transport.subscribe(msg=>{
       if(gen!==this.connectGeneration)return;
-      if(msg.type==="health_snapshot"){
+      if(msg.type==="othello_state"){
+        this.callbacks.onOthello(msg.match);
+      }else if(msg.type==="health_snapshot"){
         for(const p of msg.players)this.callbacks.onHealth(p.playerId,p.hp,p.respawnAt);
       }else if(msg.type==="health_state"){
         this.callbacks.onHealth(msg.playerId,msg.hp,msg.respawnAt);

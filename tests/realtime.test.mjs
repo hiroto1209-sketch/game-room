@@ -87,16 +87,44 @@ test("two players share one Durable Object and positions/leave events propagate"
     a.send(JSON.stringify({type:"room_update",key:"signText",value:text}));
     assert.equal((await textA).signText,text);
     assert.equal((await textB).signText,text);
+    // Full authoritative Othello integration: two players, legal placement,
+    // alternate turns, and a spectator joining after the board has changed.
+    const startedA=nextMessage(a,"othello_state",m=>m.match.status==="waiting");
+    const startedB=nextMessage(b,"othello_state",m=>m.match.status==="waiting");
+    a.send(JSON.stringify({type:"othello",action:"start"}));
+    assert.equal((await startedA).match.blackId,alice.playerId);
+    assert.equal((await startedB).match.status,"waiting");
+    const joinedA=nextMessage(a,"othello_state",m=>m.match.status==="playing");
+    const joinedB=nextMessage(b,"othello_state",m=>m.match.status==="playing");
+    b.send(JSON.stringify({type:"othello",action:"join"}));
+    assert.equal((await joinedA).match.whiteId,bob.playerId);
+    assert.equal((await joinedB).match.turn,1);
+    const placedA=nextMessage(a,"othello_state",m=>m.match.lastMove===19);
+    const placedB=nextMessage(b,"othello_state",m=>m.match.lastMove===19);
+    a.send(JSON.stringify({type:"othello",action:"place",index:19}));
+    assert.equal((await placedA).match.board[27],1);
+    assert.equal((await placedB).match.turn,2);
+    const illegal=nextMessage(a,"error",m=>m.reason.includes("手番"));
+    a.send(JSON.stringify({type:"othello",action:"place",index:26}));
+    assert.ok((await illegal).reason.includes("手番"));
+    const whiteMove=nextMessage(a,"othello_state",m=>m.match.lastMove===20);
+    b.send(JSON.stringify({type:"othello",action:"place",index:20}));
+    assert.equal((await whiteMove).match.board[20],2);
     // Late joiners receive the last persisted state, rather than a private client texture.
     c=await connected(url);
     const cWelcome=nextMessage(c,"welcome");
     const cState=nextMessage(c,"room_state");
+    const cOthello=nextMessage(c,"othello_state");
     c.send(JSON.stringify({type:"join",roomId:ROOM,displayName:"Charlie"}));
     assert.ok((await cWelcome).playerId);
     const saved=await cState;
     assert.equal(saved.monitorImage,jpeg);
     assert.equal(saved.lightShow,true);
     assert.equal(saved.signText,text);
+    const spectator=(await cOthello).match;
+    assert.equal(spectator.status,"playing");
+    assert.equal(spectator.lastMove,20);
+    assert.equal(spectator.board[19],1);
     c.close();
     // Phase 4-A full outdoor traversal: server must accept a walk from the
     // existing hallway spawn, through the actual doorway, then beyond x=10.

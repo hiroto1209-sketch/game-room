@@ -12,6 +12,7 @@ import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt } from "../shared/worldRules.js";
 import { inArena, validSignText, MAX_HP, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
+import {freshMatch,applyMove,legalMoves,counts,BLACK,WHITE,type OthelloMatch} from "../shared/othello.js";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
   const el=document.getElementById(id);
@@ -54,6 +55,11 @@ const joinRoomButton=byId<HTMLButtonElement>("join-room");
 const roomHud=byId("room-hud");
 const roomState=byId("room-state");
 const roomCount=byId("room-count");
+const menuOnlineNote=byId("menu-online-note");
+const othelloPanel=byId("othello-panel");
+const othelloStatus=byId("othello-status");
+const othelloScore=byId("othello-score");
+const othelloAction=byId<HTMLButtonElement>("othello-action");
 const music=new MusicController();
 const configuredServer=(import.meta.env.VITE_GAME_ROOM_SERVER_URL??"").trim();
 const invitation=new URLSearchParams(window.location.search).get("room");
@@ -69,6 +75,69 @@ let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
+let currentMatch:OthelloMatch=freshMatch();
+let aimOthelloIndex:number|null=null;
+let zoneVisibleUntil=0;
+let currentZone="PARTY LOUNGE";
+function setOthelloMatch(next:OthelloMatch):void{
+  currentMatch=next;
+  world?.othelloBoard.setMatch(next);
+  updateOthelloPanel();
+}
+function isMyOthelloTurn():boolean{
+  if(currentMatch.status!=="playing")return false;
+  if(!roomClient.online)return true; // Offline hot-seat uses one device.
+  return (currentMatch.turn===BLACK?currentMatch.blackId:currentMatch.whiteId)===roomClient.playerId;
+}
+function updateOthelloPanel():void{
+  const match=currentMatch,score=counts(match.board);
+  othelloScore.textContent="● "+score.black+" — "+score.white+" ○";
+  const names=match.blackName+" vs "+(match.whiteName||"参加待ち");
+  if(match.status==="idle"){
+    othelloStatus.textContent="床が8×8のオセロ盤に変わります";
+    othelloAction.textContent="対局を始める";othelloAction.disabled=false;
+  }else if(match.status==="waiting"){
+    othelloStatus.textContent=names+" · 白プレイヤー募集中";
+    const owner=roomClient.online&&match.blackId===roomClient.playerId;
+    othelloAction.textContent=owner?"対局をキャンセル":"白で参加する";
+    othelloAction.disabled=!roomClient.online;
+  }else if(match.status==="playing"){
+    othelloStatus.textContent=(match.turn===BLACK?"● 黒":"○ 白")+" の番"+(match.pass?" · パス発生":"");
+    const participant=roomClient.online&&(match.blackId===roomClient.playerId||match.whiteId===roomClient.playerId);
+    othelloAction.textContent=roomClient.online?(participant?"対局を終了":"観戦中"):"交互に石を置いてください";
+    othelloAction.disabled=!participant;
+  }else{
+    othelloStatus.textContent=match.winner===3?"引き分け":(match.winner===BLACK?"● 黒":"○ 白")+" の勝利！";
+    othelloAction.textContent="もう一度遊ぶ";othelloAction.disabled=false;
+  }
+}
+function othelloPrimaryAction():void{
+  if(!state.playing||state.paused)return;
+  if(roomClient.online){
+    if(currentMatch.status==="idle"||currentMatch.status==="finished")roomClient.othello("start");
+    else if(currentMatch.status==="waiting")roomClient.othello(currentMatch.blackId===roomClient.playerId?"reset":"join");
+    else if(currentMatch.status==="playing")roomClient.othello("reset");
+    return;
+  }
+  if(currentMatch.status==="idle"||currentMatch.status==="finished"){
+    setOthelloMatch({...freshMatch("PRACTICE_BLACK","BLACK"),
+      whiteId:"PRACTICE_WHITE",whiteName:"WHITE",status:"playing",revision:currentMatch.revision+1});
+    showToast("● ○ FLOOR OTHELLO 開始！");
+  }
+}
+function placeOthello(index:number):void{
+  if(!isMyOthelloTurn()){showToast("対戦者の手番になるまで観戦できます");return;}
+  if(!legalMoves(currentMatch.board,currentMatch.turn).includes(index)){
+    showToast("そこには置けません。光るマスを狙ってください");return;
+  }
+  if(roomClient.online){
+    if(!roomClient.othello("place",index))showToast("通信中です。少し待ってください");
+  }else{
+    const applied=applyMove(currentMatch,index);
+    if(applied)setOthelloMatch(applied);
+  }
+}
+
 const hpByPlayer=new Map<string,number>();
 function setHealth(value:number):void{
   currentHp=Math.max(0,Math.min(MAX_HP,value));
@@ -118,6 +187,10 @@ const roomClient=new RealtimeRoomClient({
     roomState.textContent=connection==="online"?"オンライン":connection==="offline"?"オフライン":connection==="connecting"?"接続中…":"再接続中…";
     roomCount.textContent=count+"人";
     roomHud.classList.toggle("hidden",connection==="offline");
+    menuOnlineNote.textContent=connection==="online"?"友達と同じルームに参加中":
+      connection==="offline"?"ソロプレイ中":
+      connection==="connecting"?"ルームに接続しています…":"通信を再接続しています…";
+    updateOthelloPanel();
     onlineNote.textContent=connection==="online"?"ルームに接続しました":
       connection==="reconnecting"?"通信を再接続しています":"オンラインルームを準備しています";
   },
@@ -127,6 +200,7 @@ const roomClient=new RealtimeRoomClient({
   },
   onPlayer:member=>{players?.upsertRemote(member);},
   onLeave:id=>{players?.removeRemote(id);},
+  onOthello:match=>setOthelloMatch(match),
   onRoomState:shared=>{
     if(!world)return;
     world.setPartyMode(shared.lightShow);
@@ -194,6 +268,7 @@ async function copyInvitation():Promise<void>{
 }
 function leaveOnlineRoom():void{
   roomClient.leave();
+  setOthelloMatch(freshMatch());
   setHealth(MAX_HP);
   clearRoomQuery();
   showToast("オンラインルームから退出しました。ソロプレイを続けられます");
@@ -281,7 +356,10 @@ function backToTitle():void{
   if(input)input.enabled=false;
   player?.reset();camera?.reset();
   lastOutdoorZone=false;
-  zoneIndicator.textContent="PARTY LOUNGE";
+  currentZone="PARTY LOUNGE";
+  zoneIndicator.classList.remove("show");
+  setOthelloMatch(freshMatch());
+  zoneIndicator.textContent=currentZone;
   if(player&&camera)camera.update(player.position);
   world?.resetParty();
   startScreen.classList.remove("dismissed");
@@ -291,10 +369,24 @@ function backToTitle():void{
   music.stop();
   byId<HTMLInputElement>("sound-enabled").checked=false;
 }
-function doInteraction():void{if(state.playing&&!state.paused)nearby?.action()}
+function doInteraction():void{
+  if(!state.playing||state.paused)return;
+  if(aimOthelloIndex!==null&&currentMatch.status==="playing"){
+    placeOthello(aimOthelloIndex);
+    return;
+  }
+  nearby?.action();
+}
 function updateInteraction():void{
   if(!world||!player)return;
   nearby=new InteractionManager(world.targets).closest(player.position);
+  if(currentMatch.status==="playing"&&aimOthelloIndex!==null
+    &&Math.abs(player.position.x)<7.2&&player.position.z>-11&&player.position.z<0){
+    const square=aimOthelloIndex;
+    nearby={x:player.position.x,z:player.position.z,
+      label:"オセロ "+(Math.floor(square/8)+1)+"行 "+(square%8+1)+"列",
+      action:()=>placeOthello(square)};
+  }
   if(!nearby){interaction.classList.add("hidden");return;}
   interactionText.textContent=nearby.label;
   interaction.classList.remove("hidden");
@@ -313,7 +405,18 @@ function update(dt:number):void{
     const nextZone=inOutdoor?
       (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"BLOCK GROVE":"MOONLIT PLAZA") :
       "PARTY LOUNGE · 東側の扉から外へ";
-    if(zoneIndicator.textContent!==nextZone)zoneIndicator.textContent=nextZone;
+    if(nextZone!==currentZone){
+      currentZone=nextZone;
+      zoneIndicator.textContent=nextZone;
+      zoneIndicator.classList.add("show");
+      zoneVisibleUntil=performance.now()+2200;
+    }
+    if(zoneVisibleUntil&&performance.now()>zoneVisibleUntil){
+      zoneVisibleUntil=0;zoneIndicator.classList.remove("show");
+    }
+    const nearBoard=Math.abs(player.position.x)<7.5&&player.position.z>-11&&player.position.z<0;
+    othelloPanel.classList.toggle("hidden",!nearBoard);
+    aimOthelloIndex=nearBoard?world.othelloBoard.aim(world.camera):null;
     const fighting=inArena(player.position);
     combatHud.classList.toggle("hidden",!fighting);
     shootButton.classList.toggle("hidden",!fighting);
@@ -361,6 +464,7 @@ function registerUi():void{
   byId("copy-invite").addEventListener("click",()=>{void copyInvitation();});
   byId("leave-room").addEventListener("click",leaveOnlineRoom);
   byId("start-button").addEventListener("click",start);
+  othelloAction.addEventListener("click",othelloPrimaryAction);
   byId("close-sign").addEventListener("click",closeSign);
   byId("save-sign").addEventListener("click",saveSign);
   signText.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveSign()}});
@@ -434,6 +538,7 @@ function initialize():void{
       showToast("照明の共有に失敗しました");
   },openSign);
   blaster=new BlasterEffects(world.scene);
+  setOthelloMatch(currentMatch);
   player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
   camera=new CameraController(world.camera);
   players=new PlayerManager(world.scene);
