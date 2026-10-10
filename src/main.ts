@@ -114,7 +114,8 @@ function lookWhileFiring(e:PointerEvent):void{
 }
 function startFiring():void{
   if(!state.playing||state.paused||!weaponUnlocked||peaceful)return;
-  stopFiring();
+  // Do not reset the just-acquired FIRE pointer when restarting auto-fire.
+  if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
   fireBlaster();
   fireHeld=setInterval(()=>{if(state.playing&&!state.paused)fireBlaster();else stopFiring()},425);
 }
