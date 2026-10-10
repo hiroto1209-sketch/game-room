@@ -3,10 +3,17 @@ export type DecoItem={x:number;z:number;size?:number;twist?:number;height?:numbe
 export type ChunkData={cx:number;cz:number;centerX:number;centerZ:number;grass:DecoItem[];trees:DecoItem[];rocks:DecoItem[];blocks:DecoItem[]};
 export const WORLD_SEED:number;
 export const OUTDOOR:{minX:number;maxX:number;minZ:number;maxZ:number;chunkSize:number;columns:number;rows:number};
+export const HOUSE:{
+  main:{minX:number;maxX:number;minZ:number;maxZ:number};
+  hall:{minX:number;maxX:number;minZ:number;maxZ:number};
+  armory:{minX:number;maxX:number;minZ:number;maxZ:number}};
 export const DOOR:{x:number;minZ:number;maxZ:number};
 export const POND:{x:number;z:number;rx:number;rz:number};
 export const SPAWN:{x:number;y:number;z:number};
 export function groundHeightAt(x:number,z:number):number;
+export function terrainVisualHeightAt(x:number,z:number):number;
+export function insideHouse(x:number,z:number,margin?:number):boolean;
+export function crossesHouseWall(from:{x:number;z:number},to:{x:number;z:number}):boolean;
 export function terrainSlopeAt(x:number,z:number):number;
 export function shotObstructed(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number}):boolean;
 export function hashCell(cx:number,cz:number,seed?:number):number;
