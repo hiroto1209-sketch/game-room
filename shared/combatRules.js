@@ -25,17 +25,22 @@ export function raySphereDistance(origin,dir,center,radius){
   const hit=along-Math.sqrt(Math.max(0,radius*radius-d2));
   return hit>=0?hit:null;
 }
-export function findHitscanTarget(shooter,players,yaw,pitch){
+export function findHitscanTarget(shooter,players,yaw,pitch,occluded=()=>false){
   const dir=aimDirection(yaw,pitch);
   let best=null,dist=RANGE+1;
   // One approximated chest and head sphere per eligible player.
   for(const p of players){
-    if(p.id===shooter.id||p.hp<=0||!inArena(p.position))continue;
+    if(p.id===shooter.id||p.hp<=0)continue;
     const base=p.position;
     const body=raySphereDistance(shooter.position,dir,{x:base.x,y:base.y-.80,z:base.z},.59);
     const head=raySphereDistance(shooter.position,dir,{x:base.x,y:base.y-.12,z:base.z},.31);
     const hit=Math.min(body??Infinity,head??Infinity);
-    if(hit<=RANGE&&hit<dist){best=p;dist=hit}
+    if(hit<=RANGE&&hit<dist&&!occluded(shooter.position,{
+      x:shooter.position.x+dir.x*hit,y:shooter.position.y+dir.y*hit,z:shooter.position.z+dir.z*hit
+    })){best=p;dist=hit}
   }
   return best;
 }
+
+export const WEAPON_CODE="NEON777";
+export function validUnlockCode(v){return typeof v==="string"&&v.length<=24&&/^[A-Z0-9]+$/.test(v)}
