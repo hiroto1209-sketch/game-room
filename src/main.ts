@@ -40,6 +40,7 @@ const hpFill=byId("hp-fill");
 const combatNote=byId("combat-note");
 const combatHud=byId("combat-hud");
 const shootButton=byId<HTMLButtonElement>("shoot-button");
+const aimButton=byId<HTMLButtonElement>("aim-button");
 const crosshair=byId("crosshair");
 const secretTrigger=byId<HTMLButtonElement>("secret-trigger");
 const secretOverlay=byId("secret-overlay");
@@ -85,6 +86,25 @@ let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
+let aiming=false;
+let fireHeld:ReturnType<typeof setInterval>|null=null;
+function setAimMode(enabled:boolean):void{
+  if(!world)return;
+  aiming=enabled&&weaponUnlocked&&!peaceful&&state.playing&&!state.paused;
+  aimButton.classList.toggle("aiming",aiming);
+  crosshair.classList.toggle("aiming",aiming);
+  world.camera.fov=aiming?55:window.innerWidth<window.innerHeight?76:71;
+  world.camera.updateProjectionMatrix();
+}
+function stopFiring():void{
+  if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
+}
+function startFiring():void{
+  if(!state.playing||state.paused||!weaponUnlocked||peaceful)return;
+  stopFiring();
+  fireBlaster();
+  fireHeld=setInterval(()=>{if(state.playing&&!state.paused)fireBlaster();else stopFiring()},425);
+}
 let weaponUnlocked=false,peaceful=true,weaponWanted=false;
 let logoTaps=0,lastLogoTapAt=0,lastCorrectionToast=0;
 try{weaponWanted=sessionStorage.getItem("game-room-weapon-easteregg")==="1"}catch{}
@@ -459,6 +479,7 @@ function start():void{
   window.setTimeout(()=>tips.classList.add("fading"),6900);
 }
 function openMenu():void{
+  stopFiring();setAimMode(false);
   if(state.editingMonitor||state.editingSign||state.editingSecret||state.editingMiniGames)return;
   state.paused=true;
   input?.reset();if(input)input.enabled=false;
@@ -472,6 +493,7 @@ function closeMenu():void{
   input?.reset();if(input)input.enabled=state.playing;
 }
 function backToTitle():void{
+  stopFiring();setAimMode(false);
   closeMiniGames();
   closeSecret();
   closeSign();
@@ -553,6 +575,7 @@ function update(dt:number):void{
     const armed=weaponUnlocked&&!peaceful;
     combatHud.classList.remove("hidden");
     shootButton.classList.toggle("hidden",!armed);
+    aimButton.classList.toggle("hidden",!armed);
     crosshair.classList.toggle("armed",armed);
     const candidate=armed?findHitscanTarget(
       {id:roomClient.playerId||"local",hp:currentHp,position:player.position},
@@ -622,11 +645,32 @@ function registerUi():void{
   byId("save-sign").addEventListener("click",saveSign);
   signText.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveSign()}});
   shootButton.addEventListener("pointerdown",e=>{
-    if(e.pointerType!=="mouse"){
-      e.preventDefault();e.stopPropagation();fireBlaster();
-    }
+    e.preventDefault();e.stopPropagation();startFiring();
   },{passive:false});
-  shootButton.addEventListener("click",fireBlaster);
+  for(const event of ["pointerup","pointercancel","lostpointercapture"]){
+    shootButton.addEventListener(event,stopFiring);
+  }
+  shootButton.addEventListener("click",e=>{
+    if(e.detail===0)fireBlaster(); // keyboard accessibility
+  });
+  aimButton.addEventListener("pointerdown",e=>{
+    e.preventDefault();e.stopPropagation();setAimMode(true);
+  },{passive:false});
+  for(const event of ["pointerup","pointercancel","lostpointercapture"]){
+    aimButton.addEventListener(event,()=>setAimMode(false));
+  }
+  window.addEventListener("pointerup",()=>{stopFiring();setAimMode(false);});
+  window.addEventListener("pointercancel",()=>{stopFiring();setAimMode(false);});
+  window.addEventListener("blur",()=>{stopFiring();setAimMode(false);});
+  canvas.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="mouse"){
+      if(e.button===0)startFiring();
+      if(e.button===2)setAimMode(true);
+    }
+  });
+  canvas.addEventListener("pointerup",e=>{
+    if(e.pointerType==="mouse"){stopFiring();if(e.button===2)setAimMode(false);}
+  });
   window.addEventListener("keydown",e=>{
     if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!state.editingSecret&&!(document.activeElement instanceof HTMLInputElement))
       fireBlaster();
@@ -703,7 +747,7 @@ function initialize():void{
   });
   input=new DualTouchController(canvas,joystick,thumb,{
     onLook:(dx,dy)=>{
-      if(!state.paused&&state.playing)camera?.drag(dx,dy,settings.sensitivity);
+      if(!state.paused&&state.playing)camera?.drag(dx,dy,settings.sensitivity*(aiming?.62:1));
     },
     onJump:()=>{if(state.playing&&!state.paused)player?.jump()},
     onMenu:()=>state.editingMiniGames?closeMiniGames():state.paused?closeMenu():openMenu(),
