@@ -12,6 +12,8 @@ import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt, shotObstructed } from "../shared/worldRules.js";
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
+import {QuickArcade} from "./games/QuickArcade";
+import {FireLookGesture} from "./input/FireLookGesture";
 import {freshMatch,applyMove,legalMoves,counts,BLACK,WHITE,type OthelloMatch} from "../shared/othello.js";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
@@ -84,11 +86,13 @@ let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
+let quickArcade:QuickArcade|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
 let aiming=false;
 let fireHeld:ReturnType<typeof setInterval>|null=null;
 let firePointerId:number|null=null,aimPointerId:number|null=null;
+const fireGesture=new FireLookGesture();
 function setAimMode(enabled:boolean):void{
   if(!world)return;
   aiming=enabled&&weaponUnlocked&&!peaceful&&state.playing&&!state.paused;
@@ -99,10 +103,19 @@ function setAimMode(enabled:boolean):void{
 }
 function stopFiring():void{
   if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
+  fireGesture.reset();firePointerId=null;
+}
+function lookWhileFiring(e:PointerEvent):void{
+  if(e.pointerId!==firePointerId||e.pointerType==="mouse"||!camera||!state.playing||state.paused)return;
+  const delta=fireGesture.move(e.pointerId,e.clientX,e.clientY);
+  if(delta&&(delta.dx||delta.dy))
+    camera.drag(delta.dx,delta.dy,settings.sensitivity*(aiming?.62:1));
+  e.preventDefault();
 }
 function startFiring():void{
   if(!state.playing||state.paused||!weaponUnlocked||peaceful)return;
-  stopFiring();
+  // Do not reset the just-acquired FIRE pointer when restarting auto-fire.
+  if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
   fireBlaster();
   fireHeld=setInterval(()=>{if(state.playing&&!state.paused)fireBlaster();else stopFiring()},425);
 }
@@ -493,7 +506,13 @@ function closeMenu():void{
   menu.classList.add("hidden");
   input?.reset();if(input)input.enabled=state.playing;
 }
+function openQuickGame(kind:"target"|"tic"):void{
+  if(!state.playing)return;
+  if(kind==="tic"&&state.editingMiniGames)closeMiniGames();
+  quickArcade?.open(kind);
+}
 function backToTitle():void{
+  quickArcade?.dismiss();
   stopFiring();setAimMode(false);
   closeMiniGames();
   closeSecret();
@@ -642,14 +661,22 @@ function registerUi():void{
   byId("minigames-close").addEventListener("click",closeMiniGames);
   byId("minigames-return").addEventListener("click",closeMiniGames);
   byId("open-minigames").addEventListener("click",openMiniGames);
+  byId("tic-tac-toe-open").addEventListener("click",()=>openQuickGame("tic"));
   byId("close-sign").addEventListener("click",closeSign);
   byId("save-sign").addEventListener("click",saveSign);
   signText.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveSign()}});
   shootButton.addEventListener("pointerdown",e=>{
-    e.preventDefault();e.stopPropagation();firePointerId=e.pointerId;startFiring();
+    e.preventDefault();e.stopPropagation();
+    if(!fireGesture.begin(e.pointerId,e.clientX,e.clientY))return;
+    firePointerId=e.pointerId;
+    try{shootButton.setPointerCapture(e.pointerId)}catch{}
+    startFiring();
   },{passive:false});
+  // Holding FIRE should not freeze the aim. The same firing thumb can drag
+  // the reticle, while a different finger can look on the right half of canvas.
+  shootButton.addEventListener("pointermove",lookWhileFiring,{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    shootButton.addEventListener(event,e=>{if(firePointerId===(e as PointerEvent).pointerId){firePointerId=null;stopFiring();}});
+    shootButton.addEventListener(event,e=>{if(firePointerId===(e as PointerEvent).pointerId){fireGesture.end(firePointerId);firePointerId=null;stopFiring();}});
   }
   shootButton.addEventListener("click",e=>{
     if(e.detail===0)fireBlaster(); // keyboard accessibility
@@ -662,7 +689,7 @@ function registerUi():void{
   }
   const releaseWeaponPointer=(e:PointerEvent)=>{
     // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
-    if(e.pointerId===firePointerId){firePointerId=null;stopFiring();}
+    if(e.pointerId===firePointerId){fireGesture.end(e.pointerId);firePointerId=null;stopFiring();}
     if(e.pointerId===aimPointerId){aimPointerId=null;setAimMode(false);}
   };
   window.addEventListener("pointerup",releaseWeaponPointer);
@@ -670,7 +697,7 @@ function registerUi():void{
   window.addEventListener("blur",()=>{stopFiring();setAimMode(false);});
   canvas.addEventListener("pointerdown",e=>{
     if(e.pointerType==="mouse"){
-      if(e.button===0){firePointerId=e.pointerId;startFiring();}
+      if(e.button===0&&fireGesture.begin(e.pointerId,e.clientX,e.clientY)){firePointerId=e.pointerId;startFiring();}
       if(e.button===2){aimPointerId=e.pointerId;setAimMode(true);}
     }
   });
@@ -739,7 +766,7 @@ function initialize():void{
     // Solo mode stays local; joined rooms persist light-show changes for all peers.
     if(roomClient.online && !roomClient.setLightShow(enabled))
       showToast("照明の共有に失敗しました");
-  },openSign,openSecret,openMiniGames);
+  },openSign,openSecret,openMiniGames,()=>openQuickGame("target"));
   blaster=new BlasterEffects(world.scene);
   setOthelloMatch(currentMatch);
   player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
@@ -758,6 +785,16 @@ function initialize():void{
     onJump:()=>{if(state.playing&&!state.paused)player?.jump()},
     onMenu:()=>state.editingMiniGames?closeMiniGames():state.paused?closeMenu():openMenu(),
     onInteract:doInteraction
+  });
+  quickArcade=new QuickArcade({
+    onOpen:()=>{
+      stopFiring();setAimMode(false);state.paused=true;
+      player?.stop();input?.reset();if(input)input.enabled=false;
+      menu.classList.add("hidden");
+    },
+    onClose:()=>{
+      state.paused=false;input?.reset();if(input)input.enabled=state.playing;
+    }
   });
   input.enabled=false;
   weaponUnlocked=weaponWanted;peaceful=!weaponWanted;syncWeaponInfo();
