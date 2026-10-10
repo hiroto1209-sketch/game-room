@@ -148,3 +148,6 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #combat-hud #combat-note{font-size:9px;display:none}
 #shoot-button{right:max(109px,calc(env(safe-area-inset-right) + 105px));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 100px)}
 @media(max-height:570px){#combat-hud{bottom:calc(max(6px,env(safe-area-inset-bottom)) + 7px)}}
+
+/* Underlying #top-bar deliberately disables pointer-events, so enable the logo itself. */
+#secret-trigger{pointer-events:auto;cursor:pointer}
