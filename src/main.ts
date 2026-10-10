@@ -9,8 +9,8 @@ import { MusicController } from "./audio/MusicController";
 import { RealtimeRoomClient, type RoomConnectionState } from "./network/RealtimeRoomClient";
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
-import { worldBlocked, groundHeightAt } from "../shared/worldRules.js";
-import { inArena, validSignText, MAX_HP, findHitscanTarget } from "../shared/combatRules.js";
+import { worldBlocked, groundHeightAt, shotObstructed } from "../shared/worldRules.js";
+import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
 import {freshMatch,applyMove,legalMoves,counts,BLACK,WHITE,type OthelloMatch} from "../shared/othello.js";
 
@@ -41,6 +41,12 @@ const combatNote=byId("combat-note");
 const combatHud=byId("combat-hud");
 const shootButton=byId<HTMLButtonElement>("shoot-button");
 const crosshair=byId("crosshair");
+const secretTrigger=byId<HTMLButtonElement>("secret-trigger");
+const secretOverlay=byId("secret-overlay");
+const secretCode=byId<HTMLInputElement>("secret-code");
+const secretError=byId("secret-error");
+const peaceControl=byId<HTMLInputElement>("peace-mode");
+const weaponInfo=byId("weapon-info");
 const joystick=byId("joystick");
 const thumb=byId("joystick-thumb");
 const interaction=byId("interaction");
@@ -65,7 +71,7 @@ const configuredServer=(import.meta.env.VITE_GAME_ROOM_SERVER_URL??"").trim();
 const invitation=new URLSearchParams(window.location.search).get("room");
 const inviteRoomId=invitation&&isValidRoomId(invitation)?invitation:null;
 const settings={sensitivity:4,exposure:1,reducedMotion:false};
-const state={playing:false,paused:false,editingMonitor:false,editingSign:false,time:0,toastUntil:0};
+const state={playing:false,paused:false,editingMonitor:false,editingSign:false,editingSecret:false,time:0,toastUntil:0};
 let nearby:ReturnType<InteractionManager["closest"]>=null;
 let world:ReturnType<typeof createPartyWorld>|undefined;
 let player:PlayerController|undefined;
@@ -75,6 +81,41 @@ let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
+let weaponUnlocked=false,peaceful=true,weaponWanted=false;
+let logoTaps=0,lastLogoTapAt=0,lastCorrectionToast=0;
+try{weaponWanted=sessionStorage.getItem("game-room-weapon-easteregg")==="1"}catch{}
+function closeSecret():void{
+  if(!state.editingSecret)return;
+  state.editingSecret=false;secretOverlay.classList.add("hidden");state.paused=false;
+  input?.reset();if(input)input.enabled=state.playing;
+}
+function openSecret():void{
+  if(!state.playing||state.paused)return;
+  state.editingSecret=true;state.paused=true;
+  player?.stop();input?.reset();if(input)input.enabled=false;
+  secretCode.value="";secretError.textContent="";
+  secretOverlay.classList.remove("hidden");secretCode.focus();
+}
+function unlockSecret():void{
+  const code=secretCode.value.trim().toUpperCase();
+  if(code!==WEAPON_CODE){
+    secretError.textContent="そのコードでは解放できません";return;
+  }
+  if(roomClient.online){
+    if(!roomClient.unlockWeapon(code)){secretError.textContent="通信できません。もう一度お試しください";return;}
+    secretError.textContent="サーバーに照会しています…";
+  }else{
+    weaponUnlocked=true;peaceful=false;peaceControl.checked=false;
+    weaponWanted=true;try{sessionStorage.setItem("game-room-weapon-easteregg","1")}catch{}
+    closeSecret();showToast("✦ SECRET WEAPON UNLOCKED ✦");
+  }
+}
+function syncWeaponInfo():void{
+  peaceControl.checked=peaceful;
+  weaponInfo.textContent=weaponUnlocked?
+    "✦ SECRET WEAPON UNLOCKED · "+(peaceful?"ピースモード":"対戦モード"):
+    "ブラスター未解放 · GAME ROOMロゴに秘密があるかも";
+}
 let currentMatch:OthelloMatch=freshMatch();
 let aimOthelloIndex:number|null=null;
 let zoneVisibleUntil=0;
@@ -143,7 +184,7 @@ function setHealth(value:number):void{
   currentHp=Math.max(0,Math.min(MAX_HP,value));
   hpLabel.textContent="HP "+currentHp+" / "+MAX_HP;
   hpFill.style.width=currentHp+"%";
-  combatNote.textContent=currentHp===0?"リスポーンを待っています…":"アリーナ内のみ対戦可能";
+  combatNote.textContent=currentHp===0?"リスポーンを待っています…":"HP "+currentHp;
 }
 function openSign():void{
   if(!state.playing||state.paused||!world)return;
@@ -170,7 +211,7 @@ function saveSign():void{
 }
 function fireBlaster():void{
   if(!state.playing||state.paused||!player||!camera||!blaster)return;
-  if(!inArena(player.position))return;
+  if(!weaponUnlocked||peaceful){showToast("隠しブラスターの解放かピースモード設定を確認してください");return;}
   if(currentHp<=0)return;
   const now=performance.now();if(now-lastShotAt<410)return;
   lastShotAt=now;
@@ -201,6 +242,29 @@ const roomClient=new RealtimeRoomClient({
   onPlayer:member=>{players?.upsertRemote(member);},
   onLeave:id=>{players?.removeRemote(id);},
   onOthello:match=>setOthelloMatch(match),
+  onSpawn:position=>{
+    player?.teleport(position.x,position.y,position.z);
+    if(player&&camera)camera.update(player.position);
+    setHealth(MAX_HP);
+    // The public easter-egg code is revalidated by the Worker on every reconnect.
+    if(weaponWanted)roomClient.unlockWeapon(WEAPON_CODE);
+  },
+  onCorrection:position=>{
+    player?.teleport(position.x,position.y,position.z);
+    if(player&&camera)camera.update(player.position);
+    const now=performance.now();
+    if(now-lastCorrectionToast>5000){
+      lastCorrectionToast=now;showToast("位置の同期を調整しました");
+    }
+  },
+  onWeaponState:(unlocked,serverPeace)=>{
+    weaponUnlocked=unlocked;peaceful=serverPeace;syncWeaponInfo();
+    if(unlocked){
+      weaponWanted=true;
+      try{sessionStorage.setItem("game-room-weapon-easteregg","1")}catch{}
+      closeSecret();showToast("✦ SECRET WEAPON UNLOCKED ✦");
+    }
+  },
   onRoomState:shared=>{
     if(!world)return;
     world.setPartyMode(shared.lightShow);
@@ -225,7 +289,10 @@ const roomClient=new RealtimeRoomClient({
     if(player&&camera)camera.update(player.position);
     setHealth(MAX_HP);showToast("✨ RESPAWN — 戻ってきました");
   },
-  onError:message=>showToast(message)
+  onError:message=>{
+    if(state.editingSecret)secretError.textContent=message;
+    else showToast(message);
+  }
 },configuredServer);
 function clearRoomQuery():void{
   const url=new URL(window.location.href);
@@ -268,6 +335,7 @@ async function copyInvitation():Promise<void>{
 }
 function leaveOnlineRoom():void{
   roomClient.leave();
+  weaponUnlocked=weaponWanted;peaceful=false;syncWeaponInfo();
   setOthelloMatch(freshMatch());
   setHealth(MAX_HP);
   clearRoomQuery();
@@ -337,7 +405,7 @@ function start():void{
   window.setTimeout(()=>tips.classList.add("fading"),6900);
 }
 function openMenu():void{
-  if(state.editingMonitor||state.editingSign)return;
+  if(state.editingMonitor||state.editingSign||state.editingSecret)return;
   state.paused=true;
   input?.reset();if(input)input.enabled=false;
   player?.stop();
@@ -350,6 +418,7 @@ function closeMenu():void{
   input?.reset();if(input)input.enabled=state.playing;
 }
 function backToTitle():void{
+  closeSecret();
   closeSign();
   closeMonitor();
   closeMenu();roomClient.leave();clearRoomQuery();state.playing=false;
@@ -417,17 +486,17 @@ function update(dt:number):void{
     const nearBoard=Math.abs(player.position.x)<7.5&&player.position.z>-11&&player.position.z<0;
     othelloPanel.classList.toggle("hidden",!nearBoard);
     aimOthelloIndex=nearBoard?world.othelloBoard.aim(world.camera):null;
-    const fighting=inArena(player.position);
-    combatHud.classList.toggle("hidden",!fighting);
-    shootButton.classList.toggle("hidden",!fighting);
-    crosshair.classList.toggle("armed",fighting);
-    const candidate=fighting?findHitscanTarget(
+    const armed=weaponUnlocked&&!peaceful;
+    combatHud.classList.remove("hidden");
+    shootButton.classList.toggle("hidden",!armed);
+    crosshair.classList.toggle("armed",armed);
+    const candidate=armed?findHitscanTarget(
       {id:roomClient.playerId||"local",hp:currentHp,position:player.position},
       players.getRemoteSnapshots().map(p=>({id:p.id,position:p.position,hp:hpByPlayer.get(p.id)??100})),
-      camera.yaw,camera.pitch
+      camera.yaw,camera.pitch,shotObstructed
     ):null;
     crosshair.classList.toggle("targeted",Boolean(candidate));
-    if(fighting&&currentHp>0){
+    if(armed&&currentHp>0){
       const note=!roomClient.online?"ソロ練習 · ダメージ同期なし":
         candidate?"TARGET LOCK · HP "+(hpByPlayer.get(candidate.id)??100):
         "FIREでブラスター発射";
@@ -464,6 +533,20 @@ function registerUi():void{
   byId("copy-invite").addEventListener("click",()=>{void copyInvitation();});
   byId("leave-room").addEventListener("click",leaveOnlineRoom);
   byId("start-button").addEventListener("click",start);
+  secretTrigger.addEventListener("click",()=>{
+    const now=performance.now();
+    logoTaps=now-lastLogoTapAt<2400?logoTaps+1:1;lastLogoTapAt=now;
+    if(logoTaps>=5){logoTaps=0;openSecret()}
+  });
+  byId("secret-close").addEventListener("click",closeSecret);
+  byId("secret-unlock").addEventListener("click",unlockSecret);
+  secretCode.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();unlockSecret()}});
+  peaceControl.addEventListener("change",()=>{
+    const desired=peaceControl.checked;
+    if(roomClient.online){
+      if(!roomClient.setPeaceMode(desired))peaceControl.checked=peaceful;
+    }else{peaceful=desired;syncWeaponInfo();}
+  });
   othelloAction.addEventListener("click",othelloPrimaryAction);
   byId("close-sign").addEventListener("click",closeSign);
   byId("save-sign").addEventListener("click",saveSign);
@@ -475,7 +558,7 @@ function registerUi():void{
   },{passive:false});
   shootButton.addEventListener("click",fireBlaster);
   window.addEventListener("keydown",e=>{
-    if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!(document.activeElement instanceof HTMLInputElement))
+    if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!state.editingSecret&&!(document.activeElement instanceof HTMLInputElement))
       fireBlaster();
   });
   byId("menu-button").addEventListener("click",()=>state.paused?closeMenu():openMenu());
@@ -557,6 +640,7 @@ function initialize():void{
     onInteract:doInteraction
   });
   input.enabled=false;
+  weaponUnlocked=weaponWanted;peaceful=!weaponWanted;syncWeaponInfo();
   window.addEventListener("resize",()=>world?.resize());
   registerUi();
   camera.update(player.position);
