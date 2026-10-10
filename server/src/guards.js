@@ -49,7 +49,12 @@ export function decodeMessage(raw){
       return m.action==="place"?{type:"othello",action:m.action,index:m.index}:{type:"othello",action:m.action};
     if(m.type==="join"&&validRoomId(m.roomId)&&typeof m.displayName==="string"&&m.displayName.length<=80)
       return {type:"join",roomId:m.roomId,displayName:safeName(m.displayName)};
-    if(m.type==="move"&&validPosition(m.position)&&typeof m.yaw==="number"&&Number.isFinite(m.yaw)
+    // Decode finite move packets independently of world bounds. The server
+    // then rejects out-of-bounds moves with a position correction, not a
+    // permanent generic "Invalid message" loop.
+    if(m.type==="move"&&m.position&&typeof m.position==="object"
+      &&["x","y","z"].every(k=>typeof m.position[k]==="number"&&Number.isFinite(m.position[k]))
+      &&typeof m.yaw==="number"&&Number.isFinite(m.yaw)
       &&Math.abs(m.yaw)<=1e6&&typeof m.pitch==="number"&&Number.isFinite(m.pitch)
       &&Math.abs(m.pitch)<=1.22&&Number.isSafeInteger(m.sequence)&&m.sequence>=0)
       return {type:"move",position:{...m.position},yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
