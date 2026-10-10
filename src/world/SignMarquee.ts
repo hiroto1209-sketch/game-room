@@ -35,14 +35,12 @@ export class SignMarquee{
     ctx.font="900 128px -apple-system,system-ui,sans-serif";
     this.width=ctx.measureText(this.text).width;
     // Keep short text huge and centered; scroll longer copy instead of tiny text.
-    this.ticker=this.width>880;
-    if(!this.ticker){
-      while(this.fontSize>75){
-        ctx.font="900 "+this.fontSize+"px -apple-system,system-ui,sans-serif";
-        if(ctx.measureText(this.text).width<=900)break;
-        this.fontSize-=4;
-      }
+    while(this.fontSize>62){
+      ctx.font="900 "+this.fontSize+"px -apple-system,system-ui,sans-serif";
+      if(ctx.measureText(this.text).width<=895)break;
+      this.fontSize-=4;
     }
+    this.ticker=ctx.measureText(this.text).width>895;
     this.elapsed=0;
     this.draw(false);
   }
@@ -77,7 +75,7 @@ export class SignMarquee{
       ctx.textAlign="left";
       const len=ctx.measureText(this.text).width;
       const wrap=w+len+120;
-      const x=w+20-(this.elapsed*120)%wrap;
+      const x=140-(this.elapsed*120)%wrap;
       ctx.fillText(this.text,x,134);
       // Second copy creates seamless loop for narrower text.
       ctx.fillText(this.text,x+len+170,134);
