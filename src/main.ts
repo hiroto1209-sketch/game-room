@@ -649,7 +649,7 @@ function registerUi():void{
     e.preventDefault();e.stopPropagation();firePointerId=e.pointerId;startFiring();
   },{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    shootButton.addEventListener(event,e=>{if(firePointerId===e.pointerId){firePointerId=null;stopFiring();}});
+    shootButton.addEventListener(event,e=>{if(firePointerId===(e as PointerEvent).pointerId){firePointerId=null;stopFiring();}});
   }
   shootButton.addEventListener("click",e=>{
     if(e.detail===0)fireBlaster(); // keyboard accessibility
@@ -658,7 +658,7 @@ function registerUi():void{
     e.preventDefault();e.stopPropagation();aimPointerId=e.pointerId;setAimMode(true);
   },{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    aimButton.addEventListener(event,e=>{if(aimPointerId===e.pointerId){aimPointerId=null;setAimMode(false);}});
+    aimButton.addEventListener(event,e=>{if(aimPointerId===(e as PointerEvent).pointerId){aimPointerId=null;setAimMode(false);}});
   }
   const releaseWeaponPointer=(e:PointerEvent)=>{
     // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
