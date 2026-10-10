@@ -13,6 +13,7 @@ import { worldBlocked, groundHeightAt, shotObstructed } from "../shared/worldRul
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
 import {QuickArcade} from "./games/QuickArcade";
+import {FireLookGesture} from "./input/FireLookGesture";
 import {freshMatch,applyMove,legalMoves,counts,BLACK,WHITE,type OthelloMatch} from "../shared/othello.js";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
@@ -91,7 +92,7 @@ let lastShotAt=0;
 let aiming=false;
 let fireHeld:ReturnType<typeof setInterval>|null=null;
 let firePointerId:number|null=null,aimPointerId:number|null=null;
-let fireLastX=0,fireLastY=0;
+const fireGesture=new FireLookGesture();
 function setAimMode(enabled:boolean):void{
   if(!world)return;
   aiming=enabled&&weaponUnlocked&&!peaceful&&state.playing&&!state.paused;
@@ -102,13 +103,13 @@ function setAimMode(enabled:boolean):void{
 }
 function stopFiring():void{
   if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
+  fireGesture.reset();firePointerId=null;
 }
 function lookWhileFiring(e:PointerEvent):void{
   if(e.pointerId!==firePointerId||e.pointerType==="mouse"||!camera||!state.playing||state.paused)return;
-  const dx=Math.max(-65,Math.min(65,e.clientX-fireLastX));
-  const dy=Math.max(-65,Math.min(65,e.clientY-fireLastY));
-  fireLastX=e.clientX;fireLastY=e.clientY;
-  if(dx||dy)camera.drag(dx,dy,settings.sensitivity*(aiming?.62:1));
+  const delta=fireGesture.move(e.pointerId,e.clientX,e.clientY);
+  if(delta&&(delta.dx||delta.dy))
+    camera.drag(delta.dx,delta.dy,settings.sensitivity*(aiming?.62:1));
   e.preventDefault();
 }
 function startFiring():void{
@@ -665,8 +666,8 @@ function registerUi():void{
   signText.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();saveSign()}});
   shootButton.addEventListener("pointerdown",e=>{
     e.preventDefault();e.stopPropagation();
+    if(!fireGesture.begin(e.pointerId,e.clientX,e.clientY))return;
     firePointerId=e.pointerId;
-    fireLastX=e.clientX;fireLastY=e.clientY;
     try{shootButton.setPointerCapture(e.pointerId)}catch{}
     startFiring();
   },{passive:false});
@@ -674,7 +675,7 @@ function registerUi():void{
   // the reticle, while a different finger can look on the right half of canvas.
   shootButton.addEventListener("pointermove",lookWhileFiring,{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    shootButton.addEventListener(event,e=>{if(firePointerId===(e as PointerEvent).pointerId){firePointerId=null;stopFiring();}});
+    shootButton.addEventListener(event,e=>{if(firePointerId===(e as PointerEvent).pointerId){fireGesture.end(firePointerId);firePointerId=null;stopFiring();}});
   }
   shootButton.addEventListener("click",e=>{
     if(e.detail===0)fireBlaster(); // keyboard accessibility
@@ -687,7 +688,7 @@ function registerUi():void{
   }
   const releaseWeaponPointer=(e:PointerEvent)=>{
     // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
-    if(e.pointerId===firePointerId){firePointerId=null;stopFiring();}
+    if(e.pointerId===firePointerId){fireGesture.end(e.pointerId);firePointerId=null;stopFiring();}
     if(e.pointerId===aimPointerId){aimPointerId=null;setAimMode(false);}
   };
   window.addEventListener("pointerup",releaseWeaponPointer);
@@ -695,7 +696,7 @@ function registerUi():void{
   window.addEventListener("blur",()=>{stopFiring();setAimMode(false);});
   canvas.addEventListener("pointerdown",e=>{
     if(e.pointerType==="mouse"){
-      if(e.button===0){firePointerId=e.pointerId;startFiring();}
+      if(e.button===0&&fireGesture.begin(e.pointerId,e.clientX,e.clientY)){firePointerId=e.pointerId;startFiring();}
       if(e.button===2){aimPointerId=e.pointerId;setAimMode(true);}
     }
   });
