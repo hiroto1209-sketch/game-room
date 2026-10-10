@@ -18,6 +18,7 @@ let toastHandler = () => {};
 let monitorEditHandler = () => {};
 let lightEditHandler = () => {};
 let signEditHandler=()=>{};
+let armoryHandler=()=>{};
 function showToast(message){toastHandler(message);}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let randomSeed=87241;
@@ -236,7 +237,21 @@ function populate(){
   cube(6.18,2,8,7.64,4.1,.3,wall,true);
   cube(-2.3,2,13,.24,4.1,10.3,wall,true);
   cube(2.3,2,13,.24,4.1,10.3,wall,true);
-  cube(0,2,18,4.7,4.1,.3,wall,true);
+  // THE ARMORY: enlarge the original rear corridor into a full 10x8
+  // accessible wing, retaining every original party-room prop and doorway.
+  cube(0,-.16,22,10.05,.3,8.05,wood);
+  cube(0,4.15,22,10.05,.23,8.05,hallCeiling);
+  cube(-5,2,22,.3,4.1,8.2,wall,true);
+  cube(5,2,22,.3,4.1,8.2,wall,true);
+  cube(0,2,26,10.15,4.1,.3,wall,true);
+  // At z=18 the old solid end-wall becomes an open 4.6m-wide portal.
+  cube(-3.7,2,18,2.7,4.1,.3,wall,true);
+  cube(3.7,2,18,2.7,4.1,.3,wall,true);
+  for(const x of [-4.65,4.65]){
+    cube(x,2.16,23,.05,3.48,.1,mat("#f0b7b3"));
+  }
+  cube(0,3.91,18,4.55,.10,.22,mat("#f0b7b3"));
+
   const edge=mat("#b99392"),brass=mat("#e3ae8a",{metalness:.45,roughness:.38});
   for(let z=-14;z<8;z+=3.2){
     cube(-9.83,1.9,z,.045,3.5,.08,edge);
@@ -251,6 +266,25 @@ function populate(){
   cube(2.23,2,7.93,.16,4,.17,brass);
   cube(0,3.97,7.93,4.55,.14,.17,brass);
   sign("PARTY INSIDE","FOLLOW THE LIGHTS",0,3.42,7.78,3.6,.64,"#ffc6df");
+  sign("SECRET ARMORY","FIND THE CODE",0,3.31,25.76,4.3,.82,"#a1ffe9");
+  // Full-size low-cost ATM kiosk: flat static terminal screen, no extra lights
+  // or animation. The entire kiosk is visually obvious at walking height.
+  const atmShell=mat("#26253e",{metalness:.23,roughness:.42});
+  cube(3.0,1.19,23.4,1.42,2.38,.82,atmShell,true);
+  cube(3.0,1.80,22.965,1.21,1.08,.07,
+    mat("#0c1a23",{emissive:"#255a5d",emissiveIntensity:.45}));
+  const atmScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.09,.83),
+    new THREE.MeshBasicMaterial({map:textImage("NEON 777","WEAPON ATM","#9fffea"),
+      side:THREE.DoubleSide,depthWrite:false}));
+  atmScreen.position.set(3.0,1.80,22.921);
+  scene.add(atmScreen);
+  cube(3,1.10,22.965,.94,.20,.08,mat("#5a6887"));
+  cube(3,.88,22.917,.74,.06,.10,mat("#89ecde",{emissive:"#387b77",emissiveIntensity:.2}));
+  targets.push({x:3,z:21.65,label:"✦ 武器ATM：秘密のコードを入力",
+    action:()=>armoryHandler()});
+  // Prominent guide so a guest spawned looking toward the party room can
+  // discover the new extension by turning around.
+  sign("ARMORY →","CODE TERMINAL",0,3.27,17.62,3.8,.74,"#a4ffe3");
   // Make the entire former GAME ROOM title panel editable rather than a tiny footer.
   cube(0,2.5,-15.74,7.64,1.81,.14,mat("#1f162a"));
   cube(0,3.42,-15.71,7.7,.055,.08,mat("#e8aed0",{emissive:"#b963a0",emissiveIntensity:.45}));
@@ -304,12 +338,13 @@ function resize(){
   renderer.setSize(w,h,false);
 }
 
-export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEditSign){
+export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEditSign,onArmory){
   el.canvas=canvas;
   toastHandler=onToast;
   monitorEditHandler=onEditMonitor;
   lightEditHandler=onEditLights;
   signEditHandler=onEditSign;
+  armoryHandler=onArmory;
   populate();
   return {
     scene,camera,renderer,colliders,targets,monitor,outdoor,signBoard,othelloBoard,quality,

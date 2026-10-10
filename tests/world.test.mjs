@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   OUTDOOR,DOOR,POND,chunkData,hashCell,groundHeightAt,insidePond,
-  validWorldPosition,validWorldStep,worldBlocked,crossesClosedEastWall,shotObstructed
+  validWorldPosition,validWorldStep,worldBlocked,crossesClosedEastWall,shotObstructed,
+  terrainVisualHeightAt,insideHouse,crossesHouseWall
 } from "../shared/worldRules.js";
 import {PlayerController} from "../src/player/PlayerController.ts";
 import {withinMovementSpeed} from "../server/src/guards.js";
@@ -77,4 +78,33 @@ test("static coastal terrain varies but keeps paths and existing indoor flat",()
 test("indoor wall blocks shots while real exit passage stays open",()=>{
   assert.equal(shotObstructed({x:8,y:1.65,z:-9},{x:12,y:1.65,z:-9}),true);
   assert.equal(shotObstructed({x:8,y:1.65,z:-5},{x:12,y:1.65,z:-5}),false);
+});
+
+test("rear and west side of PARTY HOUSE are backed by valid walkable terrain",()=>{
+  for(const [x,z] of [[-15,0],[-18,-23],[-9,-20],[-5,31],[7,-24]]){
+    assert.equal(validWorldPosition({x,y:1.65,z}),true,`missing ground at ${x},${z}`);
+    assert.equal(worldBlocked(x,z,.36),false,`unexpected invisible obstacle at ${x},${z}`);
+  }
+  assert.equal(validWorldPosition({x:-26,y:1.65,z:0}),false);
+  assert.equal(worldBlocked(-25,0,.36),true);
+});
+test("pond remains visible above depressed ground and collider matches ellipse",()=>{
+  assert.ok(terrainVisualHeightAt(POND.x,POND.z)<-.25,"pond bed must be below surface");
+  assert.equal(insidePond(POND.x,POND.z),true);
+  assert.equal(worldBlocked(POND.x,POND.z,.36),true,"water cannot be walked through");
+  assert.equal(insidePond(POND.x+POND.rx+3,POND.z),false);
+  assert.ok(terrainVisualHeightAt(POND.x+POND.rx+3,POND.z)>=0);
+  assert.equal(groundHeightAt(POND.x,POND.z),0,"physics height stays level under pond");
+});
+test("extended armory has a real internal route, solid walls and ceiling",()=>{
+  assert.equal(insideHouse(0,22),true);
+  assert.equal(validWorldStep({x:0,y:1.65,z:17.6},{x:0,y:1.65,z:18.5}),true);
+  assert.equal(validWorldStep({x:2,y:1.65,z:24},{x:2,y:1.65,z:25.4}),true);
+  assert.equal(crossesHouseWall({x:3.5,z:17},{x:3.5,z:19}),true,
+    "solid part of old corridor wall must not be breached");
+  assert.equal(crossesHouseWall({x:0,z:17},{x:0,z:19}),false);
+  assert.equal(validWorldStep({x:0,y:1.65,z:24},{x:0,y:1.65,z:27}),false);
+  assert.equal(validWorldStep({x:0,y:1.65,z:-15},{x:0,y:1.65,z:-17}),false);
+  assert.equal(crossesClosedEastWall({x:9.8,z:-21},{x:10.4,z:-21}),false,
+    "east exit wall does not extend infinitely along z");
 });

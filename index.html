@@ -49,7 +49,7 @@
         <span id="othello-score">● 2 — 2 ○</span>
         <button id="othello-action" type="button">対局を始める</button>
       </div>
-      <div id="tips">左側をスライドで移動 <span>•</span> 右側をスライドで見渡す</div>
+      <div id="tips">左で移動・右で視点操作 <span>•</span> 入口奥に武器ATM</div>
       <div id="joystick" aria-hidden="true"><div id="joystick-thumb"></div></div>
       <button id="shoot-button" class="round-action hidden" type="button" aria-label="エネルギーブラスターを発射"><span>✦</span><small>FIRE</small></button>
       <button id="jump-button" class="round-action" aria-label="ジャンプ"><span>↑</span><small>JUMP</small></button>
@@ -63,9 +63,9 @@
 
     <div id="secret-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="secret-title">
       <div class="monitor-card">
-        <div class="menu-head"><div><span class="overline">HIDDEN DISCOVERY</span><h2 id="secret-title">SECRET TERMINAL</h2></div>
+        <div class="menu-head"><div><span class="overline">PARTY HOUSE / ARMORY</span><h2 id="secret-title">NEON WEAPON ATM</h2></div>
           <button id="secret-close" class="icon-button" type="button" aria-label="閉じる">×</button></div>
-        <p class="monitor-help">このワールドに眠る秘密のコードを見つけてください。</p>
+        <p class="monitor-help">パーティハウス奥のARMORY端末です。秘密のコードでエネルギーブラスターを解放できます。</p>
         <label class="monitor-label" for="secret-code">HIDDEN CODE</label>
         <input id="secret-code" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="********" />
         <div id="secret-error" role="status" aria-live="polite"></div>

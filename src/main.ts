@@ -533,6 +533,7 @@ function registerUi():void{
   byId("copy-invite").addEventListener("click",()=>{void copyInvitation();});
   byId("leave-room").addEventListener("click",leaveOnlineRoom);
   byId("start-button").addEventListener("click",start);
+  // Logo shortcut is optional: the real in-world ARMORY ATM is the main path.
   secretTrigger.addEventListener("click",()=>{
     const now=performance.now();
     logoTaps=now-lastLogoTapAt<2400?logoTaps+1:1;lastLogoTapAt=now;
@@ -619,7 +620,7 @@ function initialize():void{
     // Solo mode stays local; joined rooms persist light-show changes for all peers.
     if(roomClient.online && !roomClient.setLightShow(enabled))
       showToast("照明の共有に失敗しました");
-  },openSign);
+  },openSign,openSecret);
   blaster=new BlasterEffects(world.scene);
   setOthelloMatch(currentMatch);
   player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);

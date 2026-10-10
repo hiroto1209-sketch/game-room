@@ -5,7 +5,11 @@ import {inArena} from "./combatRules.js";
  * No remote assets, randomness or browser-specific APIs.
  */
 export const WORLD_SEED=419261;
-export const OUTDOOR={minX:8,maxX:104,minZ:-48,maxZ:48,chunkSize:16,columns:6,rows:6};
+// Exterior includes the land behind and around the PARTY HOUSE.
+export const OUTDOOR={minX:-24,maxX:104,minZ:-48,maxZ:48,chunkSize:16,columns:6,rows:6};
+export const HOUSE={main:{minX:-10,maxX:10,minZ:-16,maxZ:8},
+  hall:{minX:-2.3,maxX:2.3,minZ:8,maxZ:18},
+  armory:{minX:-5,maxX:5,minZ:18,maxZ:26}};
 export const DOOR={x:10,minZ:-6.65,maxZ:-3.35};
 export const POND={x:57,z:-27,rx:9.5,rz:7.0};
 export const SPAWN={x:0,y:1.65,z:15};
@@ -15,12 +19,27 @@ export function groundHeightAt(x,z){
   // Established paths, pond rim and combat plaza remain flat and walkable.
   const path1=Math.max(0,1-Math.abs(z+5)/6);
   const path2=x>=43&&x<=90?Math.max(0,1-Math.abs(z+40)/5):0;
-  const pond=Math.max(0,1-Math.hypot((x-57)/15,(z+27)/12));
+  // Keep the entire shoreline flat so lake water is never buried by a hill.
+  const pondRadius=Math.hypot((x-POND.x)/POND.rx,(z-POND.z)/POND.rz);
+  const pond=Math.max(0,Math.min(1,(1.35-pondRadius)/.10));
   const arena=inArena({x,z})?1:0;
   const flatten=Math.min(1,Math.max(path1,path2,pond,arena));
   const transition=Math.min(1,Math.max(0,(x-24)/12));
   const wave=.46*Math.sin(x*.105+z*.057)+.36*Math.sin(z*.123-x*.038)+.22*Math.sin(x*.041+z*.19);
   return Math.max(0,1.0+wave)*transition*(1-flatten);
+}
+// Rendering-only depression. Collision uses the same visible pond ellipse and
+// does not let a player walk on underwater terrain.
+export function terrainVisualHeightAt(x,z){
+  const d=Math.hypot((x-POND.x)/POND.rx,(z-POND.z)/POND.rz);
+  if(d<1.08)return -.42;
+  if(d<1.19)return -.42*(1-(d-1.08)/.11);
+  return groundHeightAt(x,z);
+}
+export function insideHouse(x,z,margin=0){
+  const inBox=(b)=>x>=b.minX+margin&&x<=b.maxX-margin&&
+    z>=b.minZ+margin&&z<=b.maxZ-margin;
+  return inBox(HOUSE.main)||inBox(HOUSE.hall)||inBox(HOUSE.armory);
 }
 export function terrainSlopeAt(x,z){
   const delta=.4,center=groundHeightAt(x,z);
@@ -36,6 +55,8 @@ export function chunkData(cx,cz,seed=WORLD_SEED){
   if(!Number.isInteger(cx)||!Number.isInteger(cz)||cx<0||cx>=OUTDOOR.columns||cz<0||cz>=OUTDOOR.rows)return null;
   let state=hashCell(cx,cz,seed);
   const rand=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296};
+  // Vegetation cells keep their pre-5.1 coordinates: new rear lawn is a
+  // separate lightweight continuous slab, not a shifted procedural grid.
   const centerX=16+16*cx, centerZ=-40+16*cz;
   const grass=[],trees=[],rocks=[],blocks=[];
   // Instanced geometry only; plants never receive unique Mesh objects.
@@ -74,9 +95,7 @@ export function outdoorRegion(x,z){
 export function validWorldPosition(p){
   if(!p||typeof p!=="object"||!["x","y","z"].every(k=>typeof p[k]==="number"&&Number.isFinite(p[k])))return false;
   if(p.y<1.54||p.y>5.1)return false;
-  const insideMain=p.x>=-10.1&&p.x<=10.15&&p.z>=-16.15&&p.z<=8.15;
-  const corridor=p.x>=-2.4&&p.x<=2.4&&p.z>=7.7&&p.z<=18.2;
-  return insideMain||corridor||outdoorRegion(p.x,p.z);
+  return outdoorRegion(p.x,p.z);
 }
 export function crossesClosedEastWall(from,to){
   // Validate the exact segment where a network position update crosses the exit plane.
@@ -84,7 +103,31 @@ export function crossesClosedEastWall(from,to){
   const t=(DOOR.x-from.x)/(to.x-from.x);
   if(t<0||t>1)return false;
   const z=from.z+(to.z-from.z)*t;
+  if(z<HOUSE.main.minZ||z>HOUSE.main.maxZ)return false;
   return z<DOOR.minZ+.36 || z>DOOR.maxZ-.36;
+}
+// Shared exact house-envelope validation: crossing an exterior wall is denied,
+// but legitimate corridors, eastern doorway and the new armory entrance remain open.
+export function crossesHouseWall(from,to){
+  if(crossesClosedEastWall(from,to))return true;
+  const xCross=(x,minZ,maxZ)=>{
+    const dx=to.x-from.x;if(!dx)return false;
+    const t=(x-from.x)/dx;if(t<0||t>1)return false;
+    const z=from.z+(to.z-from.z)*t;
+    return z>=minZ&&z<=maxZ;
+  };
+  const zCross=(z,minX,maxX,openMin=Infinity,openMax=-Infinity)=>{
+    const dz=to.z-from.z;if(!dz)return false;
+    const t=(z-from.z)/dz;if(t<0||t>1)return false;
+    const x=from.x+(to.x-from.x)*t;
+    return x>=minX&&x<=maxX&&!(x>=openMin&&x<=openMax);
+  };
+  return xCross(-10,-16,8)||zCross(-16,-10,10)
+    ||zCross(8,-10,10,-2.20,2.20)
+    ||xCross(-2.3,8,18)||xCross(2.3,8,18)
+    ||zCross(18,-5,5,-2.20,2.20)
+    ||xCross(-5,18,26)||xCross(5,18,26)
+    ||zCross(26,-5,5);
 }
 const colliders=[];
 for(let cx=0;cx<OUTDOOR.columns;cx++){
@@ -102,8 +145,9 @@ export function outsideBounds(x,z,radius=0){
     z<OUTDOOR.minZ+radius||z>OUTDOOR.maxZ-radius;
 }
 export function worldBlocked(x,z,radius=.36){
-  if(x<DOOR.x+.28||!outdoorRegion(x,z))return false; // indoor navigation stays unchanged; exterior applies beyond door
-  if(outsideBounds(x,z,radius)||insidePond(x,z,radius))return true;
+  if(outsideBounds(x,z,radius))return true;
+  if(insideHouse(x,z))return false; // furniture/walls use actual local colliders
+  if(insidePond(x,z,radius))return true;
   for(const c of colliders){
     const dx=x-Math.max(c.x0,Math.min(c.x1,x));
     const dz=z-Math.max(c.z0,Math.min(c.z1,z));
@@ -113,8 +157,8 @@ export function worldBlocked(x,z,radius=.36){
 }
 export function validWorldStep(from,to){
   if(!validWorldPosition(to))return false;
-  if(crossesClosedEastWall(from,to))return false;
-  if(outdoorRegion(to.x,to.z)&&worldBlocked(to.x,to.z,.32))return false;
+  if(crossesHouseWall(from,to))return false;
+  if(worldBlocked(to.x,to.z,.32))return false;
   const floor=groundHeightAt(to.x,to.z)+1.65;
   // Allow jumping (to 2.5+) and short frame-to-frame terrain corrections,
   // but no underground movement or flying above the legal jump ceiling.
@@ -143,8 +187,11 @@ export function shotObstructed(from,to){
       if(z>=7.85&&z<=8.16&&x>=2.4&&x<=10)return true;
       if(z>=7.85&&z<=8.16&&x<=-2.4&&x>=-10)return true;
       if(z>=8&&z<=18&&((x>=2.16&&x<=2.44)||(x<=-2.16&&x>=-2.44)))return true;
+      if(z>=17.85&&z<=18.15&&x>=-5&&x<=5&&(x<=-2.3||x>=2.3))return true;
+      if(z>=18&&z<=26&&((x>=4.85&&x<=5.15)||(x<=-4.85&&x>=-5.15)))return true;
+      if(z>=25.85&&z<=26.15&&x>=-5&&x<=5)return true;
     }
-    if(x>10.3&&outdoorRegion(x,z)){
+    if(!insideHouse(x,z)&&outdoorRegion(x,z)){
       for(const b of colliders){
         if(x>=b.x0&&x<=b.x1&&z>=b.z0&&z<=b.z1
           &&y>groundHeightAt(x,z)&&y<groundHeightAt(x,z)+3.2)return true;
