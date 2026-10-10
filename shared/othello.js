@@ -14,7 +14,7 @@ export function freshMatch(blackId="",blackName="BLACK"){
 }
 export function validMatch(s){
   return !!s&&typeof s==="object"&&Number.isSafeInteger(s.revision)&&s.revision>=0
-    &&["idle","waiting","playing","finished"].includes(s.status)
+    &&["idle","waiting","playing","paused","finished"].includes(s.status)
     &&Array.isArray(s.board)&&s.board.length===64
     &&s.board.every(n=>n===0||n===1||n===2)
     &&(s.turn===BLACK||s.turn===WHITE)
