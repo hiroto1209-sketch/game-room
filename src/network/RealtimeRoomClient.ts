@@ -17,6 +17,9 @@ export interface RoomCallbacks{
   onFireResult(hit:boolean,damage:number,targetId?:string):void;
   onRespawn(position:{x:number;y:number;z:number}):void;
   onOthello(match:OthelloMatch):void;
+  onSpawn(position:{x:number;y:number;z:number}):void;
+  onCorrection(position:{x:number;y:number;z:number}):void;
+  onWeaponState(unlocked:boolean,peaceful:boolean):void;
 }
 /** Holds the network lifecycle; no rendering, DOM or game rules in this module. */
 export class RealtimeRoomClient {
@@ -65,6 +68,12 @@ export class RealtimeRoomClient {
     }
     return this.transport?.send({type:"othello",action})??false;
   }
+  unlockWeapon(code:string):boolean{
+    return this.online?(this.transport?.send({type:"unlock_weapon",code})??false):false;
+  }
+  setPeaceMode(enabled:boolean):boolean{
+    return this.online?(this.transport?.send({type:"peace_mode",enabled})??false):false;
+  }
   setLightShow(enabled:boolean):boolean{
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"lightShow",value:enabled})??false;
@@ -100,7 +109,13 @@ export class RealtimeRoomClient {
     const url=server+"/rooms/"+this.currentRoomId;
     transport.subscribe(msg=>{
       if(gen!==this.connectGeneration)return;
-      if(msg.type==="othello_state"){
+      if(msg.type==="weapon_state"){
+        this.callbacks.onWeaponState(msg.unlocked,msg.peaceful);
+      }else if(msg.type==="position_correction"){
+        this.sequence=Math.max(this.sequence,msg.sequence);
+        this.lastSend=performance.now();
+        this.callbacks.onCorrection(msg.position);
+      }else if(msg.type==="othello_state"){
         this.callbacks.onOthello(msg.match);
       }else if(msg.type==="health_snapshot"){
         for(const p of msg.players)this.callbacks.onHealth(p.playerId,p.hp,p.respawnAt);
@@ -121,6 +136,7 @@ export class RealtimeRoomClient {
         this.playerId=msg.playerId;
         this.isReady=true;this.attempts=0;
         this.state="online";this.emit();
+        if(msg.position)this.callbacks.onSpawn(msg.position);
         this.clearHandshakeTimer();
       }else if(msg.type==="snapshot"){
         this.peers.clear();
