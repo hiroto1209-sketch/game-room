@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {BLACK,WHITE,initialBoard,freshMatch,flipsAt,legalMoves,applyMove,counts,validMatch}
+import {BLACK,WHITE,EMPTY,initialBoard,freshMatch,flipsAt,legalMoves,applyMove,counts,validMatch}
   from "../shared/othello.js";
 import {decodeMessage} from "../server/src/guards.js";
 import {parseIncoming,validateOutgoing} from "../src/network/protocol.ts";
