@@ -19,6 +19,7 @@ let monitorEditHandler = () => {};
 let lightEditHandler = () => {};
 let signEditHandler=()=>{};
 let armoryHandler=()=>{};
+let miniGamesHandler=()=>{};
 function showToast(message){toastHandler(message);}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let randomSeed=87241;
@@ -192,7 +193,10 @@ function arcade(x,z,name,color){
   face.position.set(x,1.65,z+.50);scene.add(face);
   cube(x,.92,z+.51,1.25,.09,.28,mat(color,{emissive:color,emissiveIntensity:.8}));
   light(color,1.4,x,2.1,z+.7,4);
-  targets.push({x,z:z+1.2,label:name+" / 近日公開",action:()=>showToast("このゲームはPhase 2以降に追加します 🎮")});
+  targets.push({x,z:z+1.2,
+    label:name==="MINI GAMES"?"🎮 ミニゲームを選ぶ":name+" / 近日公開",
+    action:()=>name==="MINI GAMES"?miniGamesHandler():
+      showToast("このアーケードは近日公開です 🎮")});
 }
 function populate(){
   scene=new THREE.Scene();scene.background=new THREE.Color("#19121e");
@@ -338,13 +342,14 @@ function resize(){
   renderer.setSize(w,h,false);
 }
 
-export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEditSign,onArmory){
+export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEditSign,onArmory,onMiniGames){
   el.canvas=canvas;
   toastHandler=onToast;
   monitorEditHandler=onEditMonitor;
   lightEditHandler=onEditLights;
   signEditHandler=onEditSign;
   armoryHandler=onArmory;
+  miniGamesHandler=onMiniGames;
   populate();
   return {
     scene,camera,renderer,colliders,targets,monitor,outdoor,signBoard,othelloBoard,quality,
