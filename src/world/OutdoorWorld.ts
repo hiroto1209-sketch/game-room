@@ -62,6 +62,28 @@ export class OutdoorWorld {
     this.boxMesh(32,.24,96,0x315642,-8,-.136,0);
     // A gentle static landscaping accent signals that this is real walkable land.
     this.boxMesh(30,.018,3.0,0x71846e,-7,-.023,27.5);
+    // Low, entirely decorative garden tufts around the house: one draw call,
+    // no animation or hidden collision boxes. Avoid the party hall and armory.
+    const backyardGrass=new THREE.InstancedMesh(new THREE.ConeGeometry(.12,.39,3),
+      new THREE.MeshBasicMaterial({color:0x659a73}),112);
+    const tuft=new THREE.Object3D();
+    let used=0;
+    for(let i=0;i<240&&used<112;i++){
+      const px=-22+((i*37)%285)/10,pz=-44+((i*53)%895)/10;
+      const inMain=px>-11.2&&px<11.2&&pz>-17.1&&pz<9.1;
+      const inHall=px>-3.6&&px<3.6&&pz>8&&pz<19;
+      const inArmory=px>-6&&px<6&&pz>17&&pz<27;
+      if(inMain||inHall||inArmory||Math.abs(pz-27.5)<1.9)continue;
+      tuft.position.set(px,.16,pz);
+      tuft.rotation.y=(i*2.39996)%(Math.PI*2);
+      tuft.scale.set(.65+(i%4)*.12,.6+(i%3)*.16,.65+(i%4)*.12);
+      tuft.updateMatrix();backyardGrass.setMatrixAt(used++,tuft.matrix);
+    }
+    backyardGrass.count=used;
+    backyardGrass.instanceMatrix.needsUpdate=true;
+    backyardGrass.computeBoundingSphere();
+    this.root.add(backyardGrass);this.sharedScenery.push(backyardGrass);
+
     this.boxMesh(43,.055,3.4,0x87796f,32,-.04,-5);
     this.boxMesh(2.8,.055,23,0x797b72,44,-.039,-17);
     this.boxMesh(22,.055,2.4,0x777e6d,45,-.038,-19);
