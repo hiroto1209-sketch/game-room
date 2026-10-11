@@ -853,6 +853,30 @@ function initialize():void{
   window.addEventListener("resize",()=>world?.resize());
   registerUi();
   camera.update(player.position);
+  // QA-only visual fixture: a high-contrast 10m target sits EXACTLY on the
+  // camera's forward ray. Only reachable on localhost via explicit query.
+  // No production player, network state or combat authority is modified.
+  if((location.hostname==="127.0.0.1"||location.hostname==="localhost")&&
+    new URLSearchParams(location.search).has("fpsVisualTest")){
+    const target=new THREE.Mesh(
+      new THREE.PlaneGeometry(2,2),
+      new THREE.MeshBasicMaterial({
+        color:0xff16b8,toneMapped:false,depthTest:false,depthWrite:false
+      })
+    );
+    target.name="FPS_VISUAL_QA_TARGET";
+    target.position.set(0,0,-10);
+    target.renderOrder=50;
+    world.camera.add(target);
+    Object.assign(window,{
+      __GAME_ROOM_FPS_QA__:{
+        sightError:()=>weaponViewmodel?.sightProjectionError()??Infinity,
+        centerClear:()=>weaponViewmodel?.isTargetCorridorClear()??false,
+        aiming:()=>aiming,
+        fpsDrawCalls:()=>world?.renderer.info.render.calls??-1
+      }
+    });
+  }
   // Developers can preview remote placeholder avatars without a backend.
   // Never represent preview avatars as connected online players.
   if(new URLSearchParams(window.location.search).has("previewAvatars")){
