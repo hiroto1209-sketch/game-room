@@ -25,7 +25,7 @@ export class WeaponViewmodel{
     make(new THREE.CylinderGeometry(.052,.068,.43,8),dark,0,.05,-.53).rotation.x=Math.PI/2;
     make(new THREE.BoxGeometry(.06,.065,.1),aqua,0,.135,-.29);
     make(new THREE.BoxGeometry(.13,.26,.13),dark,0,-.2,-.04).rotation.x=-.26;
-    const flashMat=new THREE.MeshBasicMaterial({color:0xd7fff2,transparent:true,opacity:0,
+    const flashMat=new THREE.MeshBasicMaterial({color:0xd7fff2,transparent:true,opacity:.84,
       depthTest:false,depthWrite:false});
     this.flash=make(new THREE.SphereGeometry(.11,6,4),flashMat,0,.05,-.76);
     this.flash.visible=false;
