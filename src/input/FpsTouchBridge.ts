@@ -7,16 +7,21 @@ export class FpsTouchBridge {
   private fireId:number|null=null;
   private lookId:number|null=null;
   private fx=0;private fy=0;private lx=0;private ly=0;
-  constructor(
-    private readonly fireButton:HTMLElement,
-    private readonly canvas:HTMLCanvasElement,
-    private readonly callbacks:{
+  private readonly fireButton:HTMLElement;
+  private readonly canvas:HTMLCanvasElement;
+  private readonly callbacks:{
       canPlay():boolean;
       fireStart():void;fireStop():void;fireLook(dx:number,dy:number):void;
       freeLook(dx:number,dy:number):void;
       nativeLook(active:boolean):void;
-    }
-  ){
+    };
+  constructor(fireButton:HTMLElement,canvas:HTMLCanvasElement,callbacks:{
+    canPlay():boolean;
+    fireStart():void;fireStop():void;fireLook(dx:number,dy:number):void;
+    freeLook(dx:number,dy:number):void;
+    nativeLook(active:boolean):void;
+  }){
+    this.fireButton=fireButton;this.canvas=canvas;this.callbacks=callbacks;
     fireButton.addEventListener("touchstart",this.startFire,{passive:false});
     canvas.addEventListener("touchstart",this.startLook,{passive:false});
     window.addEventListener("touchmove",this.move,{passive:false,capture:true});
