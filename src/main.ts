@@ -15,6 +15,8 @@ import {BlasterEffects} from "./combat/BlasterEffects";
 import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
 import {canBlasterFire,shouldSendPvpShot} from "./combat/practiceRules";
 import {WorldGuide} from "./ui/WorldGuide";
+import {AvatarStudio,AVATAR_EMOTE_LABELS} from "./ui/AvatarStudio";
+import {validEmote,type EmoteKind} from "../shared/avatarRules.js";
 import {QuickArcade} from "./games/QuickArcade";
 import {FireLookGesture} from "./input/FireLookGesture";
 import {FpsTouchBridge} from "./input/FpsTouchBridge";
@@ -100,6 +102,7 @@ let guideLast=0,rangeWasRunning=false;
 let weaponViewmodel:WeaponViewmodel|undefined;
 let touchBridge:FpsTouchBridge|undefined;
 let quickArcade:QuickArcade|undefined;
+let avatarStudio:AvatarStudio|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
 let aiming=false;
@@ -362,6 +365,11 @@ const roomClient=new RealtimeRoomClient({
   },
   onPlayer:member=>{players?.upsertRemote(member);},
   onLeave:id=>{players?.removeRemote(id);},
+  onAvatar:(id,avatar)=>{players?.setAvatar(id,avatar);},
+  onEmote:(id,kind,durationMs)=>{
+    if(id===roomClient.playerId)return;
+    players?.playEmote(id,kind,durationMs);
+  },
   onOthello:match=>setOthelloMatch(match),
   onSpawn:position=>{
     player?.teleport(position.x,position.y,position.z);
@@ -369,6 +377,9 @@ const roomClient=new RealtimeRoomClient({
     setHealth(MAX_HP);
     // The public easter-egg code is revalidated by the Worker on every reconnect.
     if(weaponWanted)roomClient.unlockWeapon(WEAPON_CODE);
+    // Player appearance is session-only on the Worker. Re-send saved local
+    // preferences after *every* join/reconnect, no account required.
+    if(avatarStudio)roomClient.setAvatar(avatarStudio.selected);
   },
   onCorrection:position=>{
     player?.teleport(position.x,position.y,position.z);
@@ -527,7 +538,7 @@ function start():void{
   if(!world||!input)return;
   state.playing=true;state.paused=false;
   input.enabled=true;
-  guide?.show(true);
+  guide?.show(true);avatarStudio?.showQuick(true);
   startScreen.classList.add("dismissed");
   menu.classList.add("hidden");
   hud.classList.remove("hidden");
@@ -560,6 +571,27 @@ function openWorldMap():void{
     input?.reset();if(input)input.enabled=state.playing;
   },player.position);
 }
+function openAvatarStudio():void{
+  if(!avatarStudio||!state.playing)return;
+  touchBridge?.reset();stopFiring();setAimMode(false);
+  state.paused=true;
+  input?.reset();if(input)input.enabled=false;
+  player?.stop();menu.classList.add("hidden");
+  avatarStudio.open(safeDisplayName(roomName.value),()=>{
+    state.paused=false;
+    input?.reset();if(input)input.enabled=state.playing;
+  });
+}
+function performEmote(kind:EmoteKind):void{
+  if(!state.playing||state.paused||!validEmote(kind))return;
+  const online=roomClient.online;
+  if(online&&!roomClient.emote(kind)){
+    showToast("エモートを送れませんでした");return;
+  }
+  // First-person player sees a confirmation; all remote players see
+  // animated arms/head, without extra per-frame WebSocket packets.
+  showToast((online?"みんなに表示 ✦ ":"エモート ✦ ")+AVATAR_EMOTE_LABELS[kind]);
+}
 function openMenu():void{
   touchBridge?.reset();stopFiring();setAimMode(false);
   if(state.editingMonitor||state.editingSign||state.editingSecret||state.editingMiniGames)return;
@@ -580,6 +612,7 @@ function openQuickGame(kind:"target"|"tic"):void{
   quickArcade?.open(kind);
 }
 function backToTitle():void{
+  avatarStudio?.close();avatarStudio?.showQuick(false);
   range?.reset();rangeHud.classList.add("hidden");
   rangeWasRunning=false;guide?.show(false);guide?.close();
   quickArcade?.dismiss();
@@ -761,6 +794,8 @@ function registerUi():void{
   byId("minigames-return").addEventListener("click",closeMiniGames);
   byId("open-minigames").addEventListener("click",openMiniGames);
   byId("open-world-map").addEventListener("click",openWorldMap);
+  byId("open-avatar-studio").addEventListener("click",openAvatarStudio);
+  canvas.addEventListener("pointerdown",()=>avatarStudio?.hideEmotes());
   byId("tic-tac-toe-open").addEventListener("click",()=>openQuickGame("tic"));
   byId("close-sign").addEventListener("click",closeSign);
   byId("save-sign").addEventListener("click",saveSign);
@@ -879,6 +914,12 @@ function initialize():void{
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   range=new StarshotRange(world.scene);
   guide=new WorldGuide();
+  avatarStudio=new AvatarStudio(avatar=>{
+    if(roomClient.online){
+      if(!roomClient.setAvatar(avatar))showToast("アバター同期に失敗しました");
+      else showToast("アバターを更新しました ✦");
+    }else showToast("アバターを保存しました ✦");
+  },performEmote);
   // Existing proximity system makes the 3D portal itself playable.
   world.targets.push({x:33,z:10,label:"✦ STARSHOT RANGE — 30秒射撃チャレンジ",
     action:startStarshot});
