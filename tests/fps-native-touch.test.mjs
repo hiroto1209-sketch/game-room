@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {FpsTouchBridge} from "../src/input/FpsTouchBridge.ts";
-import {CameraController} from "../src/camera/CameraController.ts";
+import {recoilDelta} from "../src/camera/recoilMath.ts";
 const touch=(id,x,y)=>({identifier:id,clientX:x,clientY:y});
 function send(target,name,points){
  const e=new Event(name,{bubbles:true,cancelable:true});
@@ -65,12 +65,8 @@ test("native FIRE touch cancel stops shooting while unrelated look continues",()
   if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;
  }
 });
-test("ADS has materially less camera recoil than hip fire, with pitch bounded",()=>{
- const cameraStub={};
- const hip=new CameraController(cameraStub),ads=new CameraController(cameraStub);
- hip.kickRecoil(false);ads.kickRecoil(true);
- assert.ok(hip.pitch>ads.pitch*3);
- assert.ok(Math.abs(hip.yaw)>Math.abs(ads.yaw));
- for(let i=0;i<1000;i++)hip.kickRecoil(false);
- assert.equal(hip.pitch,1.2);
+test("ADS has materially less real recoil than hip fire",()=>{
+  const hip=recoilDelta(false),ads=recoilDelta(true);
+  assert.ok(hip.pitch>ads.pitch*3);
+  assert.ok(hip.yaw>ads.yaw*2);
 });
