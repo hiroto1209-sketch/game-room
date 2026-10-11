@@ -42,7 +42,7 @@ export class WeaponViewmodel{
   update(dt:number,aiming:boolean):void{
     if(!this.active)return;
     const factor=Math.min(1,dt*13);
-    const tx=aiming?.025:.38,ty=aiming?-.215:-.33,tz=aiming?-.52:-.62;
+    const tx=aiming?0:.38,ty=aiming?-.135:-.33,tz=aiming?-.52:-.62;
     this.group.position.x+=(tx-this.group.position.x)*factor;
     this.group.position.y+=(ty-this.kick-this.group.position.y)*factor;
     this.group.position.z+=(tz-this.group.position.z)*factor;
