@@ -1,64 +1,153 @@
 import * as THREE from "three";
+
 /**
- * Lightweight FPS blaster viewmodel. Camera owns the geometry, so this never
- * changes the server-authoritative hitscan ray. ADS visibly lines the sight up
- * and softens recoil instead of being only a FOV change.
+ * Lightweight sci-fi FPS viewmodel. The holographic sight is optically centered
+ * on the camera's -Z ray, while the solid weapon is deliberately BELOW that ray.
+ * This distinction prevents the original giant box from covering the target.
+ *
+ * A viewmodel is VISUAL ONLY. All gameplay hitscan still originates from the
+ * shared camera yaw/pitch and Cloudflare validates damage.
  */
-export class WeaponViewmodel{
-  private group=new THREE.Group();
-  private parts:THREE.Mesh[]=[];
-  private flash:THREE.Mesh;
+export class WeaponViewmodel {
+  private readonly group=new THREE.Group();
+  private readonly sight=new THREE.Group();
+  private readonly parts:THREE.Mesh[]=[];
+  private readonly flash:THREE.Mesh;
+  private readonly targetPosition=new THREE.Vector3();
+  private readonly muzzleMaterial:THREE.MeshBasicMaterial;
   private kick=0;
   private flashTime=0;
   private active=false;
-  constructor(private camera:THREE.PerspectiveCamera,scene:THREE.Scene){
+  private lastAiming=false;
+
+  constructor(private readonly camera:THREE.PerspectiveCamera,scene:THREE.Scene){
+    // Camera-mounted meshes are rendered in the same pass as the world.
+    // No extra render pass, extra scene, heavy shaders or expensive lights.
     scene.add(camera);
-    const dark=new THREE.MeshBasicMaterial({color:0x1a2538,depthTest:false,depthWrite:false});
-    const aqua=new THREE.MeshBasicMaterial({color:0x63dfcc,depthTest:false,depthWrite:false});
-    const metal=new THREE.MeshBasicMaterial({color:0x708ca4,depthTest:false,depthWrite:false});
-    const make=(geo:THREE.BufferGeometry,mat:THREE.Material,x:number,y:number,z:number)=>{
-      const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.renderOrder=999;
-      m.frustumCulled=false;this.group.add(m);this.parts.push(m);return m;
-    };
-    make(new THREE.BoxGeometry(.19,.17,.43),dark,0,-.05,-.14);
-    make(new THREE.BoxGeometry(.18,.095,.30),metal,0,.04,-.29);
-    make(new THREE.CylinderGeometry(.052,.068,.43,8),dark,0,.05,-.53).rotation.x=Math.PI/2;
-    make(new THREE.BoxGeometry(.06,.065,.1),aqua,0,.135,-.29);
-    make(new THREE.BoxGeometry(.13,.26,.13),dark,0,-.2,-.04).rotation.x=-.26;
-    const flashMat=new THREE.MeshBasicMaterial({color:0xd7fff2,transparent:true,opacity:.84,
-      depthTest:false,depthWrite:false});
-    this.flash=make(new THREE.SphereGeometry(.11,6,4),flashMat,0,.05,-.76);
-    this.flash.visible=false;
-    this.group.position.set(.38,-.33,-.62);
+    this.group.name="FPS_WEAPON_SOLIDS";
+    this.sight.name="FPS_HOLO_SIGHT";
     camera.add(this.group);
+    camera.add(this.sight);
+
+    const dark=new THREE.MeshBasicMaterial({color:0x19283b,depthTest:false,depthWrite:false,toneMapped:false});
+    const trim=new THREE.MeshBasicMaterial({color:0x708fa6,depthTest:false,depthWrite:false,toneMapped:false});
+    const teal=new THREE.MeshBasicMaterial({color:0x71e6d0,depthTest:false,depthWrite:false,toneMapped:false});
+    const make=(geometry:THREE.BufferGeometry,material:THREE.Material,
+      x:number,y:number,z:number,name:string)=>{
+      const mesh=new THREE.Mesh(geometry,material);
+      mesh.name="FPS_SOLID_"+name;
+      mesh.position.set(x,y,z);
+      mesh.renderOrder=900;
+      mesh.frustumCulled=false;
+      this.group.add(mesh);this.parts.push(mesh);
+      return mesh;
+    };
+    // Compact, lower-right weapon silhouette: no giant box, no geometry
+    // crossing the center pixel or upper/mid sight corridor.
+    make(new THREE.BoxGeometry(.16,.13,.31),dark,.09,-.10,-.13,"receiver");
+    make(new THREE.BoxGeometry(.135,.070,.24),trim,.09,-.015,-.29,"rail");
+    const barrel=make(new THREE.CylinderGeometry(.033,.039,.29,8),
+      dark,.09,-.050,-.48,"barrel");
+    barrel.rotation.x=Math.PI/2;
+    make(new THREE.BoxGeometry(.095,.21,.095),dark,.105,-.235,.008,"grip")
+      .rotation.x=-.18;
+    make(new THREE.BoxGeometry(.043,.037,.11),teal,.09,.056,-.30,"sight_mount");
+
+    this.muzzleMaterial=new THREE.MeshBasicMaterial({
+      color:0xe0fff8,transparent:true,opacity:0.85,
+      depthTest:false,depthWrite:false,toneMapped:false
+    });
+    this.flash=make(new THREE.SphereGeometry(.078,6,4),
+      this.muzzleMaterial,.09,-.05,-.68,"muzzle_flash");
+    this.flash.visible=false;
+
+    // Only a THIN, OPEN holographic ring belongs at the center in ADS.
+    // The target remains visible *through* it. The 3D weapon sits below.
+    const ringMaterial=new THREE.MeshBasicMaterial({
+      color:0xaaffdf,transparent:true,opacity:.8,
+      depthTest:false,depthWrite:false,toneMapped:false
+    });
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.048,.004,4,24),ringMaterial);
+    ring.name="FPS_SIGHT_RING";
+    ring.renderOrder=950;
+    ring.frustumCulled=false;
+    this.sight.add(ring);this.parts.push(ring);
+    this.sight.position.set(0,0,-.80);
+    this.sight.visible=false;
+    this.group.position.set(.45,-.36,-.72);
     this.group.visible=false;
   }
-  setVisible(show:boolean):void{this.active=show;this.group.visible=show;}
+
+  setVisible(show:boolean):void{
+    this.active=show;
+    this.group.visible=show;
+    this.sight.visible=show&&this.lastAiming;
+    if(!show)this.flash.visible=false;
+  }
+
   fire():void{
     if(!this.active)return;
-    this.kick=Math.min(.2,this.kick+.09);
-    this.flashTime=.075;this.flash.visible=true;
+    this.kick=Math.min(.075,this.kick+.036);
+    this.flashTime=.065;
+    this.flash.visible=true;
   }
+
   update(dt:number,aiming:boolean):void{
-    if(!this.active)return;
-    const factor=Math.min(1,dt*13);
-    const tx=aiming?0:.38,ty=aiming?-.135:-.33,tz=aiming?-.52:-.62;
-    this.group.position.x+=(tx-this.group.position.x)*factor;
-    this.group.position.y+=(ty-this.kick-this.group.position.y)*factor;
-    this.group.position.z+=(tz-this.group.position.z)*factor;
-    this.kick=Math.max(0,this.kick-dt*.62);
+    this.lastAiming=aiming;
+    if(!this.active){this.sight.visible=false;return;}
+    const factor=Math.min(1,Math.max(0,dt)*15);
+    // Moving the WEAPON BODY down and away from the optical center is vital.
+    // Older code placed the entire solid model at x=0 in ADS and obscured aim.
+    this.targetPosition.set(aiming?.175:.45,aiming?-.34:-.36,aiming?-.83:-.72);
+    this.group.position.lerp(this.targetPosition,factor);
+    this.kick=Math.max(0,this.kick-dt*.43);
+    this.group.position.y-=this.kick;
+    this.sight.visible=aiming;
     if(this.flashTime>0){
-      this.flashTime-=dt;
+      this.flashTime=Math.max(0,this.flashTime-dt);
       this.flash.visible=this.flashTime>0;
-    }
+    }else this.flash.visible=false;
   }
+
+  /**
+   * Geometric quality gate. Returns true only when the camera's central
+   * target corridor is clear of ALL solid weapon meshes.
+   * This is independent of screenshots and works with portrait/landscape FOV.
+   */
+  isTargetCorridorClear():boolean{
+    this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld(true);
+    const raycaster=new THREE.Raycaster();
+    const solids=this.parts.filter(p=>p.name.startsWith("FPS_SOLID_")&&
+      p!==this.flash&&p.visible);
+    for(const x of [-.20,-.10,0,.10,.20]){
+      for(const y of [-.16,0,.16]){
+        raycaster.setFromCamera(new THREE.Vector2(x,y),this.camera);
+        if(raycaster.intersectObjects(solids,false).length>0)return false;
+      }
+    }
+    return true;
+  }
+
+  sightProjectionError():number{
+    // The ring center MUST coincide with the same center ray as hitscan.
+    this.camera.updateMatrixWorld(true);
+    const p=new THREE.Vector3();
+    this.sight.getWorldPosition(p);
+    p.project(this.camera);
+    return Math.hypot(p.x,p.y);
+  }
+
   dispose():void{
     this.group.removeFromParent();
-    const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();
-    for(const m of this.parts){
-      geometries.add(m.geometry);
-      if(Array.isArray(m.material))for(const mat of m.material)materials.add(mat);
-      else materials.add(m.material);
+    this.sight.removeFromParent();
+    const geometries=new Set<THREE.BufferGeometry>();
+    const materials=new Set<THREE.Material>();
+    for(const mesh of this.parts){
+      geometries.add(mesh.geometry);
+      if(Array.isArray(mesh.material)){
+        for(const mat of mesh.material)materials.add(mat);
+      }else materials.add(mesh.material);
     }
     for(const geo of geometries)geo.dispose();
     for(const mat of materials)mat.dispose();
