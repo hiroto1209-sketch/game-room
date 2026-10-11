@@ -45,6 +45,7 @@ export class StarshotRange{
     makeBox(.6,.38,5.7,32,base+4.92,11,neon);
     makeBox(.13,1.4,3.2,32,base+2.8,11,concrete);
     // The entrance explains itself without HUD popups or a tutorial.
+    if(typeof document!=="undefined"){
     const sign=document.createElement("canvas");sign.width=512;sign.height=128;
     const ctx=sign.getContext("2d");
     if(ctx){
@@ -60,6 +61,7 @@ export class StarshotRange{
         new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,transparent:false}));
       board.position.set(31.65,base+4.12,11);board.rotation.y=-Math.PI/2;
       this.group.add(board);
+    }
     }
     // A simple guided lane is visible across shallow terrain, not a fake
     // blocking floor. No physics/collider changes are introduced.
