@@ -8,6 +8,8 @@ export class DualTouchController{
   private joystickInput:Vector2={x:0,y:0};
   private keys=new Set<string>();
   enabled=false;
+  private nativeLookActive=false;
+  setNativeLook(active:boolean):void{this.nativeLookActive=active;}
   constructor(
     private canvas:HTMLCanvasElement,
     private joystick:HTMLElement,
@@ -55,6 +57,7 @@ export class DualTouchController{
       this.thumb.style.transform="translate(calc(-50% + "+(dx*k)+"px),calc(-50% + "+(dy*k)+"px))";
       e.preventDefault();
     }else if(e.pointerId===this.lookPointer){
+      if(this.nativeLookActive&&e.pointerType==="touch")return;
       const dx=e.clientX-this.lastX,dy=e.clientY-this.lastY;
       this.lastX=e.clientX;this.lastY=e.clientY;
       this.callbacks.onLook(dx,dy);
@@ -88,7 +91,7 @@ export class DualTouchController{
     return {...this.joystickInput};
   }
   reset=():void=>{
-    this.movePointer=this.lookPointer=null;this.joystickInput={x:0,y:0};
+    this.movePointer=this.lookPointer=null;this.nativeLookActive=false;this.joystickInput={x:0,y:0};
     this.keys.clear();this.joystick.classList.remove("active");
   };
   dispose():void{

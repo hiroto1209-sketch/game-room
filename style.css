@@ -201,3 +201,26 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 .quick-game-cell:disabled{opacity:.8}
 .quick-game-grid.tic-board .quick-game-cell{background:rgba(45,40,70,.74)}
 .quick-game-grid.tic-board .quick-game-cell:disabled{color:#f4d8ee}
+
+/* FPS 6.0 — visible, accurate precision ADS + recoil/hit feedback, CSS only. */
+#crosshair{width:5px;height:5px;z-index:6;pointer-events:none;transition:box-shadow .13s ease,background .13s ease}
+#crosshair::before,#crosshair::after{content:"";position:absolute;left:50%;top:50%;pointer-events:none}
+#crosshair::before{
+ width:23px;height:23px;transform:translate(-50%,-50%);border:1.5px solid rgba(209,254,234,.7);
+ border-radius:50%;box-shadow:0 0 6px #41dfaf34;transition:width .12s,height .12s,border-color .12s
+}
+#crosshair::after{
+ width:35px;height:35px;transform:translate(-50%,-50%);opacity:.65;
+ background:linear-gradient(#eafff5,#eafff5) center top/2px 6px no-repeat,
+ linear-gradient(#eafff5,#eafff5) center bottom/2px 6px no-repeat,
+ linear-gradient(#eafff5,#eafff5) left center/6px 2px no-repeat,
+ linear-gradient(#eafff5,#eafff5) right center/6px 2px no-repeat;
+ transition:width .13s,height .13s,opacity .13s
+}
+#crosshair.aiming::before{width:12px;height:12px;border-color:#c5ffe5}
+#crosshair.aiming::after{width:23px;height:23px;opacity:.98}
+#crosshair.targeted::before{border-color:#ffb1c7}
+#crosshair.hit-confirmed,#crosshair.hit-confirmed::before{background:#ffbba3;border-color:#fff0a8;box-shadow:0 0 15px #fff1ad}
+#aim-button{border-color:rgba(160,255,216,.6);touch-action:none;-webkit-user-select:none}
+#aim-button.aiming{border-color:#c5ffe0;background:rgba(34,104,90,.68)}
+#shoot-button{touch-action:none;overscroll-behavior:contain;-webkit-user-select:none}
