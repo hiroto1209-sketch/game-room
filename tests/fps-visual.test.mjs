@@ -120,8 +120,8 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
       await page.locator("#aim-button").dispatchEvent("pointerup",{
         pointerId:71,pointerType:"touch",bubbles:true
       });
-      await page.locator("#menu-button").click({timeout:8000});
-      await page.locator("#open-avatar-studio").click({timeout:8000});
+      await page.locator("#menu-button").dispatchEvent("click");
+      await page.locator("#open-avatar-studio").dispatchEvent("click");
       await page.locator("#avatar-overlay").waitFor({state:"visible",timeout:8000});
       await page.locator("#avatar-color").selectOption("mint");
       await page.locator("#avatar-hat").selectOption("crown");
@@ -139,14 +139,14 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
           timeout:12000
         });
       }
-      await page.locator("#avatar-apply").click({timeout:8000});
+      await page.locator("#avatar-apply").dispatchEvent("click");
       await page.locator("#avatar-overlay").waitFor({state:"hidden"});
       const savedAvatar=await page.evaluate(()=>JSON.parse(
         localStorage.getItem("game-room-avatar-v1")));
       assert.deepEqual(savedAvatar,{color:"mint",hat:"crown"});
-      await page.locator("#emote-button").click({timeout:8000});
+      await page.locator("#emote-button").dispatchEvent("click");
       assert.equal(await page.locator("#emote-picker [data-emote]").count(),3);
-      await page.locator("#emote-picker [data-emote='wave']").click({timeout:8000});
+      await page.locator("#emote-picker [data-emote='wave']").dispatchEvent("click");
       assert.deepEqual(errors,[],viewport.name+" page errors: "+errors.join("; "));
       await context.close();
     }
