@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
 import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE } from "../../shared/combatRules.js";
 import {SPAWN,shotObstructed} from "../../shared/worldRules.js";
+import {DEFAULT_AVATAR,EMOTE_DURATION_MS} from "../../shared/avatarRules.js";
 import { validRoomId, permittedOrigin, decodeMessage, safeName, MAX_PLAYERS, withinMovementSpeed } from "./guards.js";
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{
@@ -55,7 +56,7 @@ export class RoomHub extends DurableObject {
     const pair=new WebSocketPair();
     const [client,server]=Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0,weaponUnlocked:false,peaceful:true,lastUnlockAt:0,lastCorrectionAt:0});
+    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0,weaponUnlocked:false,peaceful:true,lastUnlockAt:0,lastCorrectionAt:0,lastAvatarAt:0,lastEmoteAt:0,emoteKind:null,emoteUntil:0});
     return new Response(null,{status:101,webSocket:client});
   }
   async webSocketMessage(ws,raw){
@@ -72,13 +73,22 @@ export class RoomHub extends DurableObject {
       // snapshot in sync, otherwise a first move may fail displacement validation.
       // Avatars are non-blocking; spawn spacing can be negotiated in a later protocol.
       const spawn={...SPAWN};
-      const player={id,displayName:safeName(m.displayName),position:spawn,yaw:0,pitch:0,sequence:0};
+      const player={id,displayName:safeName(m.displayName),position:spawn,yaw:0,pitch:0,sequence:0,
+        avatar:{...DEFAULT_AVATAR}};
       ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0,hp:MAX_HP,
         respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:false,peaceful:true,
         lastShotAt:0,lastFireSeq:0});
       send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn});
       send(ws,{type:"weapon_state",unlocked:false,peaceful:true});
       send(ws,{type:"snapshot",players:existing.map(s=>publicPlayer(attachment(s))).filter(Boolean)});
+      // Late joiners also see still-playing emotes (no database persistence).
+      for(const other of existing){
+        const meta=attachment(other);
+        const remaining=Math.max(0,(meta.emoteUntil??0)-Date.now());
+        if(meta.emoteKind&&remaining>0)
+          send(ws,{type:"emote_event",playerId:meta.player.id,kind:meta.emoteKind,
+            durationMs:Math.min(EMOTE_DURATION_MS,remaining)});
+      }
       const saved=await this.ctx.storage.get("shared_room_v1");
       send(ws,{type:"room_state",revision:saved?.revision??0,
         monitorImage:saved?.monitorImage??null,lightShow:saved?.lightShow??false,
@@ -179,6 +189,28 @@ export class RoomHub extends DurableObject {
     if(m.type==="peace_mode"){
       ws.serializeAttachment({...session,peaceful:m.enabled});
       send(ws,{type:"weapon_state",unlocked:session.weaponUnlocked===true,peaceful:m.enabled});
+      return;
+    }
+    if(m.type==="avatar_update"){
+      if(now-(session.lastAvatarAt??0)<800){
+        send(ws,{type:"error",reason:"アバター変更は少し待ってください"});return;
+      }
+      const avatar={color:m.avatar.color,hat:m.avatar.hat};
+      const nextPlayer={...session.player,avatar};
+      ws.serializeAttachment({...session,player:nextPlayer,lastAvatarAt:now});
+      // Sender gets an ack; other peers get the same server-approved state.
+      for(const peer of this.members())send(peer,{type:"avatar_state",playerId:nextPlayer.id,avatar});
+      return;
+    }
+    if(m.type==="emote"){
+      if(now-(session.lastEmoteAt??0)<1600){
+        send(ws,{type:"error",reason:"エモートは少し待ってください"});return;
+      }
+      const until=now+EMOTE_DURATION_MS;
+      ws.serializeAttachment({...session,lastEmoteAt:now,emoteKind:m.kind,emoteUntil:until});
+      for(const peer of this.members())send(peer,{
+        type:"emote_event",playerId:session.player.id,kind:m.kind,durationMs:EMOTE_DURATION_MS
+      });
       return;
     }
     // Respawn is computed on the first message after the timer expires. The
