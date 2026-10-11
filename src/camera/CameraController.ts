@@ -8,6 +8,12 @@ export class CameraController{
     this.yaw-=dx*sensitivity*.001;
     this.pitch=Math.max(-1.22,Math.min(1.2,this.pitch-dy*sensitivity*.001));
   }
+  // Server still receives the camera yaw/pitch. ADS reduces *actual*
+  // recoil so repeated shots are easier to control, not merely enlarged.
+  kickRecoil(ads:boolean):void{
+    this.pitch=Math.min(1.2,this.pitch+(ads?.006:.027));
+    this.yaw+=(ads?.0015:.005);
+  }
   update(position:Vector3,bob=0):void{
     this.camera.position.set(position.x,position.y+bob,position.z);
     this.camera.rotation.order="YXZ";
