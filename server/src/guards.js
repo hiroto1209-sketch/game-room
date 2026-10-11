@@ -1,4 +1,5 @@
 import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
+import {validAvatar,validEmote} from "../../shared/avatarRules.js";
 import { validWorldPosition, validWorldStep } from "../../shared/worldRules.js";
 // Pure protocol/security helpers shared with Node unit tests (no Worker globals).
 export const ROOM_ID=/^[A-Za-z0-9_-]{32}$/;
@@ -33,6 +34,12 @@ export function decodeMessage(raw){
       return {type:"room_update",key:"lightShow",value:m.value};
     if(m.type==="room_update" && m.key==="signText" && validSignText(m.value))
       return {type:"room_update",key:"signText",value:m.value.trim()||"WELCOME TO GAME ROOM"};
+    if(m.type==="avatar_update"&&validAvatar(m.avatar)&&
+      Object.keys(m).every(k=>k==="type"||k==="avatar"))
+      return {type:"avatar_update",avatar:{color:m.avatar.color,hat:m.avatar.hat}};
+    if(m.type==="emote"&&validEmote(m.kind)&&
+      Object.keys(m).every(k=>k==="type"||k==="kind"))
+      return {type:"emote",kind:m.kind};
     if(m.type==="unlock_weapon" && validUnlockCode(m.code) &&
       Object.keys(m).every(k=>["type","code"].includes(k)))
       return {type:"unlock_weapon",code:m.code};
