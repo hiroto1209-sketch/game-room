@@ -69,7 +69,7 @@ export class WeaponViewmodel {
       color:0xaaffdf,transparent:true,opacity:.8,
       depthTest:false,depthWrite:false,toneMapped:false
     });
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(.048,.004,4,24),ringMaterial);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(.030,.0035,4,24),ringMaterial);
     ring.name="FPS_SIGHT_RING";
     ring.renderOrder=950;
     ring.frustumCulled=false;
@@ -77,6 +77,7 @@ export class WeaponViewmodel {
     this.sight.position.set(0,0,-.80);
     this.sight.visible=false;
     this.group.position.set(.22,-.36,-.72);
+    this.group.scale.setScalar(.9);
     this.group.visible=false;
   }
 
@@ -106,6 +107,11 @@ export class WeaponViewmodel {
       Math.min(.48,Math.max(.20,aspect*.30+.08));
     this.targetPosition.set(offsetX,aiming?-.34:-.36,aiming?-.83:-.72);
     this.group.position.lerp(this.targetPosition,factor);
+    // Close to the eye on narrow displays, so a slightly smaller weapon
+    // silhouette while ADS leaves more space for tracking moving enemies.
+    const targetScale=aiming?.80:.90;
+    const nextScale=this.group.scale.x+(targetScale-this.group.scale.x)*factor;
+    this.group.scale.setScalar(nextScale);
     this.kick=Math.max(0,this.kick-dt*.43);
     this.group.position.y-=this.kick;
     this.sight.visible=aiming;
