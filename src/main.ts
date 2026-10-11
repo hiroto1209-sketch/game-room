@@ -12,6 +12,8 @@ import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt, shotObstructed } from "../shared/worldRules.js";
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
+import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
+import {WorldGuide} from "./ui/WorldGuide";
 import {QuickArcade} from "./games/QuickArcade";
 import {FireLookGesture} from "./input/FireLookGesture";
 import {FpsTouchBridge} from "./input/FpsTouchBridge";
@@ -46,6 +48,9 @@ const combatHud=byId("combat-hud");
 const shootButton=byId<HTMLButtonElement>("shoot-button");
 const aimButton=byId<HTMLButtonElement>("aim-button");
 const crosshair=byId("crosshair");
+const rangeHud=byId("starshot-hud");
+const rangeProgress=byId("range-progress");
+const rangeTime=byId("range-time");
 const secretTrigger=byId<HTMLButtonElement>("secret-trigger");
 const secretOverlay=byId("secret-overlay");
 const secretCode=byId<HTMLInputElement>("secret-code");
@@ -88,6 +93,9 @@ let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
+let range:StarshotRange|undefined;
+let guide:WorldGuide|undefined;
+let guideLast=0,rangeWasRunning=false;
 let weaponViewmodel:WeaponViewmodel|undefined;
 let touchBridge:FpsTouchBridge|undefined;
 let quickArcade:QuickArcade|undefined;
@@ -312,13 +320,24 @@ function fireBlaster():void{
   const shotYaw=camera.yaw,shotPitch=camera.pitch;
   blaster.shoot(origin,shotYaw,shotPitch);
   weaponViewmodel?.fire();
+  // Training range is LOCAL-ONLY. Suppress network PvP shots during the
+  // challenge rather than allowing fake scores or unexpected peer damage.
+  const practicing=range?.running??false;
+  if(practicing){
+    const outcome=range?.shoot(origin,shotYaw,shotPitch);
+    if(outcome==="hit"){
+      crosshair.classList.add("hit-confirmed");
+      window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),160);
+    }
+    rangeProgress.textContent=(range?.hits??0)+" / "+RANGE_SHOTS+" HIT";
+  }
   // Actual camera recoil changes subsequent shots, with much less kick in ADS.
   camera.kickRecoil(aiming);
   crosshair.animate([
     {transform:"translate(-50%, -50%) scale(1.5)"},
     {transform:"translate(-50%, -50%) scale(1)"}
   ],{duration:145,easing:"ease-out"});
-  if(roomClient.online && !roomClient.shoot(shotYaw,shotPitch))
+  if(!practicing&&roomClient.online && !roomClient.shoot(shotYaw,shotPitch))
     showToast("発射通信に失敗しました");
 }
 const clock=new THREE.Clock();
@@ -507,11 +526,38 @@ function start():void{
   if(!world||!input)return;
   state.playing=true;state.paused=false;
   input.enabled=true;
+  guide?.show(true);
   startScreen.classList.add("dismissed");
   menu.classList.add("hidden");
   hud.classList.remove("hidden");
   tips.classList.remove("fading");
   window.setTimeout(()=>tips.classList.add("fading"),6900);
+}
+function startStarshot():void{
+  if(!range||!player||!state.playing||state.paused)return;
+  if(!weaponUnlocked||peaceful){
+    showToast("✦ ARMORYでNEON777を解放し、ピースモードを解除してください");
+    return;
+  }
+  if(Math.hypot(player.position.x-33,player.position.z-10)>9){
+    showToast("STARSHOTのゲートへ近づいてください");return;
+  }
+  range.start();rangeWasRunning=true;
+  rangeHud.classList.remove("hidden");
+  rangeProgress.textContent="0 / "+RANGE_SHOTS+" HIT";
+  showToast("✦ STARSHOT START — 光る的を6回撃て！");
+}
+function openWorldMap():void{
+  if(!guide||!player||!state.playing)return;
+  state.paused=true;
+  touchBridge?.reset();stopFiring();setAimMode(false);
+  input?.reset();if(input)input.enabled=false;
+  player.stop();
+  menu.classList.add("hidden");
+  guide.open(()=>{
+    state.paused=false;
+    input?.reset();if(input)input.enabled=state.playing;
+  },player.position);
 }
 function openMenu():void{
   touchBridge?.reset();stopFiring();setAimMode(false);
@@ -533,6 +579,8 @@ function openQuickGame(kind:"target"|"tic"):void{
   quickArcade?.open(kind);
 }
 function backToTitle():void{
+  range?.reset();rangeHud.classList.add("hidden");
+  rangeWasRunning=false;guide?.show(false);guide?.close();
   quickArcade?.dismiss();
   touchBridge?.reset();stopFiring();setAimMode(false);
   closeMiniGames();
@@ -643,6 +691,24 @@ function update(dt:number):void{
   }
   weaponViewmodel?.setVisible(state.playing&&!state.paused&&weaponUnlocked&&!peaceful&&currentHp>0);
   weaponViewmodel?.update(dt,aiming);
+  range?.update(dt);
+  if(rangeWasRunning&&!range?.running){
+    rangeWasRunning=false;
+    const total=range?.hits??0;
+    rangeHud.classList.add("hidden");
+    showToast("✦ STARSHOT "+total+"/"+RANGE_SHOTS+" HIT · BEST "+(range?.record??0));
+  }
+  if(range?.running){
+    rangeProgress.textContent=range.hits+" / "+RANGE_SHOTS+" HIT";
+    rangeTime.textContent=Math.ceil(range.remaining)+"s";
+  }
+  if(state.playing&&player&&camera){
+    const stamp=performance.now();
+    if(stamp-guideLast>200){
+      guideLast=stamp;
+      guide?.tick(player.position,camera.yaw,stamp);
+    }
+  }
   world.update(dt,state.time,settings.reducedMotion);
   blaster?.update(dt);
   players.update(dt,world.camera);
@@ -690,6 +756,7 @@ function registerUi():void{
   byId("minigames-close").addEventListener("click",closeMiniGames);
   byId("minigames-return").addEventListener("click",closeMiniGames);
   byId("open-minigames").addEventListener("click",openMiniGames);
+  byId("open-world-map").addEventListener("click",openWorldMap);
   byId("tic-tac-toe-open").addEventListener("click",()=>openQuickGame("tic"));
   byId("close-sign").addEventListener("click",closeSign);
   byId("save-sign").addEventListener("click",saveSign);
@@ -806,6 +873,11 @@ function initialize():void{
   },openSign,openSecret,openMiniGames,()=>openQuickGame("target"));
   blaster=new BlasterEffects(world.scene);
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
+  range=new StarshotRange(world.scene);
+  guide=new WorldGuide();
+  // Existing proximity system makes the 3D portal itself playable.
+  world.targets.push({x:33,z:10,label:"✦ STARSHOT RANGE — 30秒射撃チャレンジ",
+    action:startStarshot});
   setOthelloMatch(currentMatch);
   player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
   camera=new CameraController(world.camera);
