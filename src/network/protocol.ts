@@ -1,6 +1,7 @@
 import { isFiniteVector3, safeDisplayName, type PlayerSnapshot } from "../types/Player.ts";
 import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
 import {validMatch,type OthelloMatch} from "../../shared/othello.js";
+import {validAvatar,validEmote,type AvatarStyle,type EmoteKind} from "../../shared/avatarRules.js";
 export const MAX_MESSAGE_BYTES=4096;
 export const MAX_ROOM_STATE_BYTES=150000;
 export const MAX_SHARED_IMAGE_CHARS=110000;
@@ -19,6 +20,8 @@ export type IncomingMessage=
   | {type:"snapshot";players:PlayerSnapshot[]}
   | {type:"joined";player:PlayerSnapshot}
   | {type:"left";playerId:string}
+  | {type:"avatar_state";playerId:string;avatar:AvatarStyle}
+  | {type:"emote_event";playerId:string;kind:EmoteKind;durationMs:number}
   | {type:"error";reason:string}
   | RoomSharedState
   | {type:"health_snapshot";players:{playerId:string;hp:number;respawnAt:number}[]}
@@ -37,7 +40,9 @@ export type OutgoingMessage=
   | {type:"othello";action:"start"|"join"|"pause"|"resume"|"reset"}
   | {type:"othello";action:"place";index:number}
   | {type:"unlock_weapon";code:string}
-  | {type:"peace_mode";enabled:boolean};
+  | {type:"peace_mode";enabled:boolean}
+  | {type:"avatar_update";avatar:AvatarStyle}
+  | {type:"emote";kind:EmoteKind};
 export function createRoomId():string{
   const bytes=new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -60,7 +65,8 @@ function validPlayer(value:unknown):value is PlayerSnapshot{
    &&isFiniteVector3(v.position)
    &&typeof v.yaw==="number"&&Number.isFinite(v.yaw)&&Math.abs(v.yaw)<=1e6
    &&typeof v.pitch==="number"&&Number.isFinite(v.pitch)&&Math.abs(v.pitch)<=Math.PI
-   &&Number.isSafeInteger(v.sequence)&&Number(v.sequence)>=0;
+   &&Number.isSafeInteger(v.sequence)&&Number(v.sequence)>=0
+   &&(v.avatar===undefined||validAvatar(v.avatar));
 }
 /** Reject arbitrary JSON, malformed identities, oversized packets and non-finite world positions. */
 export function parseIncoming(raw:string):IncomingMessage|null{
@@ -71,6 +77,12 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   try{parsed=JSON.parse(raw)}catch{return null}
   if(!parsed||typeof parsed!=="object")return null;
   const o=parsed as Record<string,unknown>;
+  if(o.type==="avatar_state"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)
+    &&validAvatar(o.avatar))
+    return {type:"avatar_state",playerId:o.playerId,avatar:o.avatar};
+  if(o.type==="emote_event"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)
+    &&validEmote(o.kind)&&Number.isFinite(o.durationMs)&&Number(o.durationMs)>0&&Number(o.durationMs)<=2600)
+    return {type:"emote_event",playerId:o.playerId,kind:o.kind,durationMs:Number(o.durationMs)};
   if(o.type==="weapon_state"&&typeof o.unlocked==="boolean"&&typeof o.peaceful==="boolean")
     return {type:"weapon_state",unlocked:o.unlocked,peaceful:o.peaceful};
   if(o.type==="position_correction"&&isFiniteVector3(o.position)&&Number.isSafeInteger(o.sequence)&&Number(o.sequence)>=0)
@@ -119,6 +131,8 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   return null;
 }
 export function validateOutgoing(message:OutgoingMessage):boolean{
+  if(message.type==="avatar_update")return validAvatar(message.avatar);
+  if(message.type==="emote")return validEmote(message.kind);
   if(message.type==="unlock_weapon")return validUnlockCode(message.code);
   if(message.type==="peace_mode")return typeof message.enabled==="boolean";
   if(message.type==="othello")return message.action==="place"?

@@ -115,6 +115,38 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
       await page.locator("#shoot-button").dispatchEvent("pointerup",{
         pointerId:72,pointerType:"touch",bubbles:true
       });
+      // The social studio is mobile first: the avatar preview remains
+      // readable, selectable and non-blocking across all viewport shapes.
+      await page.locator("#aim-button").dispatchEvent("pointerup",{
+        pointerId:71,pointerType:"touch",bubbles:true
+      });
+      await page.locator("#menu-button").dispatchEvent("click");
+      await page.locator("#open-avatar-studio").dispatchEvent("click");
+      await page.locator("#avatar-overlay").waitFor({state:"visible",timeout:8000});
+      await page.locator("#avatar-color").selectOption("mint");
+      await page.locator("#avatar-hat").selectOption("crown");
+      assert.equal(await page.locator("#avatar-preview-body").evaluate(el=>
+        getComputedStyle(el).backgroundColor),"rgb(120, 229, 192)");
+      const modalBounds=await page.locator(".avatar-studio").boundingBox();
+      assert.ok(modalBounds&&modalBounds.y>=0&&
+        modalBounds.y+modalBounds.height<=viewport.height+1,
+        viewport.name+" avatar modal must fit into visible screen");
+      // One representative portrait screenshot is enough; DOM+layout are
+      // checked on landscape and desktop without extra expensive screenshots.
+      if(viewport.name==="iphone-portrait"){
+        await page.locator(".avatar-studio").screenshot({
+          path:"artifacts/fps-visual/avatar-studio-portrait.png",
+          timeout:12000
+        });
+      }
+      await page.locator("#avatar-apply").dispatchEvent("click");
+      await page.locator("#avatar-overlay").waitFor({state:"hidden"});
+      const savedAvatar=await page.evaluate(()=>JSON.parse(
+        localStorage.getItem("game-room-avatar-v1")));
+      assert.deepEqual(savedAvatar,{color:"mint",hat:"crown"});
+      await page.locator("#emote-button").dispatchEvent("click");
+      assert.equal(await page.locator("#emote-picker [data-emote]").count(),3);
+      await page.locator("#emote-picker [data-emote='wave']").dispatchEvent("click");
       assert.deepEqual(errors,[],viewport.name+" page errors: "+errors.join("; "));
       await context.close();
     }
@@ -122,4 +154,4 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
     await browser?.close();
     server.kill("SIGTERM");
   }
-},{timeout:170000});
+},{timeout:360000});

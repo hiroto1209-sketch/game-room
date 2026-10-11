@@ -1,6 +1,7 @@
 export type Vector2 = { x: number; y: number };
 export type Vector3 = { x: number; y: number; z: number };
 export type PlayerId = string;
+import type {AvatarStyle} from "../../shared/avatarRules.js";
 export interface PlayerSnapshot {
   id: PlayerId;
   displayName: string;
@@ -8,6 +9,7 @@ export interface PlayerSnapshot {
   yaw: number;
   pitch: number;
   sequence: number;
+  avatar?:AvatarStyle;
 }
 export interface Collider { x0:number;x1:number;z0:number;z1:number }
 export function safeDisplayName(name:unknown):string{

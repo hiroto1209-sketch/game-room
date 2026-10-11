@@ -65,6 +65,17 @@ test("two players share one Durable Object and positions/leave events propagate"
     assert.ok((await deniedFire).reason.includes("解放"));
     assert.equal(snapshot.players.some(x=>x.id===alice.playerId),true);
     assert.equal(joined.player.id,bob.playerId);
+    // Style is validated and broadcast by the server, then included in
+    // snapshots for people arriving later.
+    const newStyle={color:"mint",hat:"crown"};
+    const updateToBob=nextMessage(b,"avatar_state",m=>m.playerId===alice.playerId);
+    const updateToAlice=nextMessage(a,"avatar_state",m=>m.playerId===alice.playerId);
+    a.send(JSON.stringify({type:"avatar_update",avatar:newStyle}));
+    assert.deepEqual((await updateToBob).avatar,newStyle);
+    assert.deepEqual((await updateToAlice).avatar,newStyle);
+    const badStyle=nextMessage(a,"error",m=>m.reason==="Invalid message");
+    a.send(JSON.stringify({type:"avatar_update",avatar:{color:"mint",hat:"<script>"}}));
+    assert.equal((await badStyle).reason,"Invalid message");
     await wait(130);
     const aMove=nextMessage(a,"joined",m=>m.player.id===bob.playerId&&m.player.sequence===1);
     b.send(JSON.stringify({type:"move",position:{x:0.1,y:1.65,z:14.7},yaw:0.3,pitch:0,sequence:1}));
@@ -155,13 +166,23 @@ test("two players share one Durable Object and positions/leave events propagate"
     const resumed=nextMessage(a,"othello_state",m=>m.match.status==="playing"&&m.match.lastMove===20);
     a.send(JSON.stringify({type:"othello",action:"resume"}));
     assert.equal((await resumed).match.board[20],2);
+    // A newly arriving guest should see a current dance while it is still
+    // playing. Unlike the appearance, emotes expire and are not stored in SQL.
+    const emoteB=nextMessage(b,"emote_event",m=>m.playerId===alice.playerId);
+    a.send(JSON.stringify({type:"emote",kind:"wave"}));
+    assert.equal((await emoteB).kind,"wave");
     // Late joiners receive the last persisted state, rather than a private client texture.
     c=await connected(url);
     const cWelcome=nextMessage(c,"welcome");
     const cState=nextMessage(c,"room_state");
     const cOthello=nextMessage(c,"othello_state");
+    const cSnapshot=nextMessage(c,"snapshot");
+    const cEmote=nextMessage(c,"emote_event",m=>m.playerId===alice.playerId);
     c.send(JSON.stringify({type:"join",roomId:ROOM,displayName:"Charlie"}));
     assert.ok((await cWelcome).playerId);
+    const latePlayers=(await cSnapshot).players;
+    assert.deepEqual(latePlayers.find(p=>p.id===alice.playerId).avatar,newStyle);
+    assert.equal((await cEmote).kind,"wave");
     const saved=await cState;
     assert.equal(saved.monitorImage,jpeg);
     assert.equal(saved.lightShow,true);

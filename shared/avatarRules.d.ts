@@ -1,0 +1,12 @@
+export type AvatarColor="rose"|"mint"|"sky"|"amber"|"violet";
+export type AvatarHat="none"|"cap"|"crown"|"halo";
+export type EmoteKind="wave"|"dance"|"cheer";
+export type AvatarStyle={color:AvatarColor;hat:AvatarHat};
+export const AVATAR_COLORS:readonly AvatarColor[];
+export const AVATAR_HATS:readonly AvatarHat[];
+export const EMOTES:readonly EmoteKind[];
+export const DEFAULT_AVATAR:Readonly<AvatarStyle>;
+export const EMOTE_DURATION_MS:number;
+export function validAvatar(value:unknown):value is AvatarStyle;
+export function validEmote(value:unknown):value is EmoteKind;
+export function sanitizedAvatar(value:unknown):AvatarStyle;
