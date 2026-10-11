@@ -6,7 +6,7 @@ export const RANGE_ENTRY={x:33,z:10};
 export const RANGE_SHOTS=6;
 export const RANGE_SECONDS=30;
 export const RANGE_SPOTS=[
-  {x:44,z:12},{x:54,z:12},{x:64,z:12}
+  {x:44,z:12},{x:52,z:12},{x:60,z:12}
 ] as const;
 
 /**
@@ -109,6 +109,11 @@ export class StarshotRange{
       !shotObstructed(origin,target);
     if(!valid){this.misses++;return "miss"}
     this.shots++;
+    if(this.shots>=RANGE_SHOTS){
+      this.active=false;
+      this.best=Math.max(this.best,this.shots);
+      this.updateVisual();return "hit";
+    }
     this.flash=.18;
     this.lastTarget=this.current;
     this.current=(this.current+1)%RANGE_SPOTS.length;
