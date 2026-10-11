@@ -38,3 +38,18 @@ test("room media accepts only bounded JPEG base64 and boolean lighting",()=>{
   assert.equal(decodeMessage(JSON.stringify({type:"room_update",key:"lightShow",value:"yes"})),null);
   assert.equal(decodeMessage(JSON.stringify({type:"room_update",key:"monitorImage",value:fakeJpeg+"A".repeat(120000)})),null);
 });
+
+test("avatar and emote messages are strict: only small allowlisted values",()=>{
+  assert.equal(validAvatar(DEFAULT_AVATAR),true);
+  assert.equal(validAvatar({color:"sky",hat:"cap"}),true);
+  assert.equal(validAvatar({color:"sky",hat:"cap",script:"evil"}),false);
+  assert.equal(validAvatar({color:"0xfff000",hat:"halo"}),false);
+  assert.equal(validEmote("dance"),true);
+  assert.equal(validEmote("crawl"),false);
+  assert.deepEqual(decodeMessage('{"type":"avatar_update","avatar":{"color":"sky","hat":"cap"}}'),
+    {type:"avatar_update",avatar:{color:"sky",hat:"cap"}});
+  assert.deepEqual(decodeMessage('{"type":"emote","kind":"cheer"}'),
+    {type:"emote",kind:"cheer"});
+  assert.equal(decodeMessage('{"type":"avatar_update","avatar":{"color":"sky","hat":"none","html":"<img>"}}'),null);
+  assert.equal(decodeMessage('{"type":"emote","kind":"wave","durationMs":9999999}'),null);
+});
