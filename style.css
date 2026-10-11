@@ -253,3 +253,39 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
   #starshot-hud{top:calc(max(11px,env(safe-area-inset-top)) + 89px);padding:6px 8px}
   #guide-label{font-size:8px}
 }
+
+/* SOCIAL 8.0: optional UI, short gestures, never blocks the left joystick. */
+#emote-button{position:absolute;right:max(13px,env(safe-area-inset-right));
+ top:calc(max(13px,env(safe-area-inset-top)) + 76px);
+ z-index:14;width:43px;height:43px;border-radius:14px;
+ border:1px solid rgba(199,255,235,.52);background:rgba(19,31,37,.58);
+ color:#d6fff1;font-size:23px;backdrop-filter:blur(9px);pointer-events:auto;
+ touch-action:manipulation}
+#emote-picker{position:absolute;right:max(12px,env(safe-area-inset-right));
+ top:calc(max(13px,env(safe-area-inset-top)) + 126px);
+ display:flex;flex-direction:column;gap:7px;z-index:16;pointer-events:auto}
+#emote-picker button{min-height:43px;border-radius:11px;padding:8px 14px;text-align:left;
+ background:rgba(19,26,38,.88);border:1px solid rgba(160,251,220,.47);
+ color:#f2fff8;font-size:12px;backdrop-filter:blur(10px)}
+#avatar-overlay{z-index:43;background:rgba(11,9,21,.79);backdrop-filter:blur(11px);padding:16px}
+.avatar-studio{max-height:88dvh;overflow-y:auto;max-width:420px}
+.avatar-select{display:block;width:100%;background:#212336;color:#fff7ed;
+ border-radius:10px;padding:12px;border:1px solid #c9a6e876;min-height:43px;margin:5px 0 13px}
+.avatar-preview{height:166px;display:flex;flex-direction:column;align-items:center;
+ background:radial-gradient(ellipse at center,#47546c,#1b1b2b 76%);
+ border:1px solid #ac9ec66e;border-radius:14px;overflow:hidden;margin:9px 0 12px}
+#avatar-preview-name{margin-top:9px;padding:4px 15px;background:#131a2cc2;
+ border-radius:100px;color:#fff;font-size:12px}
+.avatar-preview-figure{width:110px;height:120px;position:relative;margin-top:8px}
+.avatar-preview-head{position:absolute;top:18px;left:31px;width:48px;height:47px;
+ border-radius:50%;background:#ffd7bd;display:flex;align-items:center;justify-content:center;gap:13px}
+.avatar-preview-head i{display:block;width:5px;height:5px;border-radius:50%;background:#30283b}
+#avatar-preview-body{position:absolute;top:68px;left:19px;width:72px;height:76px;
+ border-radius:24px 24px 9px 9px;background:#f79ec7}
+#avatar-preview-hat{position:absolute;top:-5px;left:0;width:110px;text-align:center;
+ font-size:38px;color:#e7dbff;z-index:3;font-weight:900;line-height:1}
+#avatar-preview-hat[data-hat="halo"]{color:#9cffea}
+#avatar-preview-hat[data-hat="crown"]{color:#ffde7d}
+#avatar-preview-hat[data-hat="cap"]{color:#91b9f1}
+@media(max-width:430px){#emote-button{top:calc(max(10px,env(safe-area-inset-top)) + 58px)}
+ #emote-picker{top:calc(max(10px,env(safe-area-inset-top)) + 107px)}}
