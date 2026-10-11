@@ -44,6 +44,30 @@ export class StarshotRange{
     makeBox(.5,5,.6,32,base+2.5,13.5,violet);
     makeBox(.6,.38,5.7,32,base+4.92,11,neon);
     makeBox(.13,1.4,3.2,32,base+2.8,11,concrete);
+    // The entrance explains itself without HUD popups or a tutorial.
+    const sign=document.createElement("canvas");sign.width=512;sign.height=128;
+    const ctx=sign.getContext("2d");
+    if(ctx){
+      ctx.fillStyle="#11172c";ctx.fillRect(0,0,512,128);
+      ctx.strokeStyle="#7fffe2";ctx.lineWidth=9;ctx.strokeRect(7,7,498,114);
+      ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillStyle="#d5ffee";ctx.font="bold 53px system-ui,sans-serif";
+      ctx.fillText("STARSHOT",256,52);
+      ctx.fillStyle="#ffaee4";ctx.font="bold 28px system-ui,sans-serif";
+      ctx.fillText("6 HITS · 30 SEC",256,98);
+      const texture=new THREE.CanvasTexture(sign);texture.colorSpace=THREE.SRGBColorSpace;
+      const board=new THREE.Mesh(new THREE.PlaneGeometry(3.65,.92),
+        new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,transparent:false}));
+      board.position.set(31.65,base+4.12,11);board.rotation.y=-Math.PI/2;
+      this.group.add(board);
+    }
+    // A simple guided lane is visible across shallow terrain, not a fake
+    // blocking floor. No physics/collider changes are introduced.
+    for(let x=35;x<=61;x+=4){
+      const y=groundHeightAt(x,12)+.035;
+      makeBox(2.2,.035,.08,x,y,8.8,neon);
+      makeBox(2.2,.035,.08,x,y,15.3,neon);
+    }
     // Target lane is on the +X side, facing the player who travels east.
     for(let i=0;i<RANGE_SPOTS.length;i++){
       const spot=RANGE_SPOTS[i],height=groundHeightAt(spot.x,spot.z);
