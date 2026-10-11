@@ -13,6 +13,7 @@ import { worldBlocked, groundHeightAt, shotObstructed } from "../shared/worldRul
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
 import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
+import {canBlasterFire,shouldSendPvpShot} from "./combat/practiceRules";
 import {WorldGuide} from "./ui/WorldGuide";
 import {QuickArcade} from "./games/QuickArcade";
 import {FireLookGesture} from "./input/FireLookGesture";
@@ -108,7 +109,7 @@ let firePointerId:number|null=null,aimPointerId:number|null=null;
 const fireGesture=new FireLookGesture();
 function setAimMode(enabled:boolean):void{
   if(!world)return;
-  aiming=enabled&&weaponUnlocked&&!peaceful&&state.playing&&!state.paused;
+  aiming=enabled&&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))&&state.playing&&!state.paused;
   aimButton.classList.toggle("aiming",aiming);
   crosshair.classList.toggle("aiming",aiming);
   // FOV blends in the render loop; true ADS also halves effective recoil,
@@ -126,7 +127,7 @@ function lookWhileFiring(e:PointerEvent):void{
   e.preventDefault();
 }
 function startFiring():void{
-  if(!state.playing||state.paused||!weaponUnlocked||peaceful)return;
+  if(!state.playing||state.paused||!canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running)))return;
   // Do not reset the just-acquired FIRE pointer when restarting auto-fire.
   if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
   fireBlaster();
@@ -312,7 +313,7 @@ function saveSign():void{
 }
 function fireBlaster():void{
   if(!state.playing||state.paused||!player||!camera||!blaster)return;
-  if(!weaponUnlocked||peaceful){showToast("隠しブラスターの解放かピースモード設定を確認してください");return;}
+  if(!canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))){showToast("ARMORYでブラスターを解放してください");return;}
   if(currentHp<=0)return;
   const now=performance.now();if(now-lastShotAt<410)return;
   lastShotAt=now;
@@ -337,7 +338,7 @@ function fireBlaster():void{
     {transform:"translate(-50%, -50%) scale(1.5)"},
     {transform:"translate(-50%, -50%) scale(1)"}
   ],{duration:145,easing:"ease-out"});
-  if(!practicing&&roomClient.online && !roomClient.shoot(shotYaw,shotPitch))
+  if(shouldSendPvpShot(roomClient.online,peaceful,practicing) && !roomClient.shoot(shotYaw,shotPitch))
     showToast("発射通信に失敗しました");
 }
 const clock=new THREE.Clock();
@@ -535,8 +536,8 @@ function start():void{
 }
 function startStarshot():void{
   if(!range||!player||!state.playing||state.paused)return;
-  if(!weaponUnlocked||peaceful){
-    showToast("✦ ARMORYでNEON777を解放し、ピースモードを解除してください");
+  if(!weaponUnlocked){
+    showToast("✦ ARMORYでNEON777を解放してください。ピースモードのまま練習できます");
     return;
   }
   if(Math.hypot(player.position.x-33,player.position.z-10)>9){
@@ -661,7 +662,7 @@ function update(dt:number):void{
       currentMatch.status==="waiting"?"参加待ち":
       currentMatch.status==="finished"?"終了":
       "● "+counts(currentMatch.board).black+" / ○ "+counts(currentMatch.board).white;
-    const armed=weaponUnlocked&&!peaceful;
+    const armed=canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running));
     combatHud.classList.remove("hidden");
     shootButton.classList.toggle("hidden",!armed);
     aimButton.classList.toggle("hidden",!armed);
@@ -689,11 +690,14 @@ function update(dt:number):void{
   if(Math.abs(world.camera.fov-aimFov)>.04){
     world.camera.fov=aimFov;world.camera.updateProjectionMatrix();
   }
-  weaponViewmodel?.setVisible(state.playing&&!state.paused&&weaponUnlocked&&!peaceful&&currentHp>0);
+  weaponViewmodel?.setVisible(state.playing&&!state.paused&&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))&&currentHp>0);
   weaponViewmodel?.update(dt,aiming);
   range?.update(dt);
   if(rangeWasRunning&&!range?.running){
     rangeWasRunning=false;
+    // Never allow a held training trigger to become a live PvP attack when
+    // the solo round ends. The shooter must intentionally press FIRE again.
+    stopFiring();setAimMode(false);
     const total=range?.hits??0;
     rangeHud.classList.add("hidden");
     showToast("✦ STARSHOT "+total+"/"+RANGE_SHOTS+" HIT · BEST "+(range?.record??0));
@@ -897,7 +901,7 @@ function initialize():void{
     onInteract:doInteraction
   });
   touchBridge=new FpsTouchBridge(shootButton,canvas,{
-    canPlay:()=>state.playing&&!state.paused&&weaponUnlocked&&!peaceful&&currentHp>0,
+    canPlay:()=>state.playing&&!state.paused&&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))&&currentHp>0,
     fireStart:()=>{if(fireHeld===null)startFiring();},
     fireStop:()=>stopFiring(),
     fireLook:(dx,dy)=>{
