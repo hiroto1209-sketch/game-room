@@ -20,7 +20,9 @@ export class WeaponViewmodel {
   private active=false;
   private lastAiming=false;
 
-  constructor(private readonly camera:THREE.PerspectiveCamera,scene:THREE.Scene){
+  private readonly camera:THREE.PerspectiveCamera;
+  constructor(camera:THREE.PerspectiveCamera,scene:THREE.Scene){
+    this.camera=camera;
     // Camera-mounted meshes are rendered in the same pass as the world.
     // No extra render pass, extra scene, heavy shaders or expensive lights.
     scene.add(camera);
