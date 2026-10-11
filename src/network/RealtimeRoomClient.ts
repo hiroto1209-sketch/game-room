@@ -3,6 +3,7 @@ import { safeDisplayName } from "../types/Player";
 import { isValidRoomId, type RoomSharedState } from "./protocol";
 import { WebSocketTransport } from "./Transport";
 import type {OthelloMatch} from "../../shared/othello.js";
+import type {AvatarStyle,EmoteKind} from "../../shared/avatarRules.js";
 
 export type RoomConnectionState="offline"|"connecting"|"online"|"reconnecting";
 export interface RoomCallbacks{
@@ -20,6 +21,8 @@ export interface RoomCallbacks{
   onSpawn(position:{x:number;y:number;z:number}):void;
   onCorrection(position:{x:number;y:number;z:number}):void;
   onWeaponState(unlocked:boolean,peaceful:boolean):void;
+  onAvatar(playerId:string,avatar:AvatarStyle):void;
+  onEmote(playerId:string,kind:EmoteKind,durationMs:number):void;
 }
 /** Holds the network lifecycle; no rendering, DOM or game rules in this module. */
 export class RealtimeRoomClient {
@@ -48,6 +51,12 @@ export class RealtimeRoomClient {
   get roomId():string{return this.currentRoomId}
   get count():number{return this.isReady?this.peers.size+1:0}
   get online():boolean{return this.isReady&&this.transport?.status==="online"}
+  setAvatar(avatar:AvatarStyle):boolean{
+    return this.online?(this.transport?.send({type:"avatar_update",avatar})??false):false;
+  }
+  emote(kind:EmoteKind):boolean{
+    return this.online?(this.transport?.send({type:"emote",kind})??false):false;
+  }
   setRoomImage(image:string|null):boolean{
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"monitorImage",value:image})??false;
@@ -109,7 +118,13 @@ export class RealtimeRoomClient {
     const url=server+"/rooms/"+this.currentRoomId;
     transport.subscribe(msg=>{
       if(gen!==this.connectGeneration)return;
-      if(msg.type==="weapon_state"){
+      if(msg.type==="avatar_state"){
+        const remote=this.peers.get(msg.playerId);
+        if(remote)this.peers.set(msg.playerId,{...remote,avatar:msg.avatar});
+        this.callbacks.onAvatar(msg.playerId,msg.avatar);
+      }else if(msg.type==="emote_event"){
+        this.callbacks.onEmote(msg.playerId,msg.kind,msg.durationMs);
+      }else if(msg.type==="weapon_state"){
         this.callbacks.onWeaponState(msg.unlocked,msg.peaceful);
       }else if(msg.type==="position_correction"){
         this.sequence=Math.max(this.sequence,msg.sequence);
