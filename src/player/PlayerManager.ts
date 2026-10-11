@@ -54,7 +54,6 @@ export class PlayerManager{
     rig.avatar=avatar;
     rig.snapshot={...rig.snapshot,avatar};
     rig.bodyMaterial.color.setHex(PALETTE[avatar.color]);
-    if(rig.hat.children.length)rig.hat.clear(); // reused hat children disposed below
     this.rebuildHat(rig.hat,avatar.hat);
   }
   playEmote(id:string,kind:EmoteKind,durationMs=2600):void{
@@ -82,17 +81,17 @@ export class PlayerManager{
       if(rig.emote&&now<rig.emoteUntil){
         const t=(now-rig.emoteStart)/1000;
         if(rig.emote==="wave"){
-          rig.rightArm.rotation.z=-2.1+.30*Math.sin(t*12);
+          rig.rightArm.rotation.z=2.1+.30*Math.sin(t*12);
           rig.leftArm.rotation.z=.05;
           rig.torso.rotation.z=.09*Math.sin(t*4);
         }else if(rig.emote==="dance"){
-          rig.rightArm.rotation.z=-1.35+.35*Math.sin(t*9);
-          rig.leftArm.rotation.z=1.35+.35*Math.sin(t*9+Math.PI);
+          rig.rightArm.rotation.z=1.35+.35*Math.sin(t*9);
+          rig.leftArm.rotation.z=-1.35+.35*Math.sin(t*9+Math.PI);
           rig.torso.rotation.z=.20*Math.sin(t*8);
           rig.torso.position.y=.12*Math.abs(Math.sin(t*8));
         }else{
-          rig.rightArm.rotation.z=-2.55+.16*Math.sin(t*9);
-          rig.leftArm.rotation.z=2.55+.16*Math.sin(t*9);
+          rig.rightArm.rotation.z=2.55+.16*Math.sin(t*9);
+          rig.leftArm.rotation.z=-2.55+.16*Math.sin(t*9);
           rig.torso.position.y=.16*Math.abs(Math.sin(t*11));
         }
       }else if(rig.emote){
