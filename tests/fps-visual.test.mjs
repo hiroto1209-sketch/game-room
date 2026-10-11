@@ -115,6 +115,29 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
       await page.locator("#shoot-button").dispatchEvent("pointerup",{
         pointerId:72,pointerType:"touch",bubbles:true
       });
+      // The social studio is mobile first: the avatar preview remains
+      // readable, selectable and non-blocking across all viewport shapes.
+      await page.locator("#aim-button").dispatchEvent("pointerup",{
+        pointerId:71,pointerType:"touch",bubbles:true
+      });
+      await page.locator("#menu-button").click();
+      await page.locator("#open-avatar-studio").click();
+      await page.locator("#avatar-overlay").waitFor({state:"visible"});
+      await page.locator("#avatar-color").selectOption("mint");
+      await page.locator("#avatar-hat").selectOption("crown");
+      assert.equal(await page.locator("#avatar-preview-body").evaluate(el=>
+        getComputedStyle(el).backgroundColor),"rgb(120, 229, 192)");
+      await page.screenshot({
+        path:"artifacts/fps-visual/"+viewport.name+"-avatar-studio.png"
+      });
+      await page.locator("#avatar-apply").click();
+      await page.locator("#avatar-overlay").waitFor({state:"hidden"});
+      const savedAvatar=await page.evaluate(()=>JSON.parse(
+        localStorage.getItem("game-room-avatar-v1")));
+      assert.deepEqual(savedAvatar,{color:"mint",hat:"crown"});
+      await page.locator("#emote-button").click();
+      assert.equal(await page.locator("#emote-picker [data-emote]").count(),3);
+      await page.locator("#emote-picker [data-emote='wave']").click();
       assert.deepEqual(errors,[],viewport.name+" page errors: "+errors.join("; "));
       await context.close();
     }
