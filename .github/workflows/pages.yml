@@ -40,6 +40,18 @@ jobs:
         run: npm run check:worker
       - name: Two-client local Durable Object smoke
         run: npm run test:realtime
+      - name: Install Chromium for visual FPS quality gate
+        run: npx playwright install --with-deps chromium
+      - name: FPS screen visibility gate (portrait / landscape / PC)
+        run: npm run test:visual
+      - name: Archive FPS visual screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fps-visual-screenshots
+          path: artifacts/fps-visual/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Archive built output
         uses: actions/upload-artifact@v4
         with:
