@@ -1,3 +1,4 @@
+import {validAvatar,validEmote,DEFAULT_AVATAR} from "../shared/avatarRules.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {safeName,validRoomId,validPosition,decodeMessage,permittedOrigin,withinMovementSpeed} from "../server/src/guards.js";
