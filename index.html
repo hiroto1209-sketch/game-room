@@ -61,6 +61,12 @@
       <div id="joystick" aria-hidden="true"><div id="joystick-thumb"></div></div>
       <button id="aim-button" class="round-action hidden" type="button" aria-label="押している間、反動が少ない精密照準">◎<small>ADS</small></button>
       <button id="shoot-button" class="round-action hidden" type="button" aria-label="エネルギーブラスターを発射"><span>✦</span><small>FIRE</small></button>
+      <button id="emote-button" class="hidden" type="button" aria-label="エモートを選ぶ">☺</button>
+      <div id="emote-picker" class="hidden" role="group" aria-label="エモート">
+        <button type="button" data-emote="wave">👋 手を振る</button>
+        <button type="button" data-emote="dance">♫ ダンス</button>
+        <button type="button" data-emote="cheer">✦ よろこぶ</button>
+      </div>
       <button id="jump-button" class="round-action" aria-label="ジャンプ"><span>↑</span><small>JUMP</small></button>
       <div id="interaction" class="hidden">
         <div id="interaction-text">アクション</div>
@@ -68,6 +74,31 @@
       </div>
       <div id="toast" role="status"></div>
 
+    </div>
+
+    <div id="avatar-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="avatar-title">
+      <div class="monitor-card avatar-studio">
+        <div class="menu-head"><div><span class="overline">GAME ROOM · SOCIAL</span>
+          <h2 id="avatar-title">MY AVATAR</h2></div>
+          <button id="avatar-close" type="button" class="icon-button" aria-label="アバター編集を閉じる">×</button>
+        </div>
+        <p class="monitor-help">服の色と帽子を変えよう。オンラインでは友達の画面にも反映されます。</p>
+        <div class="avatar-preview" aria-label="自分のアバターの色と帽子のプレビュー">
+          <span id="avatar-preview-name">Guest</span>
+          <div class="avatar-preview-figure">
+            <span id="avatar-preview-hat"></span>
+            <span class="avatar-preview-head"><i></i><i></i></span>
+            <span id="avatar-preview-body"></span>
+          </div>
+        </div>
+        <label class="monitor-label" for="avatar-color">服の色</label>
+        <select id="avatar-color" class="avatar-select"></select>
+        <label class="monitor-label" for="avatar-hat">帽子・アクセサリー</label>
+        <select id="avatar-hat" class="avatar-select"></select>
+        <button id="avatar-apply" class="primary-menu-button" type="button">アバターを保存</button>
+        <button id="avatar-back" class="plain-menu-button" type="button">ワールドへ戻る</button>
+        <p class="monitor-footnote">エモートはワールド右上の☺から使えます。設定はこの端末に保存され、再接続時にも同期します。</p>
+      </div>
     </div>
 
     <div id="minigames-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="minigames-title">
@@ -190,6 +221,7 @@
         <div id="weapon-info" class="monitor-help">ブラスター未解放 · ロゴに秘密があるかも</div>
         <label class="toggle"><span>動きを控えめにする</span><input id="reduced-motion" type="checkbox" /></label>
         <button id="open-world-map" class="plain-menu-button" type="button">🧭 WORLD MAP / 目的地を探す</button>
+        <button id="open-avatar-studio" class="plain-menu-button" type="button">☺ アバターをカスタムする</button>
         <button id="open-minigames" class="plain-menu-button" type="button">🎮 ミニゲームを選ぶ</button>
         <button id="resume-button" class="primary-menu-button">ワールドへ戻る</button>
         <button id="return-title" class="plain-menu-button">タイトルに戻る</button>
