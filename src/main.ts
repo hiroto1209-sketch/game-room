@@ -14,6 +14,8 @@ import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared
 import {BlasterEffects} from "./combat/BlasterEffects";
 import {QuickArcade} from "./games/QuickArcade";
 import {FireLookGesture} from "./input/FireLookGesture";
+import {FpsTouchBridge} from "./input/FpsTouchBridge";
+import {WeaponViewmodel} from "./combat/WeaponViewmodel";
 import {freshMatch,applyMove,legalMoves,counts,BLACK,WHITE,type OthelloMatch} from "../shared/othello.js";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
@@ -86,10 +88,13 @@ let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
+let weaponViewmodel:WeaponViewmodel|undefined;
+let touchBridge:FpsTouchBridge|undefined;
 let quickArcade:QuickArcade|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
 let aiming=false;
+let aimFov=76;
 let fireHeld:ReturnType<typeof setInterval>|null=null;
 let firePointerId:number|null=null,aimPointerId:number|null=null;
 const fireGesture=new FireLookGesture();
@@ -98,8 +103,8 @@ function setAimMode(enabled:boolean):void{
   aiming=enabled&&weaponUnlocked&&!peaceful&&state.playing&&!state.paused;
   aimButton.classList.toggle("aiming",aiming);
   crosshair.classList.toggle("aiming",aiming);
-  world.camera.fov=aiming?55:window.innerWidth<window.innerHeight?76:71;
-  world.camera.updateProjectionMatrix();
+  // FOV blends in the render loop; true ADS also halves effective recoil,
+  // centers the weapon sight and tightens look response.
 }
 function stopFiring():void{
   if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
@@ -304,8 +309,16 @@ function fireBlaster():void{
   const now=performance.now();if(now-lastShotAt<410)return;
   lastShotAt=now;
   const origin={...player.position};
-  blaster.shoot(origin,camera.yaw,camera.pitch);
-  if(roomClient.online && !roomClient.shoot(camera.yaw,camera.pitch))
+  const shotYaw=camera.yaw,shotPitch=camera.pitch;
+  blaster.shoot(origin,shotYaw,shotPitch);
+  weaponViewmodel?.fire();
+  // Actual camera recoil changes subsequent shots, with much less kick in ADS.
+  camera.kickRecoil(aiming);
+  crosshair.animate([
+    {transform:"translate(-50%, -50%) scale(1.5)"},
+    {transform:"translate(-50%, -50%) scale(1)"}
+  ],{duration:145,easing:"ease-out"});
+  if(roomClient.online && !roomClient.shoot(shotYaw,shotPitch))
     showToast("発射通信に失敗しました");
 }
 const clock=new THREE.Clock();
@@ -370,7 +383,15 @@ const roomClient=new RealtimeRoomClient({
     if(shooterId!==roomClient.playerId)blaster?.shoot(position,yaw,pitch);
   },
   onFireResult:(hit,damage)=>{
-    if(hit)showToast("✦ HIT! "+damage+" DAMAGE");
+    if(hit){
+      crosshair.classList.add("hit-confirmed");
+      crosshair.animate([
+        {transform:"translate(-50%, -50%) scale(1.8)",opacity:1},
+        {transform:"translate(-50%, -50%) scale(1)",opacity:.7}
+      ],{duration:210,easing:"ease-out"});
+      window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),280);
+      showToast("✦ HIT! "+damage+" DAMAGE");
+    }
   },
   onRespawn:position=>{
     player?.teleport(position.x,position.y,position.z);
@@ -493,7 +514,7 @@ function start():void{
   window.setTimeout(()=>tips.classList.add("fading"),6900);
 }
 function openMenu():void{
-  stopFiring();setAimMode(false);
+  touchBridge?.reset();stopFiring();setAimMode(false);
   if(state.editingMonitor||state.editingSign||state.editingSecret||state.editingMiniGames)return;
   state.paused=true;
   input?.reset();if(input)input.enabled=false;
@@ -513,7 +534,7 @@ function openQuickGame(kind:"target"|"tic"):void{
 }
 function backToTitle():void{
   quickArcade?.dismiss();
-  stopFiring();setAimMode(false);
+  touchBridge?.reset();stopFiring();setAimMode(false);
   closeMiniGames();
   closeSecret();
   closeSign();
@@ -614,6 +635,14 @@ function update(dt:number):void{
       position:{...player.position},yaw:camera.yaw,pitch:camera.pitch
     });
   }
+  // Smooth ADS interpolates FOV instead of popping into a simple zoom.
+  const desiredFov=aiming?54:window.innerWidth<window.innerHeight?76:71;
+  aimFov+=(desiredFov-aimFov)*Math.min(1,dt*14);
+  if(Math.abs(world.camera.fov-aimFov)>.04){
+    world.camera.fov=aimFov;world.camera.updateProjectionMatrix();
+  }
+  weaponViewmodel?.setVisible(state.playing&&!state.paused&&weaponUnlocked&&!peaceful&&currentHp>0);
+  weaponViewmodel?.update(dt,aiming);
   world.update(dt,state.time,settings.reducedMotion);
   blaster?.update(dt);
   players.update(dt,world.camera);
@@ -674,9 +703,16 @@ function registerUi():void{
   },{passive:false});
   // Holding FIRE should not freeze the aim. The same firing thumb can drag
   // the reticle, while a different finger can look on the right half of canvas.
-  shootButton.addEventListener("pointermove",lookWhileFiring,{passive:false});
+  shootButton.addEventListener("pointermove",e=>{
+    if(e.pointerType==="touch"&&touchBridge?.firingNative)return;
+    lookWhileFiring(e);
+  },{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    shootButton.addEventListener(event,e=>{if(firePointerId===(e as PointerEvent).pointerId){fireGesture.end(firePointerId);firePointerId=null;stopFiring();}});
+    shootButton.addEventListener(event,e=>{
+      const pe=e as PointerEvent;
+      if(pe.pointerType==="touch"&&touchBridge?.firingNative)return;
+      if(firePointerId===pe.pointerId){fireGesture.end(firePointerId);firePointerId=null;stopFiring();}
+    });
   }
   shootButton.addEventListener("click",e=>{
     if(e.detail===0)fireBlaster(); // keyboard accessibility
@@ -689,7 +725,8 @@ function registerUi():void{
   }
   const releaseWeaponPointer=(e:PointerEvent)=>{
     // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
-    if(e.pointerId===firePointerId){fireGesture.end(e.pointerId);firePointerId=null;stopFiring();}
+    if(e.pointerId===firePointerId&&!(e.pointerType==="touch"&&touchBridge?.firingNative)){
+      fireGesture.end(e.pointerId);firePointerId=null;stopFiring();}
     if(e.pointerId===aimPointerId){aimPointerId=null;setAimMode(false);}
   };
   window.addEventListener("pointerup",releaseWeaponPointer);
@@ -768,6 +805,7 @@ function initialize():void{
       showToast("照明の共有に失敗しました");
   },openSign,openSecret,openMiniGames,()=>openQuickGame("target"));
   blaster=new BlasterEffects(world.scene);
+  weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   setOthelloMatch(currentMatch);
   player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
   camera=new CameraController(world.camera);
@@ -785,6 +823,20 @@ function initialize():void{
     onJump:()=>{if(state.playing&&!state.paused)player?.jump()},
     onMenu:()=>state.editingMiniGames?closeMiniGames():state.paused?closeMenu():openMenu(),
     onInteract:doInteraction
+  });
+  touchBridge=new FpsTouchBridge(shootButton,canvas,{
+    canPlay:()=>state.playing&&!state.paused&&weaponUnlocked&&!peaceful&&currentHp>0,
+    fireStart:()=>{if(fireHeld===null)startFiring();},
+    fireStop:()=>stopFiring(),
+    fireLook:(dx,dy)=>{
+      if(state.playing&&!state.paused)
+        camera?.drag(dx,dy,settings.sensitivity*(aiming?.56:1));
+    },
+    freeLook:(dx,dy)=>{
+      if(state.playing&&!state.paused)
+        camera?.drag(dx,dy,settings.sensitivity*(aiming?.56:1));
+    },
+    nativeLook:active=>input?.setNativeLook(active)
   });
   quickArcade=new QuickArcade({
     onOpen:()=>{
