@@ -37,6 +37,16 @@
     <div id="hud" class="hidden">
       <div id="crosshair" aria-hidden="true"></div>
       <div id="zone-indicator" aria-live="polite">PARTY LOUNGE</div>
+      <div id="world-guide" class="hidden" aria-live="off">
+        <span id="guide-arrow" aria-hidden="true">↑</span>
+        <span id="guide-label">STARSHOT RANGE</span>
+        <span id="guide-distance">—</span>
+      </div>
+      <div id="starshot-hud" class="hidden" aria-live="polite">
+        <span class="range-mode">✦ STARSHOT · SOLO</span>
+        <strong id="range-progress">0 / 6 HIT</strong>
+        <span id="range-time">30s</span>
+      </div>
       <div id="combat-hud" class="hidden" aria-live="polite">
         <span class="combat-title">HEALTH</span>
         <span id="hp-label">HP 100 / 100</span>
@@ -86,6 +96,19 @@
       </div>
     </div>
 
+    <div id="world-map-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="world-map-title">
+      <div class="monitor-card world-map-card">
+        <div class="menu-head">
+          <div><span class="overline">GAME ROOM · EXPLORATION</span><h2 id="world-map-title">WORLD MAP</h2></div>
+          <button id="world-map-close" class="icon-button" type="button" aria-label="地図を閉じる">×</button>
+        </div>
+        <canvas id="world-map-canvas" width="320" height="224" role="img" aria-label="自分の現在地と目的地を示す地図"></canvas>
+        <label class="monitor-label" for="world-destination">行きたい場所を選ぶ</label>
+        <select id="world-destination" class="world-destination"></select>
+        <p class="monitor-help">地図の白い点が現在地です。戻るとワールド画面上に進む方向が表示されます。</p>
+        <button id="world-map-back" class="primary-menu-button" type="button">この目的地へ向かう</button>
+      </div>
+    </div>
     <div id="quick-game-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="quick-game-title">
       <div class="monitor-card quick-arcade-card">
         <div class="menu-head"><div><span class="overline">GAME ROOM · ARCADE</span>
@@ -166,6 +189,7 @@
         <label class="toggle"><span>ピースモード（他プレイヤーからのダメージを防ぐ）</span><input id="peace-mode" type="checkbox" checked /></label>
         <div id="weapon-info" class="monitor-help">ブラスター未解放 · ロゴに秘密があるかも</div>
         <label class="toggle"><span>動きを控えめにする</span><input id="reduced-motion" type="checkbox" /></label>
+        <button id="open-world-map" class="plain-menu-button" type="button">🧭 WORLD MAP / 目的地を探す</button>
         <button id="open-minigames" class="plain-menu-button" type="button">🎮 ミニゲームを選ぶ</button>
         <button id="resume-button" class="primary-menu-button">ワールドへ戻る</button>
         <button id="return-title" class="plain-menu-button">タイトルに戻る</button>
