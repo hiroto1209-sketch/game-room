@@ -74,7 +74,7 @@ export class WeaponViewmodel {
     this.sight.add(ring);this.parts.push(ring);
     this.sight.position.set(0,0,-.80);
     this.sight.visible=false;
-    this.group.position.set(.45,-.36,-.72);
+    this.group.position.set(.22,-.36,-.72);
     this.group.visible=false;
   }
 
@@ -98,7 +98,11 @@ export class WeaponViewmodel {
     const factor=Math.min(1,Math.max(0,dt)*15);
     // Moving the WEAPON BODY down and away from the optical center is vital.
     // Older code placed the entire solid model at x=0 in ADS and obscured aim.
-    this.targetPosition.set(aiming?.175:.45,aiming?-.34:-.36,aiming?-.83:-.72);
+    const aspect=this.camera.aspect;
+    const offsetX=aiming?
+      Math.min(.25,Math.max(.055,aspect*.145)):
+      Math.min(.48,Math.max(.20,aspect*.30+.08));
+    this.targetPosition.set(offsetX,aiming?-.34:-.36,aiming?-.83:-.72);
     this.group.position.lerp(this.targetPosition,factor);
     this.kick=Math.max(0,this.kick-dt*.43);
     this.group.position.y-=this.kick;
