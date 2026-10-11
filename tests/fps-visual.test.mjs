@@ -1,0 +1,125 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {chromium} from "playwright";
+import {spawn} from "node:child_process";
+import {mkdir} from "node:fs/promises";
+import {setTimeout as delay} from "node:timers/promises";
+
+const PORT=4175,ROOT="http://127.0.0.1:"+PORT+"/game-room/";
+async function waitForServer(){
+  for(let i=0;i<80;i++){
+    try{const r=await fetch(ROOT);if(r.ok)return}catch{}
+    await delay(350);
+  }
+  throw Error("Vite preview failed to start");
+}
+
+async function targetPixels(page,screenshot){
+  // Pixel-level oracle: bright magenta 10-meter target must remain visible
+  // in the center 65px radius even when the solid viewmodel overlays the world.
+  // No baseline screenshot update can silently approve a blocked target.
+  const base64=screenshot.toString("base64");
+  return await page.evaluate(async encoded=>{
+    const data=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+    const image=await createImageBitmap(new Blob([data],{type:"image/png"}));
+    const canvas=document.createElement("canvas");
+    canvas.width=image.width;canvas.height=image.height;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    ctx.drawImage(image,0,0);
+    const cx=Math.floor(image.width/2),cy=Math.floor(image.height/2);
+    const radius=Math.min(75,Math.floor(image.height*.08));
+    const pixel=ctx.getImageData(cx-radius,cy-radius,radius*2,radius*2).data;
+    let marked=0,total=0;
+    for(let y=0;y<radius*2;y+=2){
+      for(let x=0;x<radius*2;x+=2){
+        // The center crosshair can cover a small part of the target.
+        if(Math.abs(x-radius)<9&&Math.abs(y-radius)<9)continue;
+        const i=(y*radius*2+x)*4;
+        if(pixel[i]>150&&pixel[i+1]<95&&pixel[i+2]>95&&pixel[i+2]>pixel[i+1]*1.3)marked++;
+        total++;
+      }
+    }
+    return {fraction:marked/Math.max(1,total),marked,total};
+  },base64);
+}
+
+test("ADS view remains unobstructed on portrait, landscape and desktop",async()=>{
+  const server=spawn(process.execPath,["./node_modules/vite/bin/vite.js","preview",
+    "--host","127.0.0.1","--port",String(PORT),"--strictPort"],{stdio:"ignore"});
+  let browser;
+  try{
+    await waitForServer();
+    browser=await chromium.launch({headless:true,args:[
+      "--enable-unsafe-swiftshader","--enable-webgl","--use-gl=angle"
+    ]});
+    await mkdir("artifacts/fps-visual",{recursive:true});
+    for(const viewport of [
+      {name:"iphone-portrait",width:390,height:844},
+      {name:"iphone-landscape",width:844,height:390},
+      {name:"desktop",width:1280,height:720}
+    ]){
+      const context=await browser.newContext({
+        viewport:{width:viewport.width,height:viewport.height},
+        deviceScaleFactor:1,isMobile:viewport.name.startsWith("iphone"),hasTouch:viewport.name.startsWith("iphone")
+      });
+      const page=await context.newPage();
+      const errors=[];
+      page.on("pageerror",e=>errors.push(e.message));
+      await page.addInitScript(()=>{sessionStorage.setItem("game-room-weapon-easteregg","1")});
+      await page.goto(ROOT+"?fpsVisualTest=1",{waitUntil:"domcontentloaded"});
+      await page.locator("#loading").waitFor({state:"detached",timeout:35000});
+      await page.locator("#start-button").click();
+      await page.locator("#shoot-button").waitFor({state:"visible",timeout:10000});
+      await page.waitForTimeout(450);
+
+      const hip=await page.screenshot({
+        path:"artifacts/fps-visual/"+viewport.name+"-hip.png"
+      });
+      const initial=await targetPixels(page,hip);
+      assert.ok(initial.fraction>.12,
+        viewport.name+" hip fire blocks center target "+JSON.stringify(initial));
+
+      await page.locator("#aim-button").dispatchEvent("pointerdown",{
+        pointerId:71,pointerType:"touch",clientX:viewport.width*.66,clientY:viewport.height*.74,
+        bubbles:true,cancelable:true
+      });
+      await page.waitForTimeout(600);
+      const before=await page.evaluate(()=>window.__GAME_ROOM_FPS_QA__&&({
+        aiming:window.__GAME_ROOM_FPS_QA__.aiming(),
+        clear:window.__GAME_ROOM_FPS_QA__.centerClear(),
+        sightError:window.__GAME_ROOM_FPS_QA__.sightError(),
+        drawCalls:window.__GAME_ROOM_FPS_QA__.fpsDrawCalls()
+      }));
+      assert.equal(before?.aiming,true,viewport.name+" ADS did not engage");
+      assert.equal(before?.clear,true,viewport.name+" solid gun blocks central ray");
+      assert.ok(before.sightError<.0001,viewport.name+" sight diverges from shot ray");
+      const ads=await page.screenshot({
+        path:"artifacts/fps-visual/"+viewport.name+"-ads.png"
+      });
+      const measured=await targetPixels(page,ads);
+      assert.ok(measured.fraction>.12,
+        viewport.name+" ADS obscures the target "+JSON.stringify(measured));
+
+      // Fire while sighting: target must stay visible and the debug scene must
+      // not gain a new large solid gun silhouette during recoil.
+      await page.locator("#shoot-button").dispatchEvent("pointerdown",{
+        pointerId:72,pointerType:"touch",clientX:viewport.width*.65,clientY:viewport.height*.82,
+        bubbles:true,cancelable:true
+      });
+      await page.waitForTimeout(200);
+      const firing=await page.screenshot({
+        path:"artifacts/fps-visual/"+viewport.name+"-ads-firing.png"
+      });
+      assert.ok((await targetPixels(page,firing)).fraction>.1,
+        viewport.name+" recoil/flash hides the central target");
+      await page.locator("#shoot-button").dispatchEvent("pointerup",{
+        pointerId:72,pointerType:"touch",bubbles:true
+      });
+      assert.deepEqual(errors,[],viewport.name+" page errors: "+errors.join("; "));
+      await context.close();
+    }
+  }finally{
+    await browser?.close();
+    server.kill("SIGTERM");
+  }
+},{timeout:170000});
