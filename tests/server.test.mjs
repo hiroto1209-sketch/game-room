@@ -25,6 +25,12 @@ test("plausible movement accepted; teleport rejected",()=>{
   assert.equal(withinMovementSpeed({x:0,y:1.65,z:15},{x:0,y:1.65,z:14.5},120),true);
   assert.equal(withinMovementSpeed({x:0,y:1.65,z:15},{x:9,y:1.65,z:0},120),false);
 });
+test("NEON777 moves six times faster only with server permission",()=>{
+  const from={x:0,y:1.65,z:15},fast={x:0,y:1.65,z:12.5};
+  assert.equal(withinMovementSpeed(from,fast,120),false);
+  assert.equal(withinMovementSpeed(from,fast,120,true),true);
+  assert.equal(withinMovementSpeed(from,{x:0,y:1.65,z:5},120,true),false);
+});
 
 test("room media accepts only bounded JPEG base64 and boolean lighting",()=>{
   const fakeJpeg="data:image/jpeg;base64,/9j/AA==";
