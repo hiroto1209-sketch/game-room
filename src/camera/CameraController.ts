@@ -13,7 +13,7 @@ export class CameraController{
   // recoil so repeated shots are easier to control, not merely enlarged.
   kickRecoil(ads:boolean):void{
     const delta=recoilDelta(ads);
-    this.pitch=Math.min(1.2,this.pitch+delta.pitch);
+    this.pitch=Math.max(-1.22,Math.min(1.2,this.pitch+delta.pitch));
     this.yaw+=delta.yaw;
   }
   update(position:Vector3,bob=0):void{
