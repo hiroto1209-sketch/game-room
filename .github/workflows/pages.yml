@@ -44,6 +44,16 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: FPS screen visibility gate (portrait / landscape / PC)
         run: npm run test:visual
+      - name: Hidden world visual gate (cave / secret trail / hilltop)
+        run: npm run test:exploration:visual
+      - name: Archive exploration screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exploration-visual-screenshots
+          path: artifacts/exploration-visual/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Archive FPS visual screenshots
         if: always()
         uses: actions/upload-artifact@v4

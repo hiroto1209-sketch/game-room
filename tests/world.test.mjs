@@ -71,7 +71,9 @@ test("static coastal terrain varies but keeps paths and existing indoor flat",()
   const hills=[groundHeightAt(58,19),groundHeightAt(73,28),groundHeightAt(91,18)];
   assert.ok(hills.some(v=>v>.2));
   assert.notEqual(hills[0],hills[1]);
-  const x=73,z=28,h=groundHeightAt(x,z);
+  // The old point (73,28) is now an intentional solid cave wall.
+  // Exercise the nearby walkable hillside corridor, not the rock obstacle.
+  const x=73,z=32,h=groundHeightAt(x,z);
   assert.ok(validWorldStep({x:x-.3,y:1.65+groundHeightAt(x-.3,z),z},
     {x,y:1.65+h,z}));
 });

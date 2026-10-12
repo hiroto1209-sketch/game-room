@@ -15,6 +15,8 @@ import {BlasterEffects} from "./combat/BlasterEffects";
 import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
 import {canBlasterFire,shouldSendPvpShot} from "./combat/practiceRules";
 import {WorldGuide} from "./ui/WorldGuide";
+import {EXPLORATION_STAMPS,safeDiscovered,earnStamp,type ExplorationId}
+  from "../shared/explorationProgress.js";
 import {AvatarStudio,AVATAR_EMOTE_LABELS} from "./ui/AvatarStudio";
 import {validEmote,type EmoteKind} from "../shared/avatarRules.js";
 import {QuickArcade} from "./games/QuickArcade";
@@ -51,6 +53,33 @@ const combatHud=byId("combat-hud");
 const shootButton=byId<HTMLButtonElement>("shoot-button");
 const aimButton=byId<HTMLButtonElement>("aim-button");
 const crosshair=byId("crosshair");
+const explorationCount=byId("exploration-count");
+const explorationStamps=byId("exploration-stamps");
+const EXPLORATION_STORAGE_KEY="game-room-exploration-stamps-v1";
+let discovered:ExplorationId[]=[];
+try{discovered=safeDiscovered(JSON.parse(
+  localStorage.getItem(EXPLORATION_STORAGE_KEY)??"[]"))}catch{}
+function renderExplorationJournal():void{
+  explorationCount.textContent=discovered.length+" / "+EXPLORATION_STAMPS.length;
+  explorationStamps.replaceChildren();
+  for(const stamp of EXPLORATION_STAMPS){
+    const node=document.createElement("span");
+    const unlocked=discovered.includes(stamp.id);
+    node.textContent=unlocked?"✦ "+stamp.label:"◇ ???";
+    node.classList.toggle("found",unlocked);
+    explorationStamps.appendChild(node);
+  }
+}
+function discoverExplorationStamp(id:ExplorationId):void{
+  const change=earnStamp(discovered,id);
+  if(!change.newlyFound){showToast("✦ 発見済み · 探索手帳を見てみよう");return;}
+  discovered=change.found;
+  try{localStorage.setItem(EXPLORATION_STORAGE_KEY,JSON.stringify(discovered))}catch{}
+  renderExplorationJournal();
+  const place=EXPLORATION_STAMPS.find(entry=>entry.id===id);
+  showToast("✦ SECRET FOUND: "+(place?.label??"UNKNOWN")+"  "+discovered.length+"/3");
+}
+
 const rangeHud=byId("starshot-hud");
 const rangeProgress=byId("range-progress");
 const rangeTime=byId("range-time");
@@ -914,6 +943,18 @@ function initialize():void{
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   range=new StarshotRange(world.scene);
   guide=new WorldGuide();
+  renderExplorationJournal();
+  // Discovery targets reuse the existing reach-limited "あそぶ" interaction.
+  // No extra render-loop collision work, network event or teleport.
+  for(const stamp of EXPLORATION_STAMPS){
+    world.targets.push({
+      x:stamp.x,z:stamp.z,
+      label:stamp.id==="echo"?"◇ 洞窟の記憶クリスタルを調べる":
+        stamp.id==="trail"?"◇ 隠し道の目印を発見する":"△ 展望台の星印を調べる",
+      action:()=>discoverExplorationStamp(stamp.id)
+    });
+  }
+
   avatarStudio=new AvatarStudio(avatar=>{
     if(roomClient.online){
       if(!roomClient.setAvatar(avatar))showToast("アバター同期に失敗しました");
@@ -970,6 +1011,37 @@ function initialize():void{
   window.addEventListener("resize",()=>world?.resize());
   registerUi();
   camera.update(player.position);
+  // LOCALHOST ONLY: screenshot-test the physical cave / secret path / hilltop.
+  // Never expose teleports or debug switches to the published multiplayer app.
+  if((location.hostname==="127.0.0.1"||location.hostname==="localhost")){
+    const key=new URLSearchParams(location.search).get("exploreVisualTest");
+    const poses:Record<string,{x:number;z:number;yaw:number;pitch:number}>={
+      grotto:{x:64,z:32,yaw:-Math.PI/2,pitch:0},
+      trail:{x:78.5,z:33,yaw:-1.88,pitch:-.07},
+      vista:{x:87,z:35,yaw:-2.2,pitch:-.08}
+    };
+    const pose=key?poses[key]:undefined;
+    if(pose&&world&&player&&camera){
+      const qaWorld=world,qaPlayer=player;
+      player.teleport(pose.x,groundHeightAt(pose.x,pose.z)+1.65,pose.z);
+      camera.yaw=pose.yaw;camera.pitch=pose.pitch;
+      camera.update(player.position);
+      Object.assign(window,{__EXPLORATION_QA__:{
+        scene:key,
+        terrainCount:()=>qaWorld.scene.getObjectsByProperty(
+          "name","SINGLE_CONTINUOUS_TERRAIN").length,
+        hiddenVisible:()=>qaWorld.outdoor.hidden.root.visible,
+        instancedGroups:()=>{
+          let n=0;qaWorld.outdoor.hidden.root.traverse(obj=>{
+            if(obj instanceof THREE.InstancedMesh)n++;
+          });return n;
+        },
+        drawCalls:()=>qaWorld.renderer.info.render.calls,
+        playerGround:()=>qaPlayer.position.y-1.65,
+        expectedGround:()=>groundHeightAt(qaPlayer.position.x,qaPlayer.position.z)
+      }});
+    }
+  }
   // QA-only visual fixture: a high-contrast 10m target sits EXACTLY on the
   // camera's forward ray. Only reachable on localhost via explicit query.
   // No production player, network state or combat authority is modified.
