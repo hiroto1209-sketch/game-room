@@ -1011,6 +1011,36 @@ function initialize():void{
   window.addEventListener("resize",()=>world?.resize());
   registerUi();
   camera.update(player.position);
+  // LOCALHOST ONLY: screenshot-test the physical cave / secret path / hilltop.
+  // Never expose teleports or debug switches to the published multiplayer app.
+  if((location.hostname==="127.0.0.1"||location.hostname==="localhost")){
+    const key=new URLSearchParams(location.search).get("exploreVisualTest");
+    const poses:Record<string,{x:number;z:number;yaw:number;pitch:number}>={
+      grotto:{x:64,z:32,yaw:-Math.PI/2,pitch:0},
+      trail:{x:78.5,z:33,yaw:-1.88,pitch:-.07},
+      vista:{x:87,z:35,yaw:-2.2,pitch:-.08}
+    };
+    const pose=key?poses[key]:undefined;
+    if(pose){
+      player.teleport(pose.x,groundHeightAt(pose.x,pose.z)+1.65,pose.z);
+      camera.yaw=pose.yaw;camera.pitch=pose.pitch;
+      camera.update(player.position);
+      Object.assign(window,{__EXPLORATION_QA__:{
+        scene:key,
+        terrainCount:()=>world.scene.getObjectsByProperty(
+          "name","SINGLE_CONTINUOUS_TERRAIN").length,
+        hiddenVisible:()=>world.outdoor.hidden.root.visible,
+        instancedGroups:()=>{
+          let n=0;world.outdoor.hidden.root.traverse(obj=>{
+            if(obj instanceof THREE.InstancedMesh)n++;
+          });return n;
+        },
+        drawCalls:()=>world.renderer.info.render.calls,
+        playerGround:()=>player.position.y-1.65,
+        expectedGround:()=>groundHeightAt(player.position.x,player.position.z)
+      }});
+    }
+  }
   // QA-only visual fixture: a high-contrast 10m target sits EXACTLY on the
   // camera's forward ray. Only reachable on localhost via explicit query.
   // No production player, network state or combat authority is modified.
