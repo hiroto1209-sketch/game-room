@@ -1,6 +1,7 @@
 import type {Vector3} from "../types/Player";
 export type GuideStop={id:string;label:string;x:number;z:number;symbol:string};
 export const STOPS:readonly GuideStop[]=[
+  {id:'fps',label:'FPS ORIGINAL MAP',x:121.2,z:-5,symbol:'➜'},
   {id:"range",label:"STARSHOT RANGE",x:33,z:10,symbol:"✦"},
   {id:"pond",label:"STARLIT POND",x:57,z:-27,symbol:"◈"},
   {id:"grotto",label:"ECHO GROTTO",x:65,z:32,symbol:"◇"},
@@ -18,7 +19,7 @@ export function routeInfo(position:Pick<Vector3,"x"|"z">,yaw:number,stop:GuideSt
     arrived:distance<5};
 }
 export function mapCoord(x:number,z:number,w=320,h=224){
-  return {x:15+(x+24)/128*(w-30),y:15+(z+48)/96*(h-30)};
+  return {x:15+(x+24)/170*(w-30),y:15+(z+48)/96*(h-30)};
 }
 
 /** Small DOM compass + menu map: low refresh frequency and no world draw calls. */

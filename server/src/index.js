@@ -2,6 +2,8 @@ import { DurableObject } from "cloudflare:workers";
 import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
 import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE } from "../../shared/combatRules.js";
 import {SPAWN,shotObstructed} from "../../shared/worldRules.js";
+import {FPS_STAGE,inFpsStage} from "../../shared/playcanvasRules.js";
+import "../../shared/playcanvasCollisionData.js";
 import {DEFAULT_AVATAR,EMOTE_DURATION_MS} from "../../shared/avatarRules.js";
 import { validRoomId, permittedOrigin, decodeMessage, safeName, MAX_PLAYERS, withinMovementSpeed } from "./guards.js";
 
@@ -216,7 +218,7 @@ export class RoomHub extends DurableObject {
     // Respawn is computed on the first message after the timer expires. The
     // authoritative player position is reset before any movement is accepted.
     if(session.respawnAt && now>=session.respawnAt){
-      const revived={...session.player,position:{...SPAWN}};
+      const revived={...session.player,position:{...(inFpsStage(session.player.position.x,session.player.position.z)?FPS_STAGE.spawn:SPAWN)}};
       ws.serializeAttachment({...session,player:revived,hp:MAX_HP,respawnAt:0,
         invulnerableUntil:now+SPAWN_SHIELD_MS,lastMoveAt:now,lastPacketAt:now});
       send(ws,{type:"respawn",position:revived.position,health:MAX_HP});

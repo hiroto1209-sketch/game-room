@@ -1,6 +1,7 @@
 import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
 import {validAvatar,validEmote} from "../../shared/avatarRules.js";
 import { validWorldPosition, validWorldStep, worldBlocked } from "../../shared/worldRules.js";
+import {inFpsStage,stageShotObstructed} from "../../shared/playcanvasRules.js";
 // Pure protocol/security helpers shared with Node unit tests (no Worker globals).
 export const ROOM_ID=/^[A-Za-z0-9_-]{32}$/;
 export const MAX_PLAYERS=8;
@@ -73,6 +74,7 @@ export function permittedOrigin(value){
 }
 export function withinMovementSpeed(prev,next,elapsedMs,turbo=false){
   if(!validWorldStep(prev,next))return false;
+  if(stageShotObstructed(prev,next))return false;
   const dx=next.x-prev.x,dy=next.y-prev.y,dz=next.z-prev.z;
   const horizontal=Math.hypot(dx,dz);
   // Server-issued NEON777 turbo is six times normal travel speed, never client claimed.
@@ -82,11 +84,11 @@ export function withinMovementSpeed(prev,next,elapsedMs,turbo=false){
   if(horizontal>maxHorizontal||Math.abs(dy)>2.5)return false;
   // Fast movement may cross an obstacle between two network snapshots.
   // Inspect the entire horizontal path, not only its endpoint.
-  if(turbo){
+  if(turbo||inFpsStage(prev.x,prev.z,2)||inFpsStage(next.x,next.z,2)){
     const segments=Math.max(1,Math.ceil(horizontal/.25));
     for(let i=1;i<segments;i++){
       const t=i/segments;
-      if(worldBlocked(prev.x+dx*t,prev.z+dz*t,.32))return false;
+      if(worldBlocked(prev.x+dx*t,prev.z+dz*t,.32,prev.y+dy*t))return false;
     }
   }
   return true;
