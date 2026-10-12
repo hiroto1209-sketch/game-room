@@ -72,6 +72,60 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
       await page.locator("#shoot-button").waitFor({state:"visible",timeout:10000});
       await page.waitForTimeout(450);
 
+      // Regression for overlapping mobile HUD text. This intentionally
+      // simulates the worst case when zone+range+Othello+HP+compass all appear
+      // at once, so a new future HUD cannot accidentally stack over them.
+      const layout=await page.evaluate(()=>{
+        const ids=["combat-hud","world-guide","zone-indicator",
+          "starshot-hud","othello-panel"];
+        const original=ids.map(id=>{
+          const el=document.getElementById(id);
+          return {el,hidden:el.classList.contains("hidden"),shown:el.classList.contains("show")};
+        });
+        try{
+          for(const {el} of original){
+            el.classList.remove("hidden");
+            if(el.id==="zone-indicator")el.classList.add("show");
+          }
+          const rectangles=ids.map(id=>{
+            const rect=document.getElementById(id).getBoundingClientRect();
+            return {id,x:rect.left,y:rect.top,w:rect.width,h:rect.height};
+          });
+          const logo=document.querySelector("#top-bar .world-label").getBoundingClientRect();
+          const emote=document.querySelector("#emote-button").getBoundingClientRect();
+          const hint=getComputedStyle(document.querySelector("#tips")).display;
+          return {rectangles,logo:{y:logo.bottom},emote:{
+            x:emote.left,y:emote.top,w:emote.width,h:emote.height
+          },hint};
+        }finally{
+          for(const {el,hidden,shown} of original){
+            el.classList.toggle("hidden",hidden);
+            if(el.id==="zone-indicator")el.classList.toggle("show",shown);
+          }
+        }
+      });
+      assert.equal(layout.hint,"none",
+        viewport.name+" contextual hint overlaps the top HUD");
+      const boxes=layout.rectangles;
+      for(let i=0;i<boxes.length;i++){
+        const a=boxes[i];
+        assert.ok(a.h>0&&a.w>0,viewport.name+" "+a.id+" has zero size");
+        assert.ok(a.x>=0&&a.y>=layout.logo.y+4,
+          viewport.name+" "+a.id+" overlaps GAME ROOM header "+JSON.stringify(a));
+        assert.ok(a.x+a.w<=viewport.width+1,
+          viewport.name+" "+a.id+" extends past viewport");
+        for(let j=i+1;j<boxes.length;j++){
+          const b=boxes[j];
+          const intersection=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*
+            Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+          assert.ok(intersection<1,
+            viewport.name+" "+a.id+" overlaps "+b.id+" by "+intersection+"px²");
+        }
+      }
+      await page.screenshot({
+        path:"artifacts/fps-visual/"+viewport.name+"-hud-layout.png"
+      });
+
       const hip=await page.screenshot({
         path:"artifacts/fps-visual/"+viewport.name+"-hip.png"
       });
