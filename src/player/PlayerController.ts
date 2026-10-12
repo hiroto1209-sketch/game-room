@@ -47,9 +47,9 @@ export class PlayerController {
     const length=Math.max(1,Math.hypot(input.x,input.y));
     const x=input.x/length,z=input.y/length;
     // Three.js camera looks down -Z; transform local right/forward by yaw.
-    const speed=WALK_SPEED*(speedMultiplier===NEON777_SPEED_MULTIPLIER?NEON777_SPEED_MULTIPLIER:1);
-    const tx=(Math.cos(yaw)*x-Math.sin(yaw)*z)*speed;
-    const tz=(-Math.sin(yaw)*x-Math.cos(yaw)*z)*speed;
+    const travelSpeed=WALK_SPEED*(speedMultiplier===NEON777_SPEED_MULTIPLIER?NEON777_SPEED_MULTIPLIER:1);
+    const tx=(Math.cos(yaw)*x-Math.sin(yaw)*z)*travelSpeed;
+    const tz=(-Math.sin(yaw)*x-Math.cos(yaw)*z)*travelSpeed;
     const moving=Math.hypot(x,z)>.01;
     const blend=1-Math.exp(-dt*(moving?11:15));
     this.velocity.x+=(tx-this.velocity.x)*blend;
