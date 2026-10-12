@@ -16,7 +16,7 @@ export const HUD_REFERENCE:Record<HudDevice,{width:number;height:number}>={
 const ctrl=(x:number,y:number,sizePx:number,opacity=.9):HudControl=>({x,y,sizePx,opacity});
 const defaults:Record<HudDevice,HudProfile>={
  phonePortrait:{
-  fire:ctrl(.73,.77,70),ads:ctrl(.73,.63,60),jump:ctrl(.90,.88,68),
+  fire:ctrl(.73,.77,70),ads:ctrl(.73,.63,60),jump:ctrl(.89,.88,68),
   emote:ctrl(.89,.22,50),interact:ctrl(.52,.86,58)
  },
  phoneLandscape:{
