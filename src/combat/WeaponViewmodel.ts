@@ -90,7 +90,7 @@ export class WeaponViewmodel {
 
   fire():void{
     if(!this.active)return;
-    this.kick=Math.min(.075,this.kick+.036);
+    this.kick=Math.min(.060,this.kick+.0288);
     this.flashTime=.065;
     this.flash.visible=true;
   }
