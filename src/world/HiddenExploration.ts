@@ -73,25 +73,55 @@ export class HiddenExploration{
     this.root.add(sign);
   }
   private makeGrotto():void{
-    // Two LONG solid rock walls match explorationWalls in shared/worldRules.js,
-    // and enclose a 5.5m-wide passage from west to east.
+    // Irregular *polyhedral* rocks, not stacked flat boxes. The continuous
+    // server collision walls remain exactly the same in shared/worldRules.js.
+    // Stones overlap enough to visually cover those footprints. Low-poly
+    // facets catch ambient lighting without adding lights or shaders.
     const sides=[];
-    for(let x=67;x<=77;x+=2){
-      for(const z of [28.25,35.75]){
-        const h=groundHeightAt(x,z);
-        sides.push({x,y:h+1.85,z,sx:2.1,sy:3.65,sz:2.05});
+    for(let i=0;i<12;i++){
+      const x=66.4+i*1.02;
+      for(const [j,z] of [28.25,35.75].entries()){
+        const base=groundHeightAt(x,z);
+        sides.push({
+          x,y:base+1.77+.13*Math.sin(i*2.5+j),z,
+          sx:1.16+(i%3)*.07,sy:2.35+(i%4)*.08,sz:1.55+(i%3)*.08,
+          ry:(i*1.37+j*.8)%(Math.PI*2)
+        });
       }
     }
-    this.box(sides,ROCK,"CAVE_TWO_WALLS");
-    // Heavy low-poly granite roof is safely above standing height, including
-    // upward-sloping terrain, and never creates a hidden collision slab.
-    const roof=[];
-    for(let x=67;x<=77;x+=2){
-      const ceiling=3.82+Math.max(
-        groundHeightAt(x,29.5),groundHeightAt(x,34.5),groundHeightAt(x,32));
-      roof.push({x,y:ceiling,z:32,sx:2.17,sy:1.35,sz:9.1});
+    this.instancesOf(this.geometry(new THREE.DodecahedronGeometry(.9,0)),
+      this.material(0x707080),sides,"CAVE_FACETED_STONE_WALLS");
+    // Three interlocked rows form an uneven rocky vault. The middle is
+    // higher than the shoulders, creating an actual arched line of sight.
+    // Bottom is >2.55m above the physical ground (standing head 1.65m).
+    const vault=[];
+    for(let i=0;i<10;i++){
+      const x=66.4+i*1.22;
+      for(const [row,z] of [29.85,32,34.15].entries()){
+        const floor=Math.max(
+          groundHeightAt(x,z),groundHeightAt(x,29.5),groundHeightAt(x,34.5));
+        vault.push({
+          x,y:floor+(row===1?4.45:3.95)+.08*Math.sin(i*2.2+row),
+          z,sx:1.23,sy:row===1?1.04:.88,sz:1.59,
+          ry:(i*.73+row*.56)%(Math.PI*2)
+        });
+      }
     }
-    this.box(roof,ROOF,"CAVE_STATIC_CEILING");
+    this.instancesOf(this.geometry(new THREE.IcosahedronGeometry(1.0,0)),
+      this.material(0x515366),vault,"CAVE_FACETED_ROCK_VAULT");
+    // A few unanimated overhead crystals give the tunnel depth.
+    const stalactites=[];
+    for(let i=0;i<12;i++){
+      const x=67.2+(i%6)*1.83,z=i<6?30.15:33.85;
+      stalactites.push({
+        x,y:groundHeightAt(x,z)+3.12,z,
+        sx:.25+(i%3)*.06,sy:.86+(i%3)*.12,sz:.25+(i%3)*.06
+      });
+    }
+    const hanging=this.geometry(new THREE.ConeGeometry(.5,1,5));
+    hanging.rotateZ(Math.PI); // point DOWN, but never lower than 2.5m above ground
+    this.instancesOf(hanging,this.material(0x77738b),stalactites,
+      "CAVE_STATIC_STALACTITES");
     // Exterior jagged rock silhouettes make the corridor look like a cave,
     // rather than a floating rectangular doorway.
     const crags=[];
