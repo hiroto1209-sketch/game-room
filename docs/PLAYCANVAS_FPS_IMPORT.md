@@ -102,6 +102,21 @@ The local environment denies OS network-interface enumeration. Local Worker test
 use a scratch-only loopback enumeration fallback; no protocol or application logic
 is mocked, and that fallback is not committed or required in GitHub Actions.
 
+Measured Vite build sizes (same pinned dependencies, baseline `cb57d0a`):
+
+| Payload | Before | After | Initial load? |
+| --- | ---: | ---: | --- |
+| Main JS, gzip | 175.57 KB | 189.97 KB | Yes, +14.40 KB |
+| GLTF loader, gzip | — | 13.54 KB | Only near map |
+| Triangle chunk, gzip | — | 338.08 KB | Only near map |
+| Converted GLB | — | 2,863,856 bytes | Only near map |
+
+The added engine helpers increase initial JavaScript slightly; actual mobile time to
+first interaction is not measured. The source model is 3,055,292 bytes, so the converted
+render GLB is smaller. A software-renderer CI run completed all eight viewport images
+but reached the former combined 180-second budget; each of the same four layouts now
+has an independent test budget, with all assertions retained.
+
 **Outstanding physical checks:** real iPhone/iPad Safari ADS/FIRE/multitouch,
 three physical devices on the deployed Worker, loading time and GPU/frame-rate
 measurement. This change does not claim an achieved iPhone 30 FPS result.
