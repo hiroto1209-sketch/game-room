@@ -1,0 +1,9 @@
+export const FPS_STAGE:{x:number;z:number;minX:number;maxX:number;minZ:number;maxZ:number;maxY:number;cellSize:number;entrance:{x:number;z:number};spawn:{x:number;y:number;z:number}};
+export function setStageGeometry(factory:()=>Float32Array):void;
+export function setStageAccess(value:boolean):void;
+export function stageReady():boolean;
+export function inFpsStage(x:number,z:number,margin?:number):boolean;
+export function stageCorridor(x:number,z:number,radius?:number):boolean;
+export function stageGround(x:number,z:number,ceiling?:number):number|null;
+export function stageBlocked(x:number,z:number,radius?:number,eye?:number):boolean;
+export function stageShotObstructed(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number}):boolean;

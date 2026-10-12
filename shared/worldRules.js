@@ -1,4 +1,5 @@
 import {inArena} from "./combatRules.js";
+import {FPS_STAGE,inFpsStage,stageCorridor,stageGround,stageBlocked,stageShotObstructed} from "./playcanvasRules.js";
 /**
  * Deterministic geometry/navigation rules shared by Vite and Cloudflare Worker.
  * Coordinates are Three.js units; +X leads through the new east door.
@@ -39,7 +40,9 @@ export function nearExplorationFeature(x,z,clearance=0){
 }
 
 // Bounded static hills: deterministic at every coordinate, no per-frame animation.
-export function groundHeightAt(x,z){
+export function groundHeightAt(x,z,ceiling=.35){
+  if(inFpsStage(x,z))return stageGround(x,z,ceiling)??0;
+  if(stageCorridor(x,z))return 0;
   if(x<24)return 0; // preserve the original room and the entrance
   // Established paths, pond rim and combat plaza remain flat and walkable.
   const path1=Math.max(0,1-Math.abs(z+5)/6);
@@ -122,11 +125,11 @@ export function insidePond(x,z,margin=0){
   return dx*dx+dz*dz<1;
 }
 export function outdoorRegion(x,z){
-  return x>=OUTDOOR.minX && x<=OUTDOOR.maxX && z>=OUTDOOR.minZ && z<=OUTDOOR.maxZ;
+  return (x>=OUTDOOR.minX && x<=OUTDOOR.maxX && z>=OUTDOOR.minZ && z<=OUTDOOR.maxZ)||inFpsStage(x,z)||stageCorridor(x,z);
 }
 export function validWorldPosition(p){
   if(!p||typeof p!=="object"||!["x","y","z"].every(k=>typeof p[k]==="number"&&Number.isFinite(p[k])))return false;
-  if(p.y<1.54||p.y>5.1)return false;
+  if(p.y<1.54||p.y>(inFpsStage(p.x,p.z)?FPS_STAGE.maxY+3.85:5.1))return false;
   return outdoorRegion(p.x,p.z);
 }
 export function crossesClosedEastWall(from,to){
@@ -175,10 +178,12 @@ for(let cx=0;cx<OUTDOOR.columns;cx++){
 colliders.push(...explorationWalls);
 export function outdoorColliderBoxes(){return colliders.map(c=>({...c}))}
 export function outsideBounds(x,z,radius=0){
+  if(inFpsStage(x,z,-radius)||stageCorridor(x,z,radius))return false;
   return x<OUTDOOR.minX+radius||x>OUTDOOR.maxX-radius||
     z<OUTDOOR.minZ+radius||z>OUTDOOR.maxZ-radius;
 }
-export function worldBlocked(x,z,radius=.36){
+export function worldBlocked(x,z,radius=.36,eye=1.65){
+  if(inFpsStage(x,z,radius)&&stageBlocked(x,z,radius,eye))return true;
   if(outsideBounds(x,z,radius))return true;
   if(insideHouse(x,z))return false; // furniture/walls use actual local colliders
   if(insidePond(x,z,radius))return true;
@@ -192,8 +197,8 @@ export function worldBlocked(x,z,radius=.36){
 export function validWorldStep(from,to){
   if(!validWorldPosition(to))return false;
   if(crossesHouseWall(from,to))return false;
-  if(worldBlocked(to.x,to.z,.32))return false;
-  const floor=groundHeightAt(to.x,to.z)+1.65;
+  if(worldBlocked(to.x,to.z,.32,to.y))return false;
+  const floor=groundHeightAt(to.x,to.z,to.y-1.65+.12)+1.65;
   // Allow jumping (to 2.5+) and short frame-to-frame terrain corrections,
   // but no underground movement or flying above the legal jump ceiling.
   if(to.y<floor-.24||to.y>floor+2.2)return false;
@@ -206,6 +211,7 @@ export function validWorldStep(from,to){
  * World ambience and water are intentionally not bullet blockers.
  */
 export function shotObstructed(from,to){
+  if(stageShotObstructed(from,to))return true;
   const distance=Math.hypot(to.x-from.x,to.y-from.y,to.z-from.z);
   const count=Math.ceil(distance/.35);
   if(!count)return false;
@@ -231,7 +237,7 @@ export function shotObstructed(from,to){
           &&y>groundHeightAt(x,z)&&y<groundHeightAt(x,z)+3.2)return true;
       }
     }
-    if(y<groundHeightAt(x,z)+.08)return true;
+    if(y<groundHeightAt(x,z,y)+.08)return true;
   }
   return false;
 }

@@ -46,6 +46,16 @@ jobs:
         run: npm run test:visual
       - name: Mobile HUD editor gate (iPhone/iPad save and safety)
         run: npm run test:hud:visual
+      - name: Original FPS scene gate (lazy loading / entrance / four mobile layouts)
+        run: npm run test:stage:visual
+      - name: Archive original FPS screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playcanvas-fps-screenshots
+          path: artifacts/playcanvas/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Hidden world visual gate (cave / secret trail / hilltop)
         run: npm run test:exploration:visual
       - name: Archive exploration screenshots

@@ -17,7 +17,7 @@ export const HIDDEN_WORLD:{
 };
 export function hiddenTrailDistance(x:number,z:number):number;
 export function nearExplorationFeature(x:number,z:number,clearance?:number):boolean;
-export function groundHeightAt(x:number,z:number):number;
+export function groundHeightAt(x:number,z:number,ceiling?:number):number;
 export function terrainVisualHeightAt(x:number,z:number):number;
 export function insideHouse(x:number,z:number,margin?:number):boolean;
 export function crossesHouseWall(from:{x:number;z:number},to:{x:number;z:number}):boolean;
@@ -31,5 +31,5 @@ export function validWorldPosition(p:unknown):boolean;
 export function crossesClosedEastWall(from:{x:number;z:number},to:{x:number;z:number}):boolean;
 export function outdoorColliderBoxes():GridCollider[];
 export function outsideBounds(x:number,z:number,radius?:number):boolean;
-export function worldBlocked(x:number,z:number,radius?:number):boolean;
+export function worldBlocked(x:number,z:number,radius?:number,eye?:number):boolean;
 export function validWorldStep(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number}):boolean;

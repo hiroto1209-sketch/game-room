@@ -10,6 +10,8 @@ import { RealtimeRoomClient, type RoomConnectionState } from "./network/Realtime
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt, shotObstructed } from "../shared/worldRules.js";
+import {stageShotObstructed} from "../shared/playcanvasRules.js";
+import {PlayCanvasStage} from "./world/PlayCanvasStage";
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
 import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
@@ -130,6 +132,8 @@ let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let range:StarshotRange|undefined;
+let fpsStage:PlayCanvasStage|undefined;
+let stageQaFov:number|null=null;
 let guide:WorldGuide|undefined;
 let guideLast=0,rangeWasRunning=false;
 let weaponViewmodel:WeaponViewmodel|undefined;
@@ -792,7 +796,7 @@ function update(dt:number):void{
     });
   }
   // Smooth ADS interpolates FOV instead of popping into a simple zoom.
-  const desiredFov=aiming?54:window.innerWidth<window.innerHeight?76:71;
+  const desiredFov=stageQaFov??(aiming?54:window.innerWidth<window.innerHeight?76:71);
   aimFov+=(desiredFov-aimFov)*Math.min(1,dt*14);
   if(Math.abs(world.camera.fov-aimFov)>.04){
     world.camera.fov=aimFov;world.camera.updateProjectionMatrix();
@@ -800,6 +804,7 @@ function update(dt:number):void{
   weaponViewmodel?.setVisible(state.playing&&!state.paused&&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))&&currentHp>0);
   weaponViewmodel?.update(dt,aiming);
   range?.update(dt);
+  if(player)fpsStage?.update(player.position);
   if(rangeWasRunning&&!range?.running){
     rangeWasRunning=false;
     // Never allow a held training trigger to become a live PvP attack when
@@ -1013,6 +1018,8 @@ function initialize():void{
   blaster=new BlasterEffects(world.scene);
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   range=new StarshotRange(world.scene);
+  fpsStage=new PlayCanvasStage(world.scene,showToast);
+  world.targets.push({x:101.7,z:-5,label:'FPS ORIGINAL MAP — 読込 / 再試行',action:()=>{void fpsStage?.load();}});
   guide=new WorldGuide();
   renderExplorationJournal();
   // Discovery targets reuse the existing reach-limited "あそぶ" interaction.
@@ -1038,7 +1045,43 @@ function initialize():void{
   world.targets.push({x:33,z:10,label:"✦ STARSHOT RANGE — 30秒射撃チャレンジ",
     action:startStarshot});
   setOthelloMatch(currentMatch);
-  player=new PlayerController(world.colliders,worldBlocked,groundHeightAt);
+  player=new PlayerController(world.colliders,worldBlocked,
+    (x,z)=>groundHeightAt(x,z,player?player.position.y-1.65+.35:.35),stageShotObstructed);
+  if((location.hostname==='localhost'||location.hostname==='127.0.0.1')&&new URLSearchParams(location.search).has('stageVisualTest')){
+    Object.assign(window,{__FPS_STAGE_QA__:{load:()=>fpsStage?.load(),status:()=>fpsStage?.status,
+      sourceMeshes:295,materials:()=>{let n=0;fpsStage?.root.traverse(o=>{if(o instanceof THREE.Mesh)n++;});return n;},
+      pose:(x:number,y:number,z:number,yaw=0,pitch=0)=>{player?.teleport(x,y,z);if(camera){camera.yaw=yaw;camera.pitch=pitch;}},
+      advance:(seconds:number)=>{
+        if(!player||!camera||!input||!state.playing||state.paused)return;
+        for(let i=0;i<Math.ceil(Math.min(5,seconds)*60);i++)player.update(1/60,input.getMovement(),camera.yaw,true,speedBoost?6:1);
+        camera.update(player.position);
+      },
+      position:()=>({...player?.position})}});
+    Object.assign((window as unknown as {__FPS_STAGE_QA__:object}).__FPS_STAGE_QA__,{
+      fov:(value:number)=>{stageQaFov=value;aimFov=value;if(world){world.camera.fov=value;world.camera.updateProjectionMatrix();}},
+      mapImage:()=>{
+        if(!world)return '';
+        const mapCamera=new THREE.OrthographicCamera(-16,16,30,-30,.1,200);
+        mapCamera.position.set(132,80,0);mapCamera.up.set(0,0,-1);mapCamera.lookAt(132,0,0);
+        const mapScene=new THREE.Scene();mapScene.background=new THREE.Color(0xe5e8ed);
+        const clone=fpsStage?.root.clone(true);
+        const previewMaterials:THREE.Material[]=[];
+        clone?.traverse(obj=>{obj.visible=true;if(obj instanceof THREE.Mesh){
+          const materials=Array.isArray(obj.material)?obj.material:[obj.material];
+          const flat=materials.map(m=>{
+            const source=m as THREE.MeshStandardMaterial;
+            const material=new THREE.MeshBasicMaterial({color:source.color??0xffffff,side:THREE.DoubleSide,toneMapped:false});
+            previewMaterials.push(material);return material;
+          });obj.material=Array.isArray(obj.material)?flat:flat[0];
+        }});
+        if(clone)mapScene.add(clone);
+        world.renderer.setPixelRatio(1);world.renderer.setSize(640,1200,false);
+        world.renderer.render(mapScene,mapCamera);
+        const result=world.renderer.domElement.toDataURL('image/png');
+        for(const m of previewMaterials)m.dispose();world.resize();return result;
+      }
+    });
+  }
   camera=new CameraController(world.camera);
   players=new PlayerManager(world.scene);
   const safeName=safeDisplayName("Guest");
