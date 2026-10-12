@@ -1021,23 +1021,24 @@ function initialize():void{
       vista:{x:87,z:35,yaw:-2.2,pitch:-.08}
     };
     const pose=key?poses[key]:undefined;
-    if(pose){
+    if(pose&&world&&player&&camera){
+      const qaWorld=world,qaPlayer=player;
       player.teleport(pose.x,groundHeightAt(pose.x,pose.z)+1.65,pose.z);
       camera.yaw=pose.yaw;camera.pitch=pose.pitch;
       camera.update(player.position);
       Object.assign(window,{__EXPLORATION_QA__:{
         scene:key,
-        terrainCount:()=>world.scene.getObjectsByProperty(
+        terrainCount:()=>qaWorld.scene.getObjectsByProperty(
           "name","SINGLE_CONTINUOUS_TERRAIN").length,
-        hiddenVisible:()=>world.outdoor.hidden.root.visible,
+        hiddenVisible:()=>qaWorld.outdoor.hidden.root.visible,
         instancedGroups:()=>{
-          let n=0;world.outdoor.hidden.root.traverse(obj=>{
+          let n=0;qaWorld.outdoor.hidden.root.traverse(obj=>{
             if(obj instanceof THREE.InstancedMesh)n++;
           });return n;
         },
-        drawCalls:()=>world.renderer.info.render.calls,
-        playerGround:()=>player.position.y-1.65,
-        expectedGround:()=>groundHeightAt(player.position.x,player.position.z)
+        drawCalls:()=>qaWorld.renderer.info.render.calls,
+        playerGround:()=>qaPlayer.position.y-1.65,
+        expectedGround:()=>groundHeightAt(qaPlayer.position.x,qaPlayer.position.z)
       }});
     }
   }
