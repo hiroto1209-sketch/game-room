@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { chunkData, OUTDOOR, POND, WORLD_SEED, groundHeightAt, terrainVisualHeightAt } from "../../shared/worldRules.js";
 import {ARENA} from "../../shared/combatRules.js";
 import {TerrainSurface} from "./TerrainSurface";
+import {HiddenExploration} from "./HiddenExploration";
 
 /**
  * Procedural outdoor preview linked to the existing lobby.
@@ -12,6 +13,7 @@ export class OutdoorWorld {
   readonly seed=WORLD_SEED;
   private readonly root=new THREE.Group();
   private readonly terrain:TerrainSurface;
+  readonly hidden:HiddenExploration;
   private readonly chunks=new Map<string,THREE.Group>();
   private readonly box=new THREE.BoxGeometry(16,.26,16);
   private readonly trunk=new THREE.CylinderGeometry(.18,.25,1,5);
@@ -39,6 +41,7 @@ export class OutdoorWorld {
     this.root.name="THE DOOR / MOONLIT OUTSIDE";
     scene.add(this.root);
     this.terrain=new TerrainSurface(this.root);
+    this.hidden=new HiddenExploration(this.root);
     this.populateStatic();
   }
   private boxMesh(w:number,h:number,d:number,color:number,x:number,y:number,z:number):THREE.Mesh{
@@ -231,6 +234,7 @@ export class OutdoorWorld {
     return group;
   }
   update(position:{x:number;z:number},time:number):void{
+    this.hidden.update(position);
     // Indoor starts without dense outside vegetation; scenery wakes near exit.
     const inExterior=position.x>5.6&&!Number.isNaN(position.x);
     const cx=Math.max(0,Math.min(OUTDOOR.columns-1,Math.floor((position.x-8)/16)));
@@ -273,6 +277,7 @@ export class OutdoorWorld {
   dispose():void{
     this.root.parent?.remove(this.root);
     this.terrain.dispose();
+    this.hidden.dispose();
     for(const group of this.chunks.values())this.root.remove(group);
     this.chunks.clear();
     for(const mesh of this.sharedScenery){
