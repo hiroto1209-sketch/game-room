@@ -23,6 +23,7 @@ import {QuickArcade} from "./games/QuickArcade";
 import {FireLookGesture} from "./input/FireLookGesture";
 import {FpsTouchBridge} from "./input/FpsTouchBridge";
 import {WeaponViewmodel} from "./combat/WeaponViewmodel";
+import {HudLayoutEditor} from "./ui/HudLayoutEditor";
 import {freshMatch,applyMove,legalMoves,counts,BLACK,WHITE,type OthelloMatch} from "../shared/othello.js";
 
 const byId=<T extends HTMLElement>(id:string):T=>{
@@ -135,6 +136,7 @@ let weaponViewmodel:WeaponViewmodel|undefined;
 let touchBridge:FpsTouchBridge|undefined;
 let quickArcade:QuickArcade|undefined;
 let avatarStudio:AvatarStudio|undefined;
+let hudEditor:HudLayoutEditor|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
 let aiming=false;
@@ -652,6 +654,18 @@ function performEmote(kind:EmoteKind):void{
   // animated arms/head, without extra per-frame WebSocket packets.
   showToast((online?"みんなに表示 ✦ ":"エモート ✦ ")+AVATAR_EMOTE_LABELS[kind]);
 }
+function openHudEditor():void{
+  if(!hudEditor)return;
+  // Release every gameplay touch before making HUD elements draggable.
+  touchBridge?.reset();stopFiring();setAimMode(false);
+  state.paused=true;
+  input?.reset();if(input)input.enabled=false;
+  player?.stop();menu.classList.add("hidden");
+  hudEditor.open(()=>{
+    // Return to the existing pause menu, never straight into held-fire gameplay.
+    state.paused=true;menu.classList.remove("hidden");
+  });
+}
 function openMenu():void{
   touchBridge?.reset();stopFiring();setAimMode(false);
   if(state.editingMonitor||state.editingSign||state.editingSecret||state.editingMiniGames)return;
@@ -855,6 +869,7 @@ function registerUi():void{
   byId("open-minigames").addEventListener("click",openMiniGames);
   byId("open-world-map").addEventListener("click",openWorldMap);
   byId("open-avatar-studio").addEventListener("click",openAvatarStudio);
+  byId("open-hud-editor").addEventListener("click",openHudEditor);
   canvas.addEventListener("pointerdown",()=>avatarStudio?.hideEmotes());
   byId("tic-tac-toe-open").addEventListener("click",()=>openQuickGame("tic"));
   byId("close-sign").addEventListener("click",closeSign);
@@ -1011,6 +1026,8 @@ function initialize():void{
     });
   }
 
+  hudEditor=new HudLayoutEditor();
+  hudEditor.applySaved();
   avatarStudio=new AvatarStudio(avatar=>{
     if(roomClient.online){
       if(!roomClient.setAvatar(avatar))showToast("アバター同期に失敗しました");
