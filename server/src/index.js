@@ -56,7 +56,7 @@ export class RoomHub extends DurableObject {
     const pair=new WebSocketPair();
     const [client,server]=Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0,weaponUnlocked:false,peaceful:true,lastUnlockAt:0,lastCorrectionAt:0,lastAvatarAt:0,lastEmoteAt:0,emoteKind:null,emoteUntil:0});
+    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0,weaponUnlocked:true,peaceful:false,speedBoost:false,lastUnlockAt:0,lastCorrectionAt:0,lastAvatarAt:0,lastEmoteAt:0,emoteKind:null,emoteUntil:0});
     return new Response(null,{status:101,webSocket:client});
   }
   async webSocketMessage(ws,raw){
@@ -76,10 +76,10 @@ export class RoomHub extends DurableObject {
       const player={id,displayName:safeName(m.displayName),position:spawn,yaw:0,pitch:0,sequence:0,
         avatar:{...DEFAULT_AVATAR}};
       ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0,hp:MAX_HP,
-        respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:false,peaceful:true,
+        respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:true,peaceful:false,speedBoost:false,
         lastShotAt:0,lastFireSeq:0});
       send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn});
-      send(ws,{type:"weapon_state",unlocked:false,peaceful:true});
+      send(ws,{type:"weapon_state",unlocked:true,peaceful:false,boosted:false});
       send(ws,{type:"snapshot",players:existing.map(s=>publicPlayer(attachment(s))).filter(Boolean)});
       // Late joiners also see still-playing emotes (no database persistence).
       for(const other of existing){
@@ -182,13 +182,13 @@ export class RoomHub extends DurableObject {
         ws.serializeAttachment({...session,lastUnlockAt:now});
         send(ws,{type:"error",reason:"隠しコマンドが違います"});return;
       }
-      ws.serializeAttachment({...session,lastUnlockAt:now,weaponUnlocked:true,peaceful:false});
-      send(ws,{type:"weapon_state",unlocked:true,peaceful:false});
+      ws.serializeAttachment({...session,lastUnlockAt:now,speedBoost:true});
+      send(ws,{type:"weapon_state",unlocked:true,peaceful:session.peaceful,boosted:true});
       return;
     }
     if(m.type==="peace_mode"){
       ws.serializeAttachment({...session,peaceful:m.enabled});
-      send(ws,{type:"weapon_state",unlocked:session.weaponUnlocked===true,peaceful:m.enabled});
+      send(ws,{type:"weapon_state",unlocked:true,peaceful:m.enabled,boosted:session.speedBoost===true});
       return;
     }
     if(m.type==="avatar_update"){
@@ -227,9 +227,7 @@ export class RoomHub extends DurableObject {
     if(m.type==="fire"){
       if(m.sequence<=session.lastFireSeq)return;
       if(now-(session.lastShotAt??0)<SHOT_COOLDOWN_MS)return;
-      if(session.hp<=0 || !session.weaponUnlocked){
-        send(ws,{type:"error",reason:"隠しコマンドでブラスターを解放してください"});return;
-      }
+      if(session.hp<=0)return;
       if(session.peaceful){
         send(ws,{type:"error",reason:"ピースモードを解除してください"});return;
       }
@@ -260,7 +258,7 @@ export class RoomHub extends DurableObject {
     if(m.sequence<=session.player.sequence)return;
     if(now-session.lastPacketAt<75)return; // per-socket max ~13 updates/s
     const elapsed=Math.max(0,Math.min(2000,now-session.lastMoveAt));
-    if(!withinMovementSpeed(session.player.position,m.position,elapsed)){
+    if(!withinMovementSpeed(session.player.position,m.position,elapsed,session.speedBoost===true)){
       // Do not merely report "Invalid movement" forever. Send the last
       // server-approved position and let the client gracefully reconcile.
       if(now-(session.lastCorrectionAt??0)>=700){
