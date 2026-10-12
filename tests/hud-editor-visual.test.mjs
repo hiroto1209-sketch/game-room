@@ -34,9 +34,9 @@ test("in-game HUD editor saves independent iPhone/iPad profiles and prevents gam
     // Preview touch operations must not send game actions.
     const dragged=page.locator('[data-hud-id="fire"]');
     await dragged.click();
-    await page.locator("#hud-editor-size").fill("73");
+    await page.locator("#hud-editor-size").evaluate(el=>{el.value="73";el.dispatchEvent(new Event("input",{bubbles:true}));});
     await page.locator("#hud-editor-device").selectOption("padLandscape");
-    await page.locator("#hud-editor-opacity").fill("76");
+    await page.locator("#hud-editor-opacity").evaluate(el=>{el.value="76";el.dispatchEvent(new Event("input",{bubbles:true}));});
     await page.locator("#hud-editor-save").click();
     assert.equal(await page.locator("#hud-editor-overlay").isVisible(),false);
     assert.equal(await page.locator("#menu-overlay").isVisible(),true);
