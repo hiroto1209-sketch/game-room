@@ -10,6 +10,13 @@ export const HOUSE:{
 export const DOOR:{x:number;minZ:number;maxZ:number};
 export const POND:{x:number;z:number;rx:number;rz:number};
 export const SPAWN:{x:number;y:number;z:number};
+export const HIDDEN_WORLD:{
+  entrance:{x:number;z:number};rune:{x:number;z:number};
+  trail:{x:number;z:number};vista:{x:number;z:number};
+  caveStart:number;caveEnd:number;caveMinZ:number;caveMaxZ:number
+};
+export function hiddenTrailDistance(x:number,z:number):number;
+export function nearExplorationFeature(x:number,z:number,clearance?:number):boolean;
 export function groundHeightAt(x:number,z:number):number;
 export function terrainVisualHeightAt(x:number,z:number):number;
 export function insideHouse(x:number,z:number,margin?:number):boolean;
