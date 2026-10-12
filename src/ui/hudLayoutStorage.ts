@@ -7,10 +7,16 @@ export function loadHudLayouts():HudLayoutV1{
   }catch{ /* private browsing or damaged data: safe default */ }
   return defaultLayout();
 }
+export function saveHudLayouts(layout:HudLayoutV1):boolean{
+  const safe=parseHudLayout(layout);
+  if(!safe)return false;
+  safe.updatedAt=Date.now();
+  try{localStorage.setItem(HUD_STORAGE_KEY,JSON.stringify(safe));return true}
+  catch{return false}
+}
 /** Save is atomic at profile granularity, only after the user confirms. */
 export function saveHudProfile(device:HudDevice,profile:HudProfile):boolean{
   const next=loadHudLayouts();
-  next.profiles[device]=copyProfile(profile);next.updatedAt=Date.now();
-  try{localStorage.setItem(HUD_STORAGE_KEY,JSON.stringify(next));return true}
-  catch{return false}
+  next.profiles[device]=copyProfile(profile);
+  return saveHudLayouts(next);
 }
