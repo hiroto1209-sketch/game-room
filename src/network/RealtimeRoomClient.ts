@@ -20,7 +20,7 @@ export interface RoomCallbacks{
   onOthello(match:OthelloMatch):void;
   onSpawn(position:{x:number;y:number;z:number}):void;
   onCorrection(position:{x:number;y:number;z:number}):void;
-  onWeaponState(unlocked:boolean,peaceful:boolean):void;
+  onWeaponState(unlocked:boolean,peaceful:boolean,boosted:boolean):void;
   onAvatar(playerId:string,avatar:AvatarStyle):void;
   onEmote(playerId:string,kind:EmoteKind,durationMs:number):void;
 }
@@ -125,7 +125,7 @@ export class RealtimeRoomClient {
       }else if(msg.type==="emote_event"){
         this.callbacks.onEmote(msg.playerId,msg.kind,msg.durationMs);
       }else if(msg.type==="weapon_state"){
-        this.callbacks.onWeaponState(msg.unlocked,msg.peaceful);
+        this.callbacks.onWeaponState(msg.unlocked,msg.peaceful,msg.boosted===true);
       }else if(msg.type==="position_correction"){
         this.sequence=Math.max(this.sequence,msg.sequence);
         this.lastSend=performance.now();
