@@ -6,6 +6,9 @@
 export class FpsTouchBridge {
   private fireId:number|null=null;
   private lookId:number|null=null;
+  private aimId:number|null=null;
+  private ax=0;private ay=0;
+  private aimButton:HTMLElement|null=null;
   private fx=0;private fy=0;private lx=0;private ly=0;
   private readonly fireButton:HTMLElement;
   private readonly canvas:HTMLCanvasElement;
@@ -14,12 +17,14 @@ export class FpsTouchBridge {
       fireStart():void;fireStop():void;fireLook(dx:number,dy:number):void;
       freeLook(dx:number,dy:number):void;
       nativeLook(active:boolean):void;
+      aimStart?():void;aimLook?(dx:number,dy:number):void;aimStop?(cancelled:boolean):void;
     };
   constructor(fireButton:HTMLElement,canvas:HTMLCanvasElement,callbacks:{
     canPlay():boolean;
     fireStart():void;fireStop():void;fireLook(dx:number,dy:number):void;
     freeLook(dx:number,dy:number):void;
     nativeLook(active:boolean):void;
+    aimStart?():void;aimLook?(dx:number,dy:number):void;aimStop?(cancelled:boolean):void;
   }){
     this.fireButton=fireButton;this.canvas=canvas;this.callbacks=callbacks;
     fireButton.addEventListener("touchstart",this.startFire,{passive:false});
@@ -31,6 +36,19 @@ export class FpsTouchBridge {
     document.addEventListener("visibilitychange",this.visibility);
   }
   get firingNative():boolean{return this.fireId!==null}
+  get aimingNative():boolean{return this.aimId!==null}
+  bindAimButton(button:HTMLElement):void{
+    if(this.aimButton)throw new Error("ADS native button already bound");
+    this.aimButton=button;
+    button.addEventListener("touchstart",this.startAim,{passive:false});
+  }
+  private startAim=(e:TouchEvent):void=>{
+    if(!this.callbacks.canPlay()||this.aimId!==null)return;
+    const t=e.changedTouches[0];if(!t)return;
+    this.aimId=t.identifier;this.ax=t.clientX;this.ay=t.clientY;
+    this.callbacks.aimStart?.();
+    e.preventDefault();
+  };
   private startFire=(e:TouchEvent):void=>{
     if(!this.callbacks.canPlay()||this.fireId!==null)return;
     const t=e.changedTouches[0];if(!t)return;
@@ -61,6 +79,11 @@ export class FpsTouchBridge {
         this.lx=t.clientX;this.ly=t.clientY;
         if(dx||dy)this.callbacks.freeLook(dx,dy);
         handled=true;
+      }else if(t.identifier===this.aimId){
+        const dx=t.clientX-this.ax,dy=t.clientY-this.ay;
+        this.ax=t.clientX;this.ay=t.clientY;
+        if(dx||dy)this.callbacks.aimLook?.(dx,dy);
+        handled=true;
       }
     }
     if(handled)e.preventDefault();
@@ -69,17 +92,20 @@ export class FpsTouchBridge {
     for(const t of Array.from(e.changedTouches)){
       if(t.identifier===this.fireId){this.fireId=null;this.callbacks.fireStop();}
       if(t.identifier===this.lookId){this.lookId=null;this.callbacks.nativeLook(false);}
+      if(t.identifier===this.aimId){this.aimId=null;this.callbacks.aimStop?.(e.type==="touchcancel");}
     }
   };
   reset=():void=>{
     if(this.fireId!==null)this.callbacks.fireStop();
     if(this.lookId!==null)this.callbacks.nativeLook(false);
-    this.fireId=null;this.lookId=null;
+    if(this.aimId!==null)this.callbacks.aimStop?.(true);
+    this.fireId=null;this.lookId=null;this.aimId=null;
   };
   private visibility=():void=>{if(document.hidden)this.reset()};
   dispose():void{
     this.reset();
     this.fireButton.removeEventListener("touchstart",this.startFire);
+    this.aimButton?.removeEventListener("touchstart",this.startAim);
     this.canvas.removeEventListener("touchstart",this.startLook);
     window.removeEventListener("touchmove",this.move,true);
     window.removeEventListener("touchend",this.end,true);
