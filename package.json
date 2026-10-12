@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "check:worker": "wrangler deploy --dry-run --config server/wrangler.jsonc",
     "test:realtime": "node --test tests/realtime.test.mjs",
-    "test:visual": "node --test tests/fps-visual.test.mjs"
+    "test:visual": "node --test tests/fps-visual.test.mjs",
+    "test:exploration:visual": "node --test tests/exploration-visual.test.mjs"
   },
   "dependencies": {
     "three": "0.160.1"
