@@ -13,6 +13,31 @@ export const HOUSE={main:{minX:-10,maxX:10,minZ:-16,maxZ:8},
 export const DOOR={x:10,minZ:-6.65,maxZ:-3.35};
 export const POND={x:57,z:-27,rx:9.5,rz:7.0};
 export const SPAWN={x:0,y:1.65,z:15};
+// Hidden Exploration 9: ALL coordinates, navigability and hill heights are
+// deterministic and shared by the client and Cloudflare movement validator.
+// Cave roof is ABOVE the head; the continuous TerrainSurface is the only floor.
+export const HIDDEN_WORLD={
+  entrance:{x:65,z:32},rune:{x:72,z:32},trail:{x:80,z:33},
+  vista:{x:90,z:37},caveStart:66,caveEnd:78,
+  caveMinZ:29.5,caveMaxZ:34.5
+};
+const explorationWalls=[
+  {x0:66,x1:78,z0:27.25,z1:29.25},
+  {x0:66,x1:78,z0:34.75,z1:36.75}
+];
+export function hiddenTrailDistance(x,z){
+  // Secret trail runs from the hidden cave exit to the hill lookout.
+  const ax=78,az=32,bx=90,bz=37;
+  const dx=bx-ax,dz=bz-az;
+  const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz)));
+  return Math.hypot(x-ax-dx*t,z-az-dz*t);
+}
+export function nearExplorationFeature(x,z,clearance=0){
+  return (x>=63-clearance&&x<=80+clearance&&z>=26-clearance&&z<=38+clearance)
+    ||hiddenTrailDistance(x,z)<2.0+clearance
+    ||Math.hypot(x-HIDDEN_WORLD.vista.x,z-HIDDEN_WORLD.vista.z)<6+clearance;
+}
+
 // Bounded static hills: deterministic at every coordinate, no per-frame animation.
 export function groundHeightAt(x,z){
   if(x<24)return 0; // preserve the original room and the entrance
@@ -26,7 +51,14 @@ export function groundHeightAt(x,z){
   const flatten=Math.min(1,Math.max(path1,path2,pond,arena));
   const transition=Math.min(1,Math.max(0,(x-24)/12));
   const wave=.46*Math.sin(x*.105+z*.057)+.36*Math.sin(z*.123-x*.038)+.22*Math.sin(x*.041+z*.19);
-  return Math.max(0,1.0+wave)*transition*(1-flatten);
+  const original=Math.max(0,1.0+wave)*transition*(1-flatten);
+  // An accessible rounded lookout hill: low slope, no separate fake platform.
+  // At most +1.45 world units, capped below the existing network height limit.
+  const radial=Math.hypot((x-HIDDEN_WORLD.vista.x)/19,(z-HIDDEN_WORLD.vista.z)/16);
+  const fraction=Math.max(0,Math.min(1,1-radial));
+  const smooth=fraction*fraction*(3-2*fraction);
+  const lookoutRise=1.45*smooth;
+  return Math.min(3.06,original+lookoutRise);
 }
 // Rendering-only depression. Collision uses the same visible pond ellipse and
 // does not let a player walk on underwater terrain.
@@ -62,24 +94,24 @@ export function chunkData(cx,cz,seed=WORLD_SEED){
   // Instanced geometry only; plants never receive unique Mesh objects.
   for(let i=0;i<72;i++){
     const x=centerX+(rand()-.5)*15,z=centerZ+(rand()-.5)*15;
-    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z})||terrainSlopeAt(x,z)>.48)continue;
+    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z})||nearExplorationFeature(x,z,.4)||terrainSlopeAt(x,z)>.48)continue;
     grass.push({x,z,size:.25+rand()*.48,twist:rand()*6.28});
   }
   for(let i=0;i<8;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
     const path=Math.abs(z+5)<(x<45?7:4.5);
-    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z})||terrainSlopeAt(x,z)>.40)continue;
+    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z})||nearExplorationFeature(x,z,2.2)||terrainSlopeAt(x,z)>.40)continue;
     trees.push({x,z,height:2.7+rand()*2.3,color:Math.floor(rand()*3)});
   }
   for(let i=0;i<4;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
-    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z}))continue;
+    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z})||nearExplorationFeature(x,z,.9))continue;
     rocks.push({x,z,size:.38+rand()*.75});
   }
   if(centerX>78){
     for(let i=0;i<4;i++){
       const x=centerX+(rand()-.5)*11,z=centerZ+(rand()-.5)*11;
-      if(Math.abs(z+5)<6||insidePond(x,z,2.5)||inArena({x,z}))continue;
+      if(Math.abs(z+5)<6||insidePond(x,z,2.5)||inArena({x,z})||nearExplorationFeature(x,z,1.0))continue;
       blocks.push({x,z,height:.8+Math.floor(rand()*4)*.72});
     }
   }
@@ -139,6 +171,8 @@ for(let cx=0;cx<OUTDOOR.columns;cx++){
     for(const b of data.blocks)colliders.push({x0:b.x-.72,x1:b.x+.72,z0:b.z-.72,z1:b.z+.72});
   }
 }
+// Cave rock walls share the exact same collision footprint as the visual mesh.
+colliders.push(...explorationWalls);
 export function outdoorColliderBoxes(){return colliders.map(c=>({...c}))}
 export function outsideBounds(x,z,radius=0){
   return x<OUTDOOR.minX+radius||x>OUTDOOR.maxX-radius||
