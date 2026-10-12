@@ -3,6 +3,8 @@ export type GuideStop={id:string;label:string;x:number;z:number;symbol:string};
 export const STOPS:readonly GuideStop[]=[
   {id:"range",label:"STARSHOT RANGE",x:33,z:10,symbol:"✦"},
   {id:"pond",label:"STARLIT POND",x:57,z:-27,symbol:"◈"},
+  {id:"grotto",label:"ECHO GROTTO",x:65,z:32,symbol:"◇"},
+  {id:"skylook",label:"SKYLOOK VISTA",x:90,z:37,symbol:"△"},
   {id:"tower",label:"HORIZON SPIRE",x:93,z:23,symbol:"◆"},
   {id:"arena",label:"NEON ARENA",x:86,z:-40,symbol:"◉"},
   {id:"home",label:"PARTY HOUSE",x:0,z:0,symbol:"⌂"},
