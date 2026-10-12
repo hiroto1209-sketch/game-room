@@ -44,6 +44,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: FPS screen visibility gate (portrait / landscape / PC)
         run: npm run test:visual
+      - name: Mobile HUD editor gate (iPhone/iPad save and safety)
+        run: npm run test:hud:visual
       - name: Hidden world visual gate (cave / secret trail / hilltop)
         run: npm run test:exploration:visual
       - name: Archive exploration screenshots

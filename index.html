@@ -203,6 +203,50 @@
       </div>
     </div>
 
+    <div id="hud-editor-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="hud-editor-title">
+      <div class="hud-editor-card">
+        <div class="hud-editor-head">
+          <div><span class="overline">NEXT-GEN CONTROLS 10.0</span>
+            <h2 id="hud-editor-title">CUSTOM HUD EDITOR</h2>
+            <p>iPhone / iPad の操作ボタンを配置する</p></div>
+          <button id="hud-editor-close" type="button" class="icon-button" aria-label="保存せず閉じる">×</button>
+        </div>
+        <div class="hud-editor-fields">
+          <label>編集中のレイアウト<select id="hud-editor-device" aria-label="編集する端末と向き"></select></label>
+          <label>この端末の判定<select id="hud-editor-mode" aria-label="この端末の自動判定">
+            <option value="auto">自動判定</option><option value="phone">iPhoneとして扱う</option>
+            <option value="pad">iPadとして扱う</option>
+          </select></label>
+        </div>
+        <div id="hud-editor-preview-frame" class="hud-editor-preview-frame">
+          <div id="hud-editor-stage" class="hud-editor-stage" aria-label="ゲームHUDの編集プレビュー">
+            <span class="hud-editor-hp" aria-hidden="true">HEALTH · HP 100 / 100</span>
+            <span class="hud-editor-move" aria-hidden="true">MOVE AREA</span>
+            <span class="hud-editor-reticle" aria-hidden="true">⊕</span>
+          </div>
+        </div>
+        <div class="hud-editor-inspector">
+          <strong id="hud-editor-selected-name">✦ FIRE</strong>
+          <label>大きさ <output id="hud-editor-size-value">70px</output>
+            <input id="hud-editor-size" type="range" min="44" max="112" step="1" value="70" />
+          </label>
+          <label>透明度 <output id="hud-editor-opacity-value">90%</output>
+            <input id="hud-editor-opacity" type="range" min="35" max="100" step="1" value="90" />
+          </label>
+        </div>
+        <p id="hud-editor-status" role="status" aria-live="polite">指でボタンを動かしてください。</p>
+        <div class="hud-editor-actions">
+          <button id="hud-editor-undo" type="button" class="plain-menu-button">↶ 元に戻す</button>
+          <button id="hud-editor-reset" type="button" class="plain-menu-button">選択を初期化</button>
+          <button id="hud-editor-reset-all" type="button" class="plain-menu-button">この配置を初期化</button>
+          <button id="hud-editor-cancel" type="button" class="plain-menu-button">キャンセル</button>
+          <button id="hud-editor-save" type="button" class="primary-menu-button">✓ 4レイアウトを保存</button>
+        </div>
+        <p class="hud-editor-footnote">編集中は射撃・移動を停止。位置はこの端末に保存され、オンラインでは共有されません。
+          左スティックは従来どおり左半分のタッチ位置に表示されます。</p>
+      </div>
+    </div>
+
     <div id="menu-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-label="ゲーム設定">
       <div class="menu-card">
         <div class="menu-head"><div><span class="overline">GAME ROOM</span><h2>ポーズ / 設定</h2></div><button id="close-menu" class="icon-button" aria-label="設定を閉じる">×</button></div>
@@ -216,6 +260,7 @@
         <button id="leave-room" type="button">退出</button>
       </div>
         </section>
+        <button id="open-hud-editor" class="primary-menu-button" type="button">✦ カスタムHUDを編集（iPhone / iPad）</button>
         <label class="setting"><span>視点の感度 <output id="sensitivity-value">4</output></span><input id="sensitivity" type="range" min="1" max="10" step="1" value="4" /></label>
         <label class="toggle"><span>スマートADS：FIRE長押しで照準＋射撃（右親指1本）</span><input id="one-thumb-ads" type="checkbox" checked /></label>
         <p class="monitor-help">ADS長押し中のスワイプで照準を動かせます。ADSを短くタップすると精密照準を固定できます。</p>

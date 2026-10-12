@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs tests/server.test.mjs tests/world.test.mjs tests/combat.test.mjs tests/othello.test.mjs tests/quick-games.test.mjs tests/fire-gesture.test.mjs tests/fps-native-touch.test.mjs tests/fps-ads-geometry.test.mjs tests/starshot-world.test.mjs tests/practice-peace.test.mjs tests/avatar-rules.test.mjs tests/exploration-world.test.mjs tests/turbo-controls.test.mjs",
+    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs tests/server.test.mjs tests/world.test.mjs tests/combat.test.mjs tests/othello.test.mjs tests/quick-games.test.mjs tests/fire-gesture.test.mjs tests/fps-native-touch.test.mjs tests/fps-ads-geometry.test.mjs tests/starshot-world.test.mjs tests/practice-peace.test.mjs tests/avatar-rules.test.mjs tests/exploration-world.test.mjs tests/turbo-controls.test.mjs tests/hud-layout.test.mjs",
     "build": "vite build",
     "check": "npm run typecheck && npm test && npm run build && npm run check:worker",
     "test:browser": "node tests/browser.test.mjs",
@@ -14,7 +14,8 @@
     "check:worker": "wrangler deploy --dry-run --config server/wrangler.jsonc",
     "test:realtime": "node --test tests/realtime.test.mjs",
     "test:visual": "node --test tests/fps-visual.test.mjs",
-    "test:exploration:visual": "node --test tests/exploration-visual.test.mjs"
+    "test:exploration:visual": "node --test tests/exploration-visual.test.mjs",
+    "test:hud:visual": "node --test tests/hud-editor-visual.test.mjs"
   },
   "dependencies": {
     "three": "0.160.1"
