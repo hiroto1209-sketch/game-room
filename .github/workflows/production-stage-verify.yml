@@ -1,0 +1,20 @@
+name: Verify published original FPS stage with three clients
+on:
+  push:
+    branches: [verify/production-fps-stage]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - name: Three-client production WebSocket traversal, occlusion, HP and respawn
+        env:
+          GAME_ROOM_SERVER_URL: ${{ vars.GAME_ROOM_SERVER_URL }}
+        run: node --test tests/production-stage.test.mjs
