@@ -60,9 +60,10 @@ test("two players share one Durable Object and positions/leave events propagate"
     const joined=await aJoined;
     const initialHP=await bHealth;
     assert.equal(initialHP.players.find(p=>p.playerId===bob.playerId)?.hp,100);
-    const deniedFire=nextMessage(b,"error",m=>m.reason.includes("解放"));
+    // The blaster is now standard equipment: the server processes shots immediately.
+    const firstFire=nextMessage(b,"fire_result",m=>m.sequence===1);
     b.send(JSON.stringify({type:"fire",sequence:1,yaw:0,pitch:0}));
-    assert.ok((await deniedFire).reason.includes("解放"));
+    assert.equal((await firstFire).hit,false); // spawn protection, no target killed
     assert.equal(snapshot.players.some(x=>x.id===alice.playerId),true);
     assert.equal(joined.player.id,bob.playerId);
     // Style is validated and broadcast by the server, then included in
@@ -86,13 +87,13 @@ test("two players share one Durable Object and positions/leave events propagate"
     const correction=nextMessage(b,"position_correction");
     b.send(JSON.stringify({type:"move",position:{x:101,y:1.65,z:30},yaw:0,pitch:0,sequence:2}));
     assert.equal((await correction).position.z,14.7);
-    // Server validates the publicly discoverable easter-egg code, not client flags.
+    // NEON777 grants 6× turbo only after the server validates the code.
     const badUnlock=nextMessage(a,"error",m=>m.reason.includes("コマンド"));
     a.send(JSON.stringify({type:"unlock_weapon",code:"WRONG"}));
     assert.ok((await badUnlock).reason.includes("コマンド"));
     await wait(1600);
-    const weaponA=nextMessage(a,"weapon_state",m=>m.unlocked);
-    const weaponB=nextMessage(b,"weapon_state",m=>m.unlocked);
+    const weaponA=nextMessage(a,"weapon_state",m=>m.boosted===true);
+    const weaponB=nextMessage(b,"weapon_state",m=>m.boosted===true);
     a.send(JSON.stringify({type:"unlock_weapon",code:"NEON777"}));
     b.send(JSON.stringify({type:"unlock_weapon",code:"NEON777"}));
     assert.equal((await weaponA).peaceful,false);

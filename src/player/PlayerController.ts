@@ -1,5 +1,7 @@
 import type { Collider, Vector2, Vector3 } from "../types/Player";
 export interface PlayerPose { position:Vector3; yaw:number; pitch:number }
+export const WALK_SPEED=4.2;
+export const NEON777_SPEED_MULTIPLIER=6;
 export class PlayerController {
   readonly position:Vector3={x:0,y:1.65,z:15};
   readonly height=1.65;
@@ -41,22 +43,29 @@ export class PlayerController {
     }
     return false;
   }
-  update(dt:number,input:Vector2,yaw:number,reducedMotion=false):number{
+  update(dt:number,input:Vector2,yaw:number,reducedMotion=false,speedMultiplier=1):number{
     const length=Math.max(1,Math.hypot(input.x,input.y));
     const x=input.x/length,z=input.y/length;
     // Three.js camera looks down -Z; transform local right/forward by yaw.
-    const tx=(Math.cos(yaw)*x-Math.sin(yaw)*z)*4.2;
-    const tz=(-Math.sin(yaw)*x-Math.cos(yaw)*z)*4.2;
+    const travelSpeed=WALK_SPEED*(speedMultiplier===NEON777_SPEED_MULTIPLIER?NEON777_SPEED_MULTIPLIER:1);
+    const tx=(Math.cos(yaw)*x-Math.sin(yaw)*z)*travelSpeed;
+    const tz=(-Math.sin(yaw)*x-Math.cos(yaw)*z)*travelSpeed;
     const moving=Math.hypot(x,z)>.01;
     const blend=1-Math.exp(-dt*(moving?11:15));
     this.velocity.x+=(tx-this.velocity.x)*blend;
     this.velocity.z+=(tz-this.velocity.z)*blend;
-    const nx=this.position.x+this.velocity.x*dt;
-    if(!this.collides(nx,this.position.z))this.position.x=nx;
-    else this.velocity.x=0;
-    const nz=this.position.z+this.velocity.z*dt;
-    if(!this.collides(this.position.x,nz))this.position.z=nz;
-    else this.velocity.z=0;
+    // Sweep every short substep at turbo speed so thin walls/rocks cannot be skipped.
+    const distance=Math.hypot(this.velocity.x,this.velocity.z)*dt;
+    const segments=Math.max(1,Math.ceil(distance/.18));
+    for(let i=0;i<segments;i++){
+      const step=dt/segments;
+      const nx=this.position.x+this.velocity.x*step;
+      if(!this.collides(nx,this.position.z))this.position.x=nx;
+      else this.velocity.x=0;
+      const nz=this.position.z+this.velocity.z*step;
+      if(!this.collides(this.position.x,nz))this.position.z=nz;
+      else this.velocity.z=0;
+    }
     const floor=this.height+this.groundAt(this.position.x,this.position.z);
     if(!this.grounded){
       this.velocity.y-=11.8*dt;

@@ -117,6 +117,9 @@ const configuredServer=(import.meta.env.VITE_GAME_ROOM_SERVER_URL??"").trim();
 const invitation=new URLSearchParams(window.location.search).get("room");
 const inviteRoomId=invitation&&isValidRoomId(invitation)?invitation:null;
 const settings={sensitivity:4,exposure:1,reducedMotion:false};
+const SMART_ADS_KEY="game-room-smart-ads-v1";
+let smartAimEnabled=true;
+try{smartAimEnabled=localStorage.getItem(SMART_ADS_KEY)!=="off"}catch{}
 const state={playing:false,paused:false,editingMonitor:false,editingSign:false,editingSecret:false,editingMiniGames:false,time:0,toastUntil:0};
 let nearby:ReturnType<InteractionManager["closest"]>=null;
 let world:ReturnType<typeof createPartyWorld>|undefined;
@@ -135,37 +138,66 @@ let avatarStudio:AvatarStudio|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
 let aiming=false;
+let aimLocked=false,smartAimFiring=false;
 let aimFov=76;
 let fireHeld:ReturnType<typeof setInterval>|null=null;
 let firePointerId:number|null=null,aimPointerId:number|null=null;
+let aimStartedLocked=false,aimStartTime=0,aimDragDistance=0;
 const fireGesture=new FireLookGesture();
-function setAimMode(enabled:boolean):void{
-  if(!world)return;
-  aiming=enabled&&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))&&state.playing&&!state.paused;
+const aimGesture=new FireLookGesture();
+function refreshAimMode():void{
+  aiming=Boolean(world)&&(aimLocked||aimPointerId!==null||smartAimFiring)
+    &&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))
+    &&state.playing&&!state.paused;
   aimButton.classList.toggle("aiming",aiming);
   crosshair.classList.toggle("aiming",aiming);
-  // FOV blends in the render loop; true ADS also halves effective recoil,
-  // centers the weapon sight and tightens look response.
+}
+function setAimMode(enabled:boolean):void{
+  if(!enabled){
+    aimLocked=false;smartAimFiring=false;aimPointerId=null;aimGesture.reset();
+  }else aimLocked=true;
+  refreshAimMode();
+}
+function beginAimDrag(id:number,x:number,y:number):void{
+  if(aimPointerId!==null||!state.playing||state.paused)return;
+  aimPointerId=id;aimGesture.begin(id,x,y);
+  aimStartedLocked=aimLocked;aimStartTime=performance.now();aimDragDistance=0;
+  refreshAimMode();
+}
+function applyAimDrag(dx:number,dy:number):void{
+  if(!camera||!state.playing||state.paused)return;
+  aimDragDistance+=Math.hypot(dx,dy);
+  camera.drag(Math.max(-65,Math.min(65,dx)),Math.max(-65,Math.min(65,dy)),settings.sensitivity*.56);
+}
+function endAimDrag(id:number,cancelled=false):void{
+  if(aimPointerId!==id)return;
+  const tapped=!cancelled&&aimDragDistance<12&&performance.now()-aimStartTime<270;
+  aimPointerId=null;aimGesture.reset();
+  aimLocked=tapped?!aimStartedLocked:aimStartedLocked;
+  refreshAimMode();
 }
 function stopFiring():void{
   if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
   fireGesture.reset();firePointerId=null;
+  smartAimFiring=false;refreshAimMode();
 }
 function lookWhileFiring(e:PointerEvent):void{
   if(e.pointerId!==firePointerId||e.pointerType==="mouse"||!camera||!state.playing||state.paused)return;
   const delta=fireGesture.move(e.pointerId,e.clientX,e.clientY);
   if(delta&&(delta.dx||delta.dy))
-    camera.drag(delta.dx,delta.dy,settings.sensitivity*(aiming?.62:1));
+    camera.drag(delta.dx,delta.dy,settings.sensitivity*(aiming?.56:1));
   e.preventDefault();
 }
 function startFiring():void{
   if(!state.playing||state.paused||!canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running)))return;
+  // One-thumb FIRE+ADS+LOOK is optional, and does not affect server shot cooldown.
+  smartAimFiring=smartAimEnabled;refreshAimMode();
   // Do not reset the just-acquired FIRE pointer when restarting auto-fire.
   if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
   fireBlaster();
   fireHeld=setInterval(()=>{if(state.playing&&!state.paused)fireBlaster();else stopFiring()},425);
 }
-let weaponUnlocked=false,peaceful=true,weaponWanted=false;
+let weaponUnlocked=true,peaceful=false,weaponWanted=false,speedBoost=false;
 let logoTaps=0,lastLogoTapAt=0,lastCorrectionToast=0;
 try{weaponWanted=sessionStorage.getItem("game-room-weapon-easteregg")==="1"}catch{}
 function closeSecret():void{
@@ -189,16 +221,15 @@ function unlockSecret():void{
     if(!roomClient.unlockWeapon(code)){secretError.textContent="通信できません。もう一度お試しください";return;}
     secretError.textContent="サーバーに照会しています…";
   }else{
-    weaponUnlocked=true;peaceful=false;peaceControl.checked=false;
+    speedBoost=true;
     weaponWanted=true;try{sessionStorage.setItem("game-room-weapon-easteregg","1")}catch{}
-    closeSecret();showToast("✦ SECRET WEAPON UNLOCKED ✦");
+    closeSecret();syncWeaponInfo();showToast("✦ NEON777 TURBO · 6× SPEED ✦");
   }
 }
 function syncWeaponInfo():void{
   peaceControl.checked=peaceful;
-  weaponInfo.textContent=weaponUnlocked?
-    "✦ SECRET WEAPON UNLOCKED · "+(peaceful?"ピースモード":"対戦モード"):
-    "ブラスター未解放 · GAME ROOMロゴに秘密があるかも";
+  weaponInfo.textContent="ブラスター初期装備 · "+(peaceful?"ピースモード":"対戦モード")
+    +(speedBoost?" · NEON777 TURBO 6×":" · NEON777で高速移動6×");
 }
 let currentMatch:OthelloMatch=freshMatch();
 let aimOthelloIndex:number|null=null;
@@ -404,7 +435,8 @@ const roomClient=new RealtimeRoomClient({
     player?.teleport(position.x,position.y,position.z);
     if(player&&camera)camera.update(player.position);
     setHealth(MAX_HP);
-    // The public easter-egg code is revalidated by the Worker on every reconnect.
+    // Never grant a multiplayer boost locally before the server approves NEON777.
+    speedBoost=false;syncWeaponInfo();
     if(weaponWanted)roomClient.unlockWeapon(WEAPON_CODE);
     // Player appearance is session-only on the Worker. Re-send saved local
     // preferences after *every* join/reconnect, no account required.
@@ -418,12 +450,14 @@ const roomClient=new RealtimeRoomClient({
       lastCorrectionToast=now;showToast("位置の同期を調整しました");
     }
   },
-  onWeaponState:(unlocked,serverPeace)=>{
-    weaponUnlocked=unlocked;peaceful=serverPeace;syncWeaponInfo();
-    if(unlocked){
+  onWeaponState:(unlocked,serverPeace,boosted)=>{
+    const newlyBoosted=boosted&&!speedBoost;
+    weaponUnlocked=unlocked;peaceful=serverPeace;speedBoost=boosted;
+    syncWeaponInfo();refreshAimMode();
+    if(newlyBoosted){
       weaponWanted=true;
       try{sessionStorage.setItem("game-room-weapon-easteregg","1")}catch{}
-      closeSecret();showToast("✦ SECRET WEAPON UNLOCKED ✦");
+      closeSecret();showToast("✦ NEON777 TURBO · 6× SPEED ✦");
     }
   },
   onRoomState:shared=>{
@@ -504,7 +538,7 @@ async function copyInvitation():Promise<void>{
 }
 function leaveOnlineRoom():void{
   roomClient.leave();
-  weaponUnlocked=weaponWanted;peaceful=false;syncWeaponInfo();
+  weaponUnlocked=true;speedBoost=weaponWanted;peaceful=false;syncWeaponInfo();
   setOthelloMatch(freshMatch());
   setHealth(MAX_HP);
   clearRoomQuery();
@@ -576,10 +610,7 @@ function start():void{
 }
 function startStarshot():void{
   if(!range||!player||!state.playing||state.paused)return;
-  if(!weaponUnlocked){
-    showToast("✦ ARMORYでNEON777を解放してください。ピースモードのまま練習できます");
-    return;
-  }
+  // The blaster is standard equipment; NEON777 now grants sixfold movement.
   if(Math.hypot(player.position.x-33,player.position.z-10)>9){
     showToast("STARSHOTのゲートへ近づいてください");return;
   }
@@ -693,7 +724,7 @@ function update(dt:number):void{
   if(!world||!player||!camera||!input||!players)return;
   state.time+=dt;
   if(state.playing&&!state.paused){
-    const bob=currentHp>0?player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion):0;
+    const bob=currentHp>0?player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion,speedBoost?6:1):0;
     camera.update(player.position,bob);
     const inOutdoor=player.position.x>10.65;
     if(inOutdoor!==lastOutdoorZone){
@@ -852,17 +883,34 @@ function registerUi():void{
   shootButton.addEventListener("click",e=>{
     if(e.detail===0)fireBlaster(); // keyboard accessibility
   });
+  // ADS supports drag-to-look, tap-to-lock, and existing hold-to-aim.
   aimButton.addEventListener("pointerdown",e=>{
-    e.preventDefault();e.stopPropagation();aimPointerId=e.pointerId;setAimMode(true);
+    if(e.pointerType==="touch"&&touchBridge?.aimingNative)return;
+    e.preventDefault();e.stopPropagation();
+    beginAimDrag(e.pointerId,e.clientX,e.clientY);
+    if(aimPointerId===e.pointerId){try{aimButton.setPointerCapture(e.pointerId)}catch{}}
+  },{passive:false});
+  aimButton.addEventListener("pointermove",e=>{
+    if(e.pointerType==="touch"&&touchBridge?.aimingNative)return;
+    if(e.pointerId!==aimPointerId||e.pointerType==="mouse")return;
+    const delta=aimGesture.move(e.pointerId,e.clientX,e.clientY);
+    if(delta){applyAimDrag(delta.dx,delta.dy);e.preventDefault()}
   },{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    aimButton.addEventListener(event,e=>{if(aimPointerId===(e as PointerEvent).pointerId){aimPointerId=null;setAimMode(false);}});
+    aimButton.addEventListener(event,e=>{
+      const pe=e as PointerEvent;
+      if(pe.pointerType==="touch"&&touchBridge?.aimingNative)return;
+      endAimDrag(pe.pointerId,event!=="pointerup");
+    });
   }
+  aimButton.addEventListener("click",e=>{
+    if(e.detail===0){aimLocked=!aimLocked;refreshAimMode();}
+  });
   const releaseWeaponPointer=(e:PointerEvent)=>{
     // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
     if(e.pointerId===firePointerId&&!(e.pointerType==="touch"&&touchBridge?.firingNative)){
       fireGesture.end(e.pointerId);firePointerId=null;stopFiring();}
-    if(e.pointerId===aimPointerId){aimPointerId=null;setAimMode(false);}
+    if(e.pointerId===aimPointerId)endAimDrag(e.pointerId,true);
   };
   window.addEventListener("pointerup",releaseWeaponPointer);
   window.addEventListener("pointercancel",releaseWeaponPointer);
@@ -870,7 +918,7 @@ function registerUi():void{
   canvas.addEventListener("pointerdown",e=>{
     if(e.pointerType==="mouse"){
       if(e.button===0&&fireGesture.begin(e.pointerId,e.clientX,e.clientY)){firePointerId=e.pointerId;startFiring();}
-      if(e.button===2){aimPointerId=e.pointerId;setAimMode(true);}
+      if(e.button===2){beginAimDrag(e.pointerId,e.clientX,e.clientY);aimStartTime=-Infinity;}
     }
   });
   canvas.addEventListener("pointerup",e=>{
@@ -912,6 +960,14 @@ function registerUi():void{
     closeMonitor();showToast("モニターを初期表示に戻しました");
   });
   byId("interact-button").addEventListener("click",doInteraction);
+  const smartAds=byId<HTMLInputElement>("one-thumb-ads");
+  smartAds.checked=smartAimEnabled;
+  smartAds.addEventListener("change",()=>{
+    smartAimEnabled=smartAds.checked;
+    smartAimFiring=smartAimEnabled&&fireHeld!==null;
+    refreshAimMode();
+    try{localStorage.setItem(SMART_ADS_KEY,smartAimEnabled?"on":"off")}catch{}
+  });
   byId<HTMLInputElement>("sensitivity").addEventListener("input",e=>{
     settings.sensitivity=Number((e.target as HTMLInputElement).value);
     byId("sensitivity-value").textContent=String(settings.sensitivity);
@@ -986,6 +1042,9 @@ function initialize():void{
     canPlay:()=>state.playing&&!state.paused&&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))&&currentHp>0,
     fireStart:()=>{if(fireHeld===null)startFiring();},
     fireStop:()=>stopFiring(),
+    aimStart:()=>beginAimDrag(-1,0,0),
+    aimLook:(dx,dy)=>{if(aimPointerId===-1)applyAimDrag(dx,dy);},
+    aimStop:(cancelled)=>endAimDrag(-1,cancelled),
     fireLook:(dx,dy)=>{
       if(state.playing&&!state.paused)
         camera?.drag(dx,dy,settings.sensitivity*(aiming?.56:1));
@@ -996,6 +1055,7 @@ function initialize():void{
     },
     nativeLook:active=>input?.setNativeLook(active)
   });
+  touchBridge.bindAimButton(aimButton);
   quickArcade=new QuickArcade({
     onOpen:()=>{
       stopFiring();setAimMode(false);state.paused=true;
@@ -1007,7 +1067,7 @@ function initialize():void{
     }
   });
   input.enabled=false;
-  weaponUnlocked=weaponWanted;peaceful=!weaponWanted;syncWeaponInfo();
+  weaponUnlocked=true;peaceful=false;speedBoost=weaponWanted;syncWeaponInfo();
   window.addEventListener("resize",()=>world?.resize());
   registerUi();
   camera.update(player.position);

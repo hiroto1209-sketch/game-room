@@ -30,7 +30,7 @@ export type IncomingMessage=
   | {type:"fire_event";shooterId:string;position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
   | {type:"respawn";position:{x:number;y:number;z:number};health:number}
   | {type:"othello_state";match:OthelloMatch}
-  | {type:"weapon_state";unlocked:boolean;peaceful:boolean}
+  | {type:"weapon_state";unlocked:boolean;peaceful:boolean;boosted?:boolean}
   | {type:"position_correction";position:{x:number;y:number;z:number};sequence:number};
 export type OutgoingMessage=
   | {type:"join";roomId:string;displayName:string}
@@ -83,8 +83,9 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   if(o.type==="emote_event"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)
     &&validEmote(o.kind)&&Number.isFinite(o.durationMs)&&Number(o.durationMs)>0&&Number(o.durationMs)<=2600)
     return {type:"emote_event",playerId:o.playerId,kind:o.kind,durationMs:Number(o.durationMs)};
-  if(o.type==="weapon_state"&&typeof o.unlocked==="boolean"&&typeof o.peaceful==="boolean")
-    return {type:"weapon_state",unlocked:o.unlocked,peaceful:o.peaceful};
+  if(o.type==="weapon_state"&&typeof o.unlocked==="boolean"&&typeof o.peaceful==="boolean"
+    &&(o.boosted===undefined||typeof o.boosted==="boolean"))
+    return {type:"weapon_state",unlocked:o.unlocked,peaceful:o.peaceful,boosted:o.boosted===true};
   if(o.type==="position_correction"&&isFiniteVector3(o.position)&&Number.isSafeInteger(o.sequence)&&Number(o.sequence)>=0)
     return {type:"position_correction",position:o.position,sequence:Number(o.sequence)};
   if(o.type==="othello_state"&&validMatch(o.match))
