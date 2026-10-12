@@ -185,7 +185,7 @@ function lookWhileFiring(e:PointerEvent):void{
   if(e.pointerId!==firePointerId||e.pointerType==="mouse"||!camera||!state.playing||state.paused)return;
   const delta=fireGesture.move(e.pointerId,e.clientX,e.clientY);
   if(delta&&(delta.dx||delta.dy))
-    camera.drag(delta.dx,delta.dy,settings.sensitivity*(aiming?.62:1));
+    camera.drag(delta.dx,delta.dy,settings.sensitivity*(aiming?.56:1));
   e.preventDefault();
 }
 function startFiring():void{
@@ -883,17 +883,34 @@ function registerUi():void{
   shootButton.addEventListener("click",e=>{
     if(e.detail===0)fireBlaster(); // keyboard accessibility
   });
+  // ADS supports drag-to-look, tap-to-lock, and existing hold-to-aim.
   aimButton.addEventListener("pointerdown",e=>{
-    e.preventDefault();e.stopPropagation();aimPointerId=e.pointerId;setAimMode(true);
+    if(e.pointerType==="touch"&&touchBridge?.aimingNative)return;
+    e.preventDefault();e.stopPropagation();
+    beginAimDrag(e.pointerId,e.clientX,e.clientY);
+    if(aimPointerId===e.pointerId){try{aimButton.setPointerCapture(e.pointerId)}catch{}}
+  },{passive:false});
+  aimButton.addEventListener("pointermove",e=>{
+    if(e.pointerType==="touch"&&touchBridge?.aimingNative)return;
+    if(e.pointerId!==aimPointerId||e.pointerType==="mouse")return;
+    const delta=aimGesture.move(e.pointerId,e.clientX,e.clientY);
+    if(delta){applyAimDrag(delta.dx,delta.dy);e.preventDefault()}
   },{passive:false});
   for(const event of ["pointerup","pointercancel","lostpointercapture"]){
-    aimButton.addEventListener(event,e=>{if(aimPointerId===(e as PointerEvent).pointerId){aimPointerId=null;setAimMode(false);}});
+    aimButton.addEventListener(event,e=>{
+      const pe=e as PointerEvent;
+      if(pe.pointerType==="touch"&&touchBridge?.aimingNative)return;
+      endAimDrag(pe.pointerId,event!=="pointerup");
+    });
   }
+  aimButton.addEventListener("click",e=>{
+    if(e.detail===0){aimLocked=!aimLocked;refreshAimMode();}
+  });
   const releaseWeaponPointer=(e:PointerEvent)=>{
     // Lifting the LEFT movement thumb must not cancel RIGHT-thumb FIRE/ADS.
     if(e.pointerId===firePointerId&&!(e.pointerType==="touch"&&touchBridge?.firingNative)){
       fireGesture.end(e.pointerId);firePointerId=null;stopFiring();}
-    if(e.pointerId===aimPointerId){aimPointerId=null;setAimMode(false);}
+    if(e.pointerId===aimPointerId)endAimDrag(e.pointerId,true);
   };
   window.addEventListener("pointerup",releaseWeaponPointer);
   window.addEventListener("pointercancel",releaseWeaponPointer);
@@ -901,7 +918,7 @@ function registerUi():void{
   canvas.addEventListener("pointerdown",e=>{
     if(e.pointerType==="mouse"){
       if(e.button===0&&fireGesture.begin(e.pointerId,e.clientX,e.clientY)){firePointerId=e.pointerId;startFiring();}
-      if(e.button===2){aimPointerId=e.pointerId;setAimMode(true);}
+      if(e.button===2){beginAimDrag(e.pointerId,e.clientX,e.clientY);aimStartTime=-Infinity;}
     }
   });
   canvas.addEventListener("pointerup",e=>{
@@ -943,6 +960,14 @@ function registerUi():void{
     closeMonitor();showToast("モニターを初期表示に戻しました");
   });
   byId("interact-button").addEventListener("click",doInteraction);
+  const smartAds=byId<HTMLInputElement>("one-thumb-ads");
+  smartAds.checked=smartAimEnabled;
+  smartAds.addEventListener("change",()=>{
+    smartAimEnabled=smartAds.checked;
+    smartAimFiring=smartAimEnabled&&fireHeld!==null;
+    refreshAimMode();
+    try{localStorage.setItem(SMART_ADS_KEY,smartAimEnabled?"on":"off")}catch{}
+  });
   byId<HTMLInputElement>("sensitivity").addEventListener("input",e=>{
     settings.sensitivity=Number((e.target as HTMLInputElement).value);
     byId("sensitivity-value").textContent=String(settings.sensitivity);
