@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {FpsTouchBridge} from "../src/input/FpsTouchBridge.ts";
-import {recoilDelta} from "../src/camera/recoilMath.ts";
+import {recoilDelta,recoilMagnitude,RECOIL_SCALE} from "../src/camera/recoilMath.ts";
 const touch=(id,x,y)=>({identifier:id,clientX:x,clientY:y});
 function send(target,name,points){
  const e=new Event(name,{bubbles:true,cancelable:true});
@@ -65,8 +65,27 @@ test("native FIRE touch cancel stops shooting while unrelated look continues",()
   if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;
  }
 });
-test("ADS has materially less real recoil than hip fire",()=>{
-  const hip=recoilDelta(false),ads=recoilDelta(true);
-  assert.ok(hip.pitch>ads.pitch*3);
-  assert.ok(hip.yaw>ads.yaw*2);
+test("360-degree recoil changes direction with exact 20% strength reduction",()=>{
+  assert.equal(RECOIL_SCALE,.8);
+  const oldHip=Math.hypot(.027,.005),oldADS=Math.hypot(.006,.0015);
+  assert.ok(Math.abs(recoilMagnitude(false)-oldHip*.8)<1e-12);
+  assert.ok(Math.abs(recoilMagnitude(true)-oldADS*.8)<1e-12);
+  const vectors=[0,.125,.25,.375,.5,.625,.75,.875].map(angle=>
+    recoilDelta(false,()=>angle));
+  for(const r of vectors)
+    assert.ok(Math.abs(Math.hypot(r.yaw,r.pitch)-recoilMagnitude(false))<1e-12);
+  assert.ok(vectors[0].yaw>0);
+  assert.ok(vectors[2].pitch>0);
+  assert.ok(vectors[4].yaw<0);
+  assert.ok(vectors[6].pitch<0);
+  assert.ok(recoilMagnitude(false)>recoilMagnitude(true)*3);
+});
+test("ADS and hip fire share full 360-degree recoil spread",()=>{
+  for(const ads of [false,true]){
+    for(let i=0;i<100;i++){
+      const recoil=recoilDelta(ads,()=>i/100);
+      assert.ok(Number.isFinite(recoil.yaw)&&Number.isFinite(recoil.pitch));
+      assert.ok(Math.abs(Math.hypot(recoil.pitch,recoil.yaw)-recoilMagnitude(ads))<1e-12);
+    }
+  }
 });
