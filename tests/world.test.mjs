@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   OUTDOOR,DOOR,POND,chunkData,hashCell,groundHeightAt,insidePond,
   validWorldPosition,validWorldStep,worldBlocked,crossesClosedEastWall,shotObstructed,
-  terrainVisualHeightAt,insideHouse,crossesHouseWall
+  terrainVisualHeightAt,insideHouse,crossesHouseWall,walkableHeightAt,outdoorColliderBoxes
 } from "../shared/worldRules.js";
 import {PlayerController} from "../src/player/PlayerController.ts";
 import {withinMovementSpeed} from "../server/src/guards.js";
@@ -27,12 +27,12 @@ test("east door allows passage in both directions but solid wall stays blocked",
   assert.equal(validWorldStep(leftWall,outside),false);
   assert.ok(DOOR.minZ<-5&&DOOR.maxZ>-5);
 });
-test("pond and far exterior boundaries reject walking through water or off map",()=>{
+test("pond permits walking while far exterior boundaries stay blocked",()=>{
   assert.equal(insidePond(POND.x,POND.z),true);
-  assert.equal(worldBlocked(POND.x,POND.z,.36),true);
+  assert.equal(worldBlocked(POND.x,POND.z,.36),false);
   assert.equal(worldBlocked(12,-5,.36),false);
   assert.equal(validWorldPosition({x:105,y:1.65,z:0}),false);
-  assert.equal(validWorldStep({x:49,y:1.65,z:-27},{x:57,y:1.65,z:-27}),false);
+  assert.equal(validWorldStep({x:49,y:1.65,z:-27},{x:57,y:1.65,z:-27}),true);
   assert.ok(groundHeightAt(55,-10)>=0);
   assert.equal(groundHeightAt(55,-5),0);
 });
@@ -54,9 +54,9 @@ test("existing movement, jump, blocking and outdoor walking coexist",()=>{
   assert.ok(controller.position.x>x);
   controller.position.x=POND.x-POND.rx-1.4;
   controller.position.z=POND.z;
-  // A player walking toward the edge stops outside the pond.
+  // A player can cross the water boundary without jumping.
   for(let i=0;i<65;i++)controller.update(.016,{x:1,y:0},0);
-  assert.ok(!insidePond(controller.position.x,controller.position.z,controller.radius-.01));
+  assert.ok(insidePond(controller.position.x,controller.position.z));
 });
 test("server allows small outdoor steps but denies wall crossing and teleports",()=>{
   assert.equal(withinMovementSpeed({x:9.5,y:1.65,z:-5},{x:10.7,y:1.65,z:-5},180),true);
@@ -90,10 +90,10 @@ test("rear and west side of PARTY HOUSE are backed by valid walkable terrain",()
   assert.equal(validWorldPosition({x:-26,y:1.65,z:0}),false);
   assert.equal(worldBlocked(-25,0,.36),true);
 });
-test("pond remains visible above depressed ground and collider matches ellipse",()=>{
+test("pond remains visible above depressed ground with a walkable shallow surface",()=>{
   assert.ok(terrainVisualHeightAt(POND.x,POND.z)<-.25,"pond bed must be below surface");
   assert.equal(insidePond(POND.x,POND.z),true);
-  assert.equal(worldBlocked(POND.x,POND.z,.36),true,"water cannot be walked through");
+  assert.equal(worldBlocked(POND.x,POND.z,.36),false,"water can be crossed");
   assert.equal(insidePond(POND.x+POND.rx+3,POND.z),false);
   assert.ok(terrainVisualHeightAt(POND.x+POND.rx+3,POND.z)>=0);
   assert.equal(groundHeightAt(POND.x,POND.z),0,"physics height stays level under pond");
@@ -124,4 +124,53 @@ test("terrain geometry is a single persistent surface with matching world bounds
   assert.ok(geometry.attributes.position.count>=12000);
   land.dispose();
   assert.equal(group.children.length,0);
+});
+
+
+test("forest removes all rectangular ruins and halves trees without moving rocks",()=>{
+ const chunks=[];
+ for(let x=0;x<6;x++)for(let z=0;z<6;z++)chunks.push(chunkData(x,z));
+ assert.equal(chunks.flatMap(c=>c.blocks).length,0);
+ assert.equal(chunks.flatMap(c=>c.trees).length,84);
+ assert.equal(chunks.flatMap(c=>c.rocks).length,82);
+ // No unknown tall box colliders are left in the forest.
+ assert.equal(outdoorColliderBoxes().filter(c=>c.walkable).length,82);
+});
+
+test("rocks block feet, allow passage above their real top and support landing",()=>{
+ const boxes=outdoorColliderBoxes(),rocks=boxes.filter(c=>c.walkable);
+ let isolated=0;
+ for(const rock of rocks){
+  const x=(rock.x0+rock.x1)/2,z=(rock.z0+rock.z1)/2;
+  assert.ok(rock.y1-rock.y0<.86,"every stone is within jump reach");
+  // A neighbouring tree is still a real obstacle, even above a small stone.
+  if(boxes.some(c=>c!==rock&&x>=c.x0-.4&&x<=c.x1+.4&&z>=c.z0-.4&&z<=c.z1+.4))continue;
+  isolated++;
+  assert.equal(worldBlocked(x,z,.01,rock.y0+1.65),true);
+  assert.equal(worldBlocked(x,z,.01,rock.y1+1.65+.05),false);
+  assert.equal(walkableHeightAt(x,z,rock.y1+.05),rock.y1);
+  assert.equal(validWorldStep({x,y:rock.y1+1.65+.05,z},{x,y:rock.y1+1.65,z}),true);
+  assert.equal(shotObstructed({x,y:rock.y1+.05,z},{x,y:rock.y1+.3,z}),false);
+ }
+ assert.ok(isolated>=60,"exercise the full set of unobstructed stones");
+});
+
+test("real player jumps onto a large stone and the server accepts the whole arc",()=>{
+ const stones=outdoorColliderBoxes().filter(c=>c.walkable&&c.y1-c.y0>.65);
+ let crossed=false;
+ for(const rock of stones){
+  const z=(rock.z0+rock.z1)/2;
+  const controller=new PlayerController([],worldBlocked,(x,z)=>walkableHeightAt(x,z,controller.position.y-1.65+.35));
+  const start=rock.x0-.65;
+  if(worldBlocked(start,z,.36,groundHeightAt(start,z)+1.65))continue;
+  controller.teleport(start,groundHeightAt(start,z)+1.65,z);controller.jump();
+  let rejected=false;
+  for(let i=0;i<80;i++){
+   const from={...controller.position};
+   controller.update(1/120,{x:1,y:0},0,true);
+   if(!validWorldStep(from,controller.position))rejected=true;
+  }
+  if(controller.position.x>rock.x1+.36){assert.equal(rejected,false);crossed=true;break;}
+ }
+ assert.ok(crossed,"should actually clear a large rock at normal speed");
 });

@@ -20,14 +20,12 @@ export class OutdoorWorld {
   private readonly crown=new THREE.IcosahedronGeometry(1,0);
   private readonly grass=new THREE.ConeGeometry(.16,.62,3);
   private readonly rock=new THREE.IcosahedronGeometry(.5,0);
-  private readonly ruin=new THREE.BoxGeometry(1,1,1);
   private readonly materials={
     grounds:[0x294b38,0x305541,0x365843].map(color=>new THREE.MeshStandardMaterial({color,roughness:1})),
     trunk:new THREE.MeshStandardMaterial({color:0x735b50,roughness:1}),
     leaf:new THREE.MeshStandardMaterial({color:0xffffff,roughness:.96,flatShading:true}),
     grass:new THREE.MeshStandardMaterial({color:0x7ebd86,roughness:1,side:THREE.DoubleSide}),
-    rock:new THREE.MeshStandardMaterial({color:0x8f9c94,roughness:.93,flatShading:true}),
-    ruin:new THREE.MeshStandardMaterial({color:0xb6a4bc,roughness:.83,flatShading:true})
+    rock:new THREE.MeshStandardMaterial({color:0x8f9c94,roughness:.93,flatShading:true})
   };
   private readonly tmp=new THREE.Object3D();
   private readonly sharedScenery:THREE.Object3D[]=[];
@@ -130,7 +128,7 @@ export class OutdoorWorld {
     this.water.scale.set(POND.rx,POND.rz,1);
     this.water.position.set(POND.x,.075,POND.z);
     this.root.add(this.water);this.sharedScenery.push(this.water);
-    // Lilies + reeds are few and shared; the lake boundary is a blocked gameplay zone.
+    // Lilies + reeds are few and shared; the shallow pond can be crossed on foot.
     const padGeometry=new THREE.CircleGeometry(.45,9);
     const padMaterial=new THREE.MeshStandardMaterial({color:0x6caf7c,side:THREE.DoubleSide,roughness:.9});
     for(let i=0;i<13;i++){
@@ -228,9 +226,6 @@ export class OutdoorWorld {
     this.instance(group,this.rock,this.materials.rock,d.rocks,(e,o)=>{
       const size=e.size??.6;o.position.set(e.x,groundHeightAt(e.x,e.z)+size*.35,e.z);o.scale.set(size,Math.max(.38,size*.8),size*.78);
     });
-    this.instance(group,this.ruin,this.materials.ruin,d.blocks,(e,o)=>{
-      const h=e.height??2;o.position.set(e.x,groundHeightAt(e.x,e.z)+h*.5,e.z);o.scale.set(1.35,h,1.35);
-    });
     return group;
   }
   update(position:{x:number;z:number},time:number):void{
@@ -287,8 +282,8 @@ export class OutdoorWorld {
         mats.forEach(m=>{const t=(m as THREE.MeshBasicMaterial).map;t?.dispose();m.dispose()});
       }
     }
-    this.box.dispose();this.trunk.dispose();this.crown.dispose();this.grass.dispose();this.rock.dispose();this.ruin.dispose();
-    [...this.materials.grounds,this.materials.trunk,this.materials.leaf,this.materials.grass,this.materials.rock,this.materials.ruin]
+    this.box.dispose();this.trunk.dispose();this.crown.dispose();this.grass.dispose();this.rock.dispose();
+    [...this.materials.grounds,this.materials.trunk,this.materials.leaf,this.materials.grass,this.materials.rock]
       .forEach(m=>m.dispose());
   }
 }

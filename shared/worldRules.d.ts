@@ -1,4 +1,4 @@
-export interface GridCollider{x0:number;x1:number;z0:number;z1:number}
+export interface GridCollider{x0:number;x1:number;z0:number;z1:number;y0?:number;y1?:number;walkable?:boolean}
 export type DecoItem={x:number;z:number;size?:number;twist?:number;height?:number;color?:number};
 export type ChunkData={cx:number;cz:number;centerX:number;centerZ:number;grass:DecoItem[];trees:DecoItem[];rocks:DecoItem[];blocks:DecoItem[]};
 export const WORLD_SEED:number;
@@ -33,3 +33,5 @@ export function outdoorColliderBoxes():GridCollider[];
 export function outsideBounds(x:number,z:number,radius?:number):boolean;
 export function worldBlocked(x:number,z:number,radius?:number,eye?:number):boolean;
 export function validWorldStep(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number}):boolean;
+
+export function walkableHeightAt(x:number,z:number,ceiling?:number):number;

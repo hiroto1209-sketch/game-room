@@ -16,7 +16,8 @@
     "test:visual": "node --test tests/fps-visual.test.mjs",
     "test:exploration:visual": "node --test tests/exploration-visual.test.mjs",
     "test:hud:visual": "node --test tests/hud-editor-visual.test.mjs",
-    "test:stage:visual": "node --test tests/playcanvas-visual.test.mjs"
+    "test:stage:visual": "node --test tests/playcanvas-visual.test.mjs",
+    "test:forest:visual": "node --test tests/forest-visual.test.mjs"
   },
   "dependencies": {
     "three": "0.160.1"

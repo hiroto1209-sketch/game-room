@@ -9,16 +9,15 @@ import { MusicController } from "./audio/MusicController";
 import { RealtimeRoomClient, type RoomConnectionState } from "./network/RealtimeRoomClient";
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
-import { worldBlocked, groundHeightAt, shotObstructed } from "../shared/worldRules.js";
+import { worldBlocked, groundHeightAt, walkableHeightAt, shotObstructed } from "../shared/worldRules.js";
 import {stageShotObstructed} from "../shared/playcanvasRules.js";
+import {PokoWelcome} from "./world/PokoWelcome";
 import {PlayCanvasStage} from "./world/PlayCanvasStage";
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
 import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
 import {canBlasterFire,shouldSendPvpShot} from "./combat/practiceRules";
 import {WorldGuide} from "./ui/WorldGuide";
-import {EXPLORATION_STAMPS,safeDiscovered,earnStamp,type ExplorationId}
-  from "../shared/explorationProgress.js";
 import {AvatarStudio,AVATAR_EMOTE_LABELS} from "./ui/AvatarStudio";
 import {validEmote,type EmoteKind} from "../shared/avatarRules.js";
 import {QuickArcade} from "./games/QuickArcade";
@@ -56,33 +55,6 @@ const combatHud=byId("combat-hud");
 const shootButton=byId<HTMLButtonElement>("shoot-button");
 const aimButton=byId<HTMLButtonElement>("aim-button");
 const crosshair=byId("crosshair");
-const explorationCount=byId("exploration-count");
-const explorationStamps=byId("exploration-stamps");
-const EXPLORATION_STORAGE_KEY="game-room-exploration-stamps-v1";
-let discovered:ExplorationId[]=[];
-try{discovered=safeDiscovered(JSON.parse(
-  localStorage.getItem(EXPLORATION_STORAGE_KEY)??"[]"))}catch{}
-function renderExplorationJournal():void{
-  explorationCount.textContent=discovered.length+" / "+EXPLORATION_STAMPS.length;
-  explorationStamps.replaceChildren();
-  for(const stamp of EXPLORATION_STAMPS){
-    const node=document.createElement("span");
-    const unlocked=discovered.includes(stamp.id);
-    node.textContent=unlocked?"✦ "+stamp.label:"◇ ???";
-    node.classList.toggle("found",unlocked);
-    explorationStamps.appendChild(node);
-  }
-}
-function discoverExplorationStamp(id:ExplorationId):void{
-  const change=earnStamp(discovered,id);
-  if(!change.newlyFound){showToast("✦ 発見済み · 探索手帳を見てみよう");return;}
-  discovered=change.found;
-  try{localStorage.setItem(EXPLORATION_STORAGE_KEY,JSON.stringify(discovered))}catch{}
-  renderExplorationJournal();
-  const place=EXPLORATION_STAMPS.find(entry=>entry.id===id);
-  showToast("✦ SECRET FOUND: "+(place?.label??"UNKNOWN")+"  "+discovered.length+"/3");
-}
-
 const rangeHud=byId("starshot-hud");
 const rangeProgress=byId("range-progress");
 const rangeTime=byId("range-time");
@@ -127,6 +99,7 @@ const state={playing:false,paused:false,editingMonitor:false,editingSign:false,e
 let nearby:ReturnType<InteractionManager["closest"]>=null;
 let world:ReturnType<typeof createPartyWorld>|undefined;
 let player:PlayerController|undefined;
+let poko:PokoWelcome|undefined;
 let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
@@ -741,6 +714,7 @@ function updateInteraction():void{
 function update(dt:number):void{
   if(!world||!player||!camera||!input||!players)return;
   state.time+=dt;
+  poko?.update(player.position,dt,state.playing&&!state.paused,settings.reducedMotion);
   if(state.playing&&!state.paused){
     const bob=currentHp>0?player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion,speedBoost?6:1):0;
     camera.update(player.position,bob);
@@ -750,7 +724,7 @@ function update(dt:number):void{
       showToast(inOutdoor?"🌿 THE DOOR — ようこそ月夜の世界へ！":"🏠 パーティールームにおかえり！");
     }
     const nextZone=inOutdoor?
-      (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"BLOCK GROVE":"MOONLIT PLAZA") :
+      (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"MOONLIT FOREST":"MOONLIT PLAZA") :
       "PARTY LOUNGE · 東側の扉から外へ";
     if(nextZone!==currentZone){
       currentZone=nextZone;
@@ -1018,21 +992,10 @@ function initialize():void{
   blaster=new BlasterEffects(world.scene);
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   range=new StarshotRange(world.scene);
+  poko=new PokoWelcome(world.scene);
   fpsStage=new PlayCanvasStage(world.scene,showToast);
   world.targets.push({x:101.7,z:-5,label:'FPS ORIGINAL MAP — 読込 / 再試行',action:()=>{void fpsStage?.load();}});
   guide=new WorldGuide();
-  renderExplorationJournal();
-  // Discovery targets reuse the existing reach-limited "あそぶ" interaction.
-  // No extra render-loop collision work, network event or teleport.
-  for(const stamp of EXPLORATION_STAMPS){
-    world.targets.push({
-      x:stamp.x,z:stamp.z,
-      label:stamp.id==="echo"?"◇ 洞窟の記憶クリスタルを調べる":
-        stamp.id==="trail"?"◇ 隠し道の目印を発見する":"△ 展望台の星印を調べる",
-      action:()=>discoverExplorationStamp(stamp.id)
-    });
-  }
-
   hudEditor=new HudLayoutEditor();
   hudEditor.applySaved();
   avatarStudio=new AvatarStudio(avatar=>{
@@ -1046,7 +1009,7 @@ function initialize():void{
     action:startStarshot});
   setOthelloMatch(currentMatch);
   player=new PlayerController(world.colliders,worldBlocked,
-    (x,z)=>groundHeightAt(x,z,player?player.position.y-1.65+.35:.35),stageShotObstructed);
+    (x,z)=>walkableHeightAt(x,z,player?player.position.y-1.65+.35:.35),stageShotObstructed);
   if((location.hostname==='localhost'||location.hostname==='127.0.0.1')&&new URLSearchParams(location.search).has('stageVisualTest')){
     Object.assign(window,{__FPS_STAGE_QA__:{load:()=>fpsStage?.load(),status:()=>fpsStage?.status,
       sourceMeshes:295,materials:()=>{let n=0;fpsStage?.root.traverse(o=>{if(o instanceof THREE.Mesh)n++;});return n;},
@@ -1131,6 +1094,28 @@ function initialize():void{
   window.addEventListener("resize",()=>world?.resize());
   registerUi();
   camera.update(player.position);
+  if((location.hostname==="127.0.0.1"||location.hostname==="localhost")&&new URLSearchParams(location.search).has("forestVisualTest")){
+    const qaPlayer=player,qaCamera=camera,qaWorld=world,qaPoko=poko;
+    Object.assign(window,{__FOREST_QA__:{
+      pose:(x:number,z:number,yaw=-Math.PI/2,pitch=0)=>{
+        qaPlayer.teleport(x,groundHeightAt(x,z)+1.65,z);qaCamera.yaw=yaw;qaCamera.pitch=pitch;qaCamera.update(qaPlayer.position);
+      },
+      load:()=>qaPoko?.load(),status:()=>qaPoko?.status,appearances:()=>qaPoko?.appearances,
+      targetLabels:()=>qaWorld.targets.map(t=>t.label),
+      clips:()=>qaPoko?.clips,characterY:()=>qaPoko?.root.getObjectByName('Character')?.position.y,
+      characterPose:()=>qaPoko?.root.position.toArray(),
+      advance:(seconds:number)=>{for(let i=0;i<Math.ceil(seconds*60);i++)qaPoko?.update(qaPlayer.position,1/60,true,settings.reducedMotion);},
+      position:()=>({...qaPlayer.position}),
+      screenBounds:()=>{
+        if(!qaPoko)return null;
+        qaWorld.scene.updateMatrixWorld(true);qaWorld.camera.updateMatrixWorld(true);
+        const box=new THREE.Box3().setFromObject(qaPoko.root),points:THREE.Vector3[]=[];
+        for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])
+          points.push(new THREE.Vector3(x,y,z).project(qaWorld.camera));
+        return {minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minY:Math.min(...points.map(p=>p.y)),maxY:Math.max(...points.map(p=>p.y))};
+      }
+    }});
+  }
   // LOCALHOST ONLY: screenshot-test the physical cave / secret path / hilltop.
   // Never expose teleports or debug switches to the published multiplayer app.
   if((location.hostname==="127.0.0.1"||location.hostname==="localhost")){

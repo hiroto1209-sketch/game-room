@@ -56,6 +56,16 @@ jobs:
           path: artifacts/playcanvas/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Forest cleanup and POKO welcome gate (phone portrait / landscape)
+        run: npm run test:forest:visual
+      - name: Archive forest welcome screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forest-welcome-screenshots
+          path: artifacts/forest-visual/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Hidden world visual gate (cave / secret trail / hilltop)
         run: npm run test:exploration:visual
       - name: Archive exploration screenshots
