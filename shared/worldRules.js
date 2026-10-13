@@ -86,7 +86,7 @@ export function hashCell(cx,cz,seed=WORLD_SEED){
   n^=n>>>13;n=Math.imul(n,1274126177)>>>0;n^=n>>>16;
   return n>>>0;
 }
-export function chunkData(cx,cz,seed=WORLD_SEED){
+function fullChunkData(cx,cz,seed=WORLD_SEED){
   if(!Number.isInteger(cx)||!Number.isInteger(cz)||cx<0||cx>=OUTDOOR.columns||cz<0||cz>=OUTDOOR.rows)return null;
   let state=hashCell(cx,cz,seed);
   const rand=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296};
@@ -111,14 +111,23 @@ export function chunkData(cx,cz,seed=WORLD_SEED){
     if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z})||nearExplorationFeature(x,z,.9))continue;
     rocks.push({x,z,size:.38+rand()*.75});
   }
-  if(centerX>78){
-    for(let i=0;i<4;i++){
-      const x=centerX+(rand()-.5)*11,z=centerZ+(rand()-.5)*11;
-      if(Math.abs(z+5)<6||insidePond(x,z,2.5)||inArena({x,z})||nearExplorationFeature(x,z,1.0))continue;
-      blocks.push({x,z,height:.8+Math.floor(rand()*4)*.72});
-    }
-  }
   return {cx,cz,centerX,centerZ,grass,trees,rocks,blocks};
+}
+// Keep every second tree across the whole forest, retaining existing positions
+// and the random stream that places grass and rocks. 167 -> 84 trees.
+let forestSeed=null,forestChunks=[];
+export function chunkData(cx,cz,seed=WORLD_SEED){
+  if(!Number.isInteger(cx)||!Number.isInteger(cz)||cx<0||cx>=OUTDOOR.columns||cz<0||cz>=OUTDOOR.rows)return null;
+  if(forestSeed!==seed){
+    let index=0;forestChunks=[];
+    for(let x=0;x<OUTDOOR.columns;x++)for(let z=0;z<OUTDOOR.rows;z++){
+      const data=fullChunkData(x,z,seed);
+      data.trees=data.trees.filter(()=>index++%2===0);
+      forestChunks.push(data);
+    }
+    forestSeed=seed;
+  }
+  return forestChunks[cx*OUTDOOR.rows+cz];
 }
 export function insidePond(x,z,margin=0){
   const dx=(x-POND.x)/(POND.rx+margin),dz=(z-POND.z)/(POND.rz+margin);
@@ -129,7 +138,7 @@ export function outdoorRegion(x,z){
 }
 export function validWorldPosition(p){
   if(!p||typeof p!=="object"||!["x","y","z"].every(k=>typeof p[k]==="number"&&Number.isFinite(p[k])))return false;
-  if(p.y<1.54||p.y>(inFpsStage(p.x,p.z)?FPS_STAGE.maxY+3.85:5.1))return false;
+  if(p.y<1.54||p.y>(inFpsStage(p.x,p.z)?FPS_STAGE.maxY+3.85:6.91))return false;
   return outdoorRegion(p.x,p.z);
 }
 export function crossesClosedEastWall(from,to){
@@ -169,25 +178,34 @@ for(let cx=0;cx<OUTDOOR.columns;cx++){
   for(let cz=0;cz<OUTDOOR.rows;cz++){
     const data=chunkData(cx,cz);
     if(!data)continue;
-    for(const t of data.trees)colliders.push({x0:t.x-.48,x1:t.x+.48,z0:t.z-.48,z1:t.z+.48});
-    for(const r of data.rocks)colliders.push({x0:r.x-r.size*.63,x1:r.x+r.size*.63,z0:r.z-r.size*.63,z1:r.z+r.size*.63});
-    for(const b of data.blocks)colliders.push({x0:b.x-.72,x1:b.x+.72,z0:b.z-.72,z1:b.z+.72});
+    for(const t of data.trees)colliders.push({x0:t.x-.48,x1:t.x+.48,z0:t.z-.48,z1:t.z+.48,y0:groundHeightAt(t.x,t.z),y1:groundHeightAt(t.x,t.z)+t.height*1.03});
+    for(const r of data.rocks)colliders.push({x0:r.x-r.size*.5,x1:r.x+r.size*.5,z0:r.z-r.size*.39,z1:r.z+r.size*.39,y0:groundHeightAt(r.x,r.z),y1:groundHeightAt(r.x,r.z)+r.size*.35+Math.max(.38,r.size*.8)*.5,walkable:true});
   }
 }
 // Cave rock walls share the exact same collision footprint as the visual mesh.
-colliders.push(...explorationWalls);
+colliders.push(...explorationWalls.map(c=>({...c,y0:groundHeightAt((c.x0+c.x1)/2,(c.z0+c.z1)/2),y1:groundHeightAt((c.x0+c.x1)/2,(c.z0+c.z1)/2)+3.2})));
 export function outdoorColliderBoxes(){return colliders.map(c=>({...c}))}
 export function outsideBounds(x,z,radius=0){
   if(inFpsStage(x,z,-radius)||stageCorridor(x,z,radius))return false;
   return x<OUTDOOR.minX+radius||x>OUTDOOR.maxX-radius||
     z<OUTDOOR.minZ+radius||z>OUTDOOR.maxZ-radius;
 }
-export function worldBlocked(x,z,radius=.36,eye=1.65){
+// A rock supports a player who has cleared its top; terrain remains the one
+// continuous world floor. The ceiling prevents snapping onto rocks from below.
+export function walkableHeightAt(x,z,ceiling=.35){
+  let height=groundHeightAt(x,z,ceiling);
+  for(const c of colliders){
+    if(c.walkable&&x>=c.x0&&x<=c.x1&&z>=c.z0&&z<=c.z1&&c.y1<=ceiling+.01)
+      height=Math.max(height,c.y1);
+  }
+  return height;
+}
+export function worldBlocked(x,z,radius=.36,eye=groundHeightAt(x,z)+1.65){
   if(inFpsStage(x,z,radius)&&stageBlocked(x,z,radius,eye))return true;
   if(outsideBounds(x,z,radius))return true;
   if(insideHouse(x,z))return false; // furniture/walls use actual local colliders
-  if(insidePond(x,z,radius))return true;
   for(const c of colliders){
+    if(eye-1.65>=c.y1-.01||eye+.12<=c.y0)continue;
     const dx=x-Math.max(c.x0,Math.min(c.x1,x));
     const dz=z-Math.max(c.z0,Math.min(c.z1,z));
     if(dx*dx+dz*dz<radius*radius)return true;
@@ -198,7 +216,7 @@ export function validWorldStep(from,to){
   if(!validWorldPosition(to))return false;
   if(crossesHouseWall(from,to))return false;
   if(worldBlocked(to.x,to.z,.32,to.y))return false;
-  const floor=groundHeightAt(to.x,to.z,to.y-1.65+.12)+1.65;
+  const floor=walkableHeightAt(to.x,to.z,to.y-1.65+.12)+1.65;
   // Allow jumping (to 2.5+) and short frame-to-frame terrain corrections,
   // but no underground movement or flying above the legal jump ceiling.
   if(to.y<floor-.24||to.y>floor+2.2)return false;
@@ -207,7 +225,7 @@ export function validWorldStep(from,to){
 
 /**
  * Coarse server line-of-sight for short energy rays. The original building
- * walls and deterministic outdoor trunks/rocks/ruins are solid to weapons.
+ * walls and deterministic outdoor trunks/rocks are solid to weapons.
  * World ambience and water are intentionally not bullet blockers.
  */
 export function shotObstructed(from,to){
@@ -234,7 +252,7 @@ export function shotObstructed(from,to){
     if(!insideHouse(x,z)&&outdoorRegion(x,z)){
       for(const b of colliders){
         if(x>=b.x0&&x<=b.x1&&z>=b.z0&&z<=b.z1
-          &&y>groundHeightAt(x,z)&&y<groundHeightAt(x,z)+3.2)return true;
+          &&y>b.y0&&y<b.y1)return true;
       }
     }
     if(y<groundHeightAt(x,z,y)+.08)return true;

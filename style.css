@@ -384,17 +384,6 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
   #hud-top-stack #othello-panel{width:145px;padding:6px}
 }
 
-/* EXPLORATION 9: a journal in existing menu, no persistent world overlay. */
-.exploration-journal{border:1px solid rgba(147,236,204,.35);
-  border-radius:14px;padding:13px;background:rgba(26,34,41,.38)}
-.exploration-journal-heading{display:flex;align-items:center;justify-content:space-between;
-  gap:12px;color:#cbffe7;font-size:12px;letter-spacing:.06em}
-.exploration-journal .monitor-help{font-size:10px;margin:9px 0;color:#ece4e3b8}
-.exploration-stamps{display:flex;flex-wrap:wrap;gap:6px}
-.exploration-stamps span{border:1px solid #ffffff30;border-radius:8px;padding:7px 9px;
-  background:rgba(13,22,33,.58);color:#c9bdcc;font-size:10px}
-.exploration-stamps span.found{color:#c3ffeb;border-color:#92f5c477;background:#3a756533}
-
 /* NEXT-GEN CONTROLS 10.0: local-only, paused HUD layout editor. */
 #hud-editor-overlay{
   position:fixed;inset:0;z-index:65;

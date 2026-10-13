@@ -5,7 +5,6 @@ import {HiddenExploration} from "../src/world/HiddenExploration.ts";
 import {HIDDEN_WORLD,groundHeightAt,terrainVisualHeightAt,
   hiddenTrailDistance,nearExplorationFeature,worldBlocked,validWorldPosition,
   validWorldStep,chunkData,OUTDOOR,shotObstructed} from "../shared/worldRules.js";
-import {EXPLORATION_STAMPS,earnStamp,safeDiscovered} from "../shared/explorationProgress.js";
 import {withinMovementSpeed} from "../server/src/guards.js";
 
 test("Echo Grotto is actually walkable from both directions at legal server height",()=>{
@@ -55,8 +54,8 @@ test("Nature generation clears the trail, cave and lookout without changing old 
  }
  assert.equal(groundHeightAt(0,15),0);
  assert.equal(groundHeightAt(10,-5),0);
- // Existing pond shape and arena remain real collision, not overlaid walkable water.
- assert.equal(worldBlocked(57,-27,.36),true);
+ // Pond is now traversable; cave walls remain solid.
+ assert.equal(worldBlocked(57,-27,.36),false);
  assert.equal(shotObstructed({x:70,y:1.65,z:27},{x:70,y:1.65,z:31}),true);
 });
 test("Exploration graphics use static, shared GPU-instance geometry and distance culling",()=>{
@@ -75,18 +74,4 @@ test("Exploration graphics use static, shared GPU-instance geometry and distance
  let dynamicLights=0;experience.root.traverse(x=>{if(x instanceof THREE.Light)dynamicLights++});
  assert.equal(dynamicLights,0,"no dynamic lamps or shaders added");
  experience.dispose();assert.equal(scene.children.length,0);
-});
-test("Three discovery stamps are bounded and never accepted from arbitrary input",()=>{
- assert.equal(EXPLORATION_STAMPS.length,3);
- let found=[];
- for(const stamp of EXPLORATION_STAMPS){
-  const next=earnStamp(found,stamp.id);
-  assert.equal(next.newlyFound,true);
-  found=next.found;
- }
- assert.equal(found.length,3);
- assert.equal(earnStamp(found,"echo").newlyFound,false);
- assert.equal(earnStamp(found,"<script>").newlyFound,false);
- assert.deepEqual(safeDiscovered(["echo","echo","unknown","skylook"]),["echo","skylook"]);
- assert.deepEqual(safeDiscovered({}),[]);
 });
