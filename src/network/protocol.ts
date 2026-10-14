@@ -1,6 +1,7 @@
 import { isFiniteVector3, safeDisplayName, type PlayerSnapshot } from "../types/Player.ts";
 import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
 import {validMatch,type OthelloMatch} from "../../shared/othello.js";
+import {validResidentId,validResidentMotion,type ResidentId,type ResidentMotion} from "../../shared/residentRules.js";
 import {validAvatar,validEmote,type AvatarStyle,type EmoteKind} from "../../shared/avatarRules.js";
 export const MAX_MESSAGE_BYTES=4096;
 export const MAX_ROOM_STATE_BYTES=150000;
@@ -16,7 +17,9 @@ export function validSharedImage(value:unknown):value is string|null{
 export const ROOM_ID_PATTERN=/^[A-Za-z0-9_-]{32}$/;
 export const PLAYER_ID_PATTERN=/^[A-Za-z0-9_-]{8,64}$/;
 export type IncomingMessage=
-  | {type:"welcome";playerId:string;roomId:string;position?:{x:number;y:number;z:number}}
+  | {type:"npc_state";serverTime:number;motion:ResidentMotion}
+  | {type:"npc_dialogue";id:ResidentId}
+  | {type:"welcome";playerId:string;roomId:string;position?:{x:number;y:number;z:number};serverTime?:number}
   | {type:"snapshot";players:PlayerSnapshot[]}
   | {type:"joined";player:PlayerSnapshot}
   | {type:"left";playerId:string}
@@ -33,6 +36,7 @@ export type IncomingMessage=
   | {type:"weapon_state";unlocked:boolean;peaceful:boolean;boosted?:boolean}
   | {type:"position_correction";position:{x:number;y:number;z:number};sequence:number};
 export type OutgoingMessage=
+  | {type:"npc_talk";id:ResidentId;continue?:boolean}
   | {type:"join";roomId:string;displayName:string}
   | {type:"move";position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
   | RoomStateUpdate
@@ -77,6 +81,8 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   try{parsed=JSON.parse(raw)}catch{return null}
   if(!parsed||typeof parsed!=="object")return null;
   const o=parsed as Record<string,unknown>;
+  if(o.type==="npc_state"&&typeof o.serverTime==="number"&&Number.isFinite(o.serverTime)&&o.serverTime>0&&validResidentMotion(o.motion))return {type:"npc_state",serverTime:o.serverTime,motion:o.motion};
+  if(o.type==="npc_dialogue"&&validResidentId(o.id))return {type:"npc_dialogue",id:o.id};
   if(o.type==="avatar_state"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)
     &&validAvatar(o.avatar))
     return {type:"avatar_state",playerId:o.playerId,avatar:o.avatar};
@@ -118,9 +124,11 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   if(o.type==="respawn"&&isFiniteVector3(o.position)&&o.health===100)
     return {type:"respawn",position:o.position,health:o.health};
   if(o.type==="welcome"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)&&isValidRoomId(o.roomId)
-    &&(o.position===undefined||isFiniteVector3(o.position)))
+    &&(o.position===undefined||isFiniteVector3(o.position))
+    &&(o.serverTime===undefined||(typeof o.serverTime==="number"&&Number.isFinite(o.serverTime)&&o.serverTime>0)))
     return {type:"welcome",playerId:o.playerId,roomId:o.roomId,
-      ...(o.position!==undefined?{position:o.position}:{})};
+      ...(o.position!==undefined?{position:o.position}:{}),
+      ...(typeof o.serverTime==="number"?{serverTime:o.serverTime}:{})};
   if(o.type==="snapshot"&&Array.isArray(o.players)&&o.players.length<=24&&o.players.every(validPlayer))
     return {type:"snapshot",players:o.players.map(p=>({...p,displayName:safeDisplayName(p.displayName)}))};
   if(o.type==="joined"&&validPlayer(o.player))
@@ -132,6 +140,7 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   return null;
 }
 export function validateOutgoing(message:OutgoingMessage):boolean{
+  if(message.type==="npc_talk")return validResidentId(message.id)&&(message.continue===undefined||typeof message.continue==="boolean");
   if(message.type==="avatar_update")return validAvatar(message.avatar);
   if(message.type==="emote")return validEmote(message.kind);
   if(message.type==="unlock_weapon")return validUnlockCode(message.code);

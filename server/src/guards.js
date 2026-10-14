@@ -1,3 +1,4 @@
+import {validResidentId,residentStepBlocked} from "../../shared/residentRules.js";
 import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
 import {validAvatar,validEmote} from "../../shared/avatarRules.js";
 import { validWorldPosition, validWorldStep, worldBlocked } from "../../shared/worldRules.js";
@@ -29,6 +30,7 @@ export function decodeMessage(raw){
   try{
     const m=JSON.parse(raw);
     if(!m||typeof m!=="object"||Array.isArray(m))return null;
+    if(m.type==="npc_talk"&&validResidentId(m.id)&&(m.continue===undefined||typeof m.continue==="boolean")&&Object.keys(m).every(k=>["type","id","continue"].includes(k)))return {type:"npc_talk",id:m.id,continue:m.continue===true};
     if(m.type==="room_update" && m.key==="monitorImage" && validSharedImage(m.value))
       return {type:"room_update",key:"monitorImage",value:m.value};
     if(m.type==="room_update" && m.key==="lightShow" && typeof m.value==="boolean")
@@ -72,8 +74,9 @@ export function decodeMessage(raw){
 export function permittedOrigin(value){
   return value==="https://hiroto1209-sketch.github.io" || value==="http://localhost:5173" || value==="http://127.0.0.1:5173";
 }
-export function withinMovementSpeed(prev,next,elapsedMs,turbo=false){
-  if(!validWorldStep(prev,next))return false;
+export function withinMovementSpeed(prev,next,elapsedMs,turbo=false,residents=null){
+  if(!validWorldStep(prev,next,residents))return false;
+  if(residents&&residentStepBlocked(prev,next,.28,residents.now,residents.motion))return false;
   if(stageShotObstructed(prev,next))return false;
   const dx=next.x-prev.x,dy=next.y-prev.y,dz=next.z-prev.z;
   const horizontal=Math.hypot(dx,dz);
@@ -88,6 +91,8 @@ export function withinMovementSpeed(prev,next,elapsedMs,turbo=false){
     const segments=Math.max(1,Math.ceil(horizontal/.25));
     for(let i=1;i<segments;i++){
       const t=i/segments;
+      const point={x:prev.x+dx*t,y:prev.y+dy*t,z:prev.z+dz*t};
+      if(residents&&residentStepBlocked(prev,point,.28,residents.now,residents.motion))return false;
       if(worldBlocked(prev.x+dx*t,prev.z+dz*t,.32,prev.y+dy*t))return false;
     }
   }

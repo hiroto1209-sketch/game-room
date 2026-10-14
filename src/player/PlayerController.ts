@@ -35,7 +35,7 @@ export class PlayerController {
   }
   stop():void{this.velocity.x=this.velocity.z=0}
   jump():void{
-    if(this.grounded){this.velocity.y=5.0;this.grounded=false;}
+    if(this.grounded){this.velocity.y=6.5;this.grounded=false;}
   }
   private collides(x:number,z:number):boolean{
     if(this.extraBlocked(x,z,this.radius,this.position.y))return true;

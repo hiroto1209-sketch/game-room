@@ -1,3 +1,4 @@
+import type {ResidentId,ResidentMotion} from "../../shared/residentRules.js";
 import type { PlayerSnapshot } from "../types/Player";
 import { safeDisplayName } from "../types/Player";
 import { isValidRoomId, type RoomSharedState } from "./protocol";
@@ -7,6 +8,8 @@ import type {AvatarStyle,EmoteKind} from "../../shared/avatarRules.js";
 
 export type RoomConnectionState="offline"|"connecting"|"online"|"reconnecting";
 export interface RoomCallbacks{
+  onResidentState?(motion:ResidentMotion):void;
+  onResidentDialogue?(id:ResidentId):void;
   onState(state:RoomConnectionState,count:number):void;
   onSnapshot(players:PlayerSnapshot[]):void;
   onPlayer(player:PlayerSnapshot):void;
@@ -35,6 +38,9 @@ export class RealtimeRoomClient {
   private name="Guest";
   private baseUrl="";
   private peers=new Map<string,PlayerSnapshot>();
+  private serverOffset=0;
+  private joinSentAt=0;
+  private estimatedOneWayMs=0;
   private lastSend=0;
   private sequence=0;
   private fireSequence=0;
@@ -48,6 +54,8 @@ export class RealtimeRoomClient {
     this.baseUrl=baseUrl.trim().replace(/\/+$/,"");
     this.supported=this.baseUrl.startsWith("https://");
   }
+  get serverNow():number{return Date.now()+this.serverOffset;}
+  talkToResident(id:ResidentId,continuing=false):boolean{return this.online?(this.transport?.send({type:"npc_talk",id,continue:continuing})??false):false;}
   get roomId():string{return this.currentRoomId}
   get count():number{return this.isReady?this.peers.size+1:0}
   get online():boolean{return this.isReady&&this.transport?.status==="online"}
@@ -118,7 +126,11 @@ export class RealtimeRoomClient {
     const url=server+"/rooms/"+this.currentRoomId;
     transport.subscribe(msg=>{
       if(gen!==this.connectGeneration)return;
-      if(msg.type==="avatar_state"){
+      if(msg.type==="npc_state"){
+        this.serverOffset=msg.serverTime+this.estimatedOneWayMs-Date.now();this.callbacks.onResidentState?.(msg.motion);
+      }else if(msg.type==="npc_dialogue"){
+        this.callbacks.onResidentDialogue?.(msg.id);
+      }else if(msg.type==="avatar_state"){
         const remote=this.peers.get(msg.playerId);
         if(remote)this.peers.set(msg.playerId,{...remote,avatar:msg.avatar});
         this.callbacks.onAvatar(msg.playerId,msg.avatar);
@@ -147,6 +159,7 @@ export class RealtimeRoomClient {
         this.lastRoomRevision=msg.revision;
         this.callbacks.onRoomState(msg);
       }else if(msg.type==="welcome"){
+        if(msg.serverTime!==undefined){this.estimatedOneWayMs=Math.max(0,Math.min(500,(Date.now()-this.joinSentAt)/2));this.serverOffset=msg.serverTime+this.estimatedOneWayMs-Date.now();}
         if(msg.roomId!==this.currentRoomId)return;
         this.playerId=msg.playerId;
         this.isReady=true;this.attempts=0;
@@ -176,6 +189,7 @@ export class RealtimeRoomClient {
     try{
       await transport.connect(url);
       if(gen!==this.connectGeneration)return;
+      this.joinSentAt=Date.now();
       if(!transport.send({type:"join",roomId:this.currentRoomId,displayName:this.name}))
         throw new Error("ルーム参加メッセージを送信できませんでした");
       this.handshakeTimer=setTimeout(()=>{
