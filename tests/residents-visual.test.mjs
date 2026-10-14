@@ -30,6 +30,9 @@ for(const size of [{name:'portrait',width:390,height:844},{name:'landscape',widt
   await page.evaluate(()=>{window.__RESIDENT_QA__.time(1000,true);window.__RESIDENT_QA__.pose(8,-5,-Math.PI/2);});
   await page.waitForFunction(()=>window.__RESIDENT_QA__.data().poko==='hidden');
   await page.evaluate(()=>window.__RESIDENT_QA__.pose(11.3,-5,-Math.PI/2));await page.waitForFunction(()=>window.__RESIDENT_QA__.data().poko==='idle',null,{timeout:15000});
+  await page.evaluate(()=>window.__RESIDENT_QA__.pose(-15,0));await page.waitForTimeout(400);
+  assert.equal((await page.evaluate(()=>window.__RESIDENT_QA__.data())).poko,'idle','western outdoor lawn is not a return indoors');
+  await page.evaluate(()=>window.__RESIDENT_QA__.pose(20,-20));await page.waitForTimeout(150);
   await page.evaluate(()=>{window.__RESIDENT_QA__.pose(16.4,-6.1,-Math.PI/2);window.__RESIDENT_QA__.walk(1,{x:0,y:1},-Math.PI/2);});
   assert.ok((await page.evaluate(()=>window.__RESIDENT_QA__.data())).player.x<17.1,'POKO must have a real body collider');
   await page.waitForFunction(()=>document.getElementById('interaction-text').textContent.includes('POKO'));
