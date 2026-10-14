@@ -9,7 +9,7 @@ import { MusicController } from "./audio/MusicController";
 import { RealtimeRoomClient, type RoomConnectionState } from "./network/RealtimeRoomClient";
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
-import { worldBlocked, groundHeightAt, walkableHeightAt, shotObstructed } from "../shared/worldRules.js";
+import { worldBlocked, groundHeightAt, walkableHeightAt, shotObstructed, insideHouse } from "../shared/worldRules.js";
 import {stageShotObstructed} from "../shared/playcanvasRules.js";
 import {TokotokoResident} from "./world/TokotokoResident";
 import {ResidentDialogue} from "./ui/ResidentDialogue";
@@ -770,7 +770,7 @@ function update(dt:number):void{
   if(state.playing&&!state.paused){
     const bob=currentHp>0?player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion,speedBoost?6:1):0;
     camera.update(player.position,bob);
-    const inOutdoor=player.position.x>10.65;
+    const inOutdoor=!insideHouse(player.position.x,player.position.z);
     if(inOutdoor!==lastOutdoorZone){
       lastOutdoorZone=inOutdoor;
       showToast(inOutdoor?"🌿 THE DOOR — ようこそ月夜の世界へ！":"🏠 パーティールームにおかえり！");

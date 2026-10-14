@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {POKO_ANCHOR} from '../../shared/residentRules.js';
-import {DOOR,groundHeightAt} from '../../shared/worldRules.js';
+import {DOOR,groundHeightAt,insideHouse} from '../../shared/worldRules.js';
 
 type Phase='unloaded'|'loading'|'hidden'|'emerging'|'idle'|'hiding'|'error';
 const ANCHOR=POKO_ANCHOR;
@@ -74,7 +74,7 @@ export class PokoWelcome {
     this.elapsed+=dt;
     if(!playing)return;
     if(this.previousX<=10.65&&position.x>10.65&&position.z>=DOOR.minZ-.5&&position.z<=DOOR.maxZ+.5)this.wanted=true;
-    if(position.x<9.5)this.wanted=false;
+    if(insideHouse(position.x,position.z))this.wanted=false;
     this.previousX=position.x;
     const near=Math.hypot(position.x-ANCHOR.x,position.z-ANCHOR.z)<30;
     if((this.phase==='unloaded'||this.phase==='error')&&near&&position.x>5.5&&this.elapsed>=this.retriesAfter)void this.load();
