@@ -11,6 +11,9 @@ import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt, walkableHeightAt, shotObstructed } from "../shared/worldRules.js";
 import {stageShotObstructed} from "../shared/playcanvasRules.js";
+import {TokotokoResident} from "./world/TokotokoResident";
+import {ResidentDialogue} from "./ui/ResidentDialogue";
+import {canTalkToResident,residentStepBlocked,residentHeightAt,EMPTY_MOTION,POKO_ANCHOR,type ResidentId} from "../shared/residentRules.js";
 import {PokoWelcome} from "./world/PokoWelcome";
 import {PlayCanvasStage} from "./world/PlayCanvasStage";
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
@@ -100,6 +103,11 @@ let nearby:ReturnType<InteractionManager["closest"]>=null;
 let world:ReturnType<typeof createPartyWorld>|undefined;
 let player:PlayerController|undefined;
 let poko:PokoWelcome|undefined;
+let resident:TokotokoResident|undefined;
+let residentDialogue:ResidentDialogue|undefined;
+let conversationHeartbeat:ReturnType<typeof setInterval>|undefined;
+let residentTestTime:number|undefined;
+const residentNow=()=>residentTestTime??roomClient.serverNow;
 let camera:CameraController|undefined;
 let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
@@ -326,6 +334,7 @@ function placeOthello(index:number):void{
 const hpByPlayer=new Map<string,number>();
 function setHealth(value:number):void{
   currentHp=Math.max(0,Math.min(MAX_HP,value));
+  if(currentHp===0)residentDialogue?.close();
   hpLabel.textContent="HP "+currentHp+" / "+MAX_HP;
   hpFill.style.width=currentHp+"%";
   combatNote.textContent=currentHp===0?"リスポーンを待っています…":"HP "+currentHp;
@@ -387,6 +396,8 @@ const clock=new THREE.Clock();
 const zoneIndicator=byId("zone-indicator");
 let lastOutdoorZone=false;
 const roomClient=new RealtimeRoomClient({
+  onResidentState:motion=>{if(resident)resident.motion={...motion};},
+  onResidentDialogue:id=>openResidentDialogue(id),
   onState:(connection:RoomConnectionState,count:number)=>{
     roomState.textContent=connection==="online"?"オンライン":connection==="offline"?"オフライン":connection==="connecting"?"接続中…":"再接続中…";
     roomCount.textContent=count+"人";
@@ -644,6 +655,7 @@ function openHudEditor():void{
   });
 }
 function openMenu():void{
+  if(residentDialogue?.opened){residentDialogue.close();return;}
   touchBridge?.reset();stopFiring();setAimMode(false);
   if(state.editingMonitor||state.editingSign||state.editingSecret||state.editingMiniGames)return;
   state.paused=true;
@@ -663,6 +675,7 @@ function openQuickGame(kind:"target"|"tic"):void{
   quickArcade?.open(kind);
 }
 function backToTitle():void{
+  residentDialogue?.close();
   avatarStudio?.close();avatarStudio?.showQuick(false);
   range?.reset();rangeHud.classList.add("hidden");
   rangeWasRunning=false;guide?.show(false);guide?.close();
@@ -689,6 +702,24 @@ function backToTitle():void{
   music.stop();
   byId<HTMLInputElement>("sound-enabled").checked=false;
 }
+function talkToResident(id:ResidentId):void{
+  if(!state.playing||state.paused||!player||currentHp<=0)return;
+  if(roomClient.online){roomClient.talkToResident(id);return;}
+  if(id==='tokotoko')resident?.hold(residentNow(),player.position);
+  openResidentDialogue(id);
+}
+function openResidentDialogue(id:ResidentId):void{
+  if(!state.playing||currentHp<=0||residentDialogue?.opened)return;
+  touchBridge?.reset();stopFiring();setAimMode(false);input?.reset();if(input)input.enabled=false;
+  player?.stop();state.paused=true;interaction.classList.add('hidden');
+  residentDialogue?.open(id);
+  clearInterval(conversationHeartbeat);
+  if(id==='tokotoko')conversationHeartbeat=setInterval(()=>{
+    if(!residentDialogue?.opened||!player)return;
+    if(roomClient.online)roomClient.talkToResident(id,true);
+    else resident?.hold(residentNow(),player.position,true);
+  },6000);
+}
 function doInteraction():void{
   if(!state.playing||state.paused)return;
   if(aimOthelloIndex!==null&&currentMatch.status==="playing"){
@@ -714,6 +745,7 @@ function updateInteraction():void{
 function update(dt:number):void{
   if(!world||!player||!camera||!input||!players)return;
   state.time+=dt;
+  resident?.update(player.position,dt,residentNow(),state.playing,settings.reducedMotion);
   poko?.update(player.position,dt,state.playing&&!state.paused,settings.reducedMotion);
   if(state.playing&&!state.paused){
     const bob=currentHp>0?player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion,speedBoost?6:1):0;
@@ -993,6 +1025,15 @@ function initialize():void{
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   range=new StarshotRange(world.scene);
   poko=new PokoWelcome(world.scene);
+  resident=new TokotokoResident(world.scene);
+  residentDialogue=new ResidentDialogue(()=>{
+    clearInterval(conversationHeartbeat);state.paused=false;input?.reset();if(input)input.enabled=state.playing;
+  });
+  const residentTarget={x:0,z:0,label:'TOKOTOKOに話しかける',action:()=>talkToResident('tokotoko'),
+    enabled:()=>Boolean(resident?.talkable&&player&&canTalkToResident('tokotoko',player.position,residentNow(),resident.motion)&&!shotObstructed(player.position,{x:resident.root.position.x,y:1,z:resident.root.position.z}))};
+  Object.defineProperties(residentTarget,{x:{get:()=>resident?.root.position.x??0},z:{get:()=>resident?.root.position.z??0}});
+  world.targets.push(residentTarget,{x:POKO_ANCHOR.x,z:POKO_ANCHOR.z,label:'POKOに話しかける',action:()=>talkToResident('poko'),
+    enabled:()=>Boolean(poko?.talkable&&player&&canTalkToResident('poko',player.position,residentNow())&&!shotObstructed(player.position,{x:POKO_ANCHOR.x,y:1,z:POKO_ANCHOR.z}))});
   fpsStage=new PlayCanvasStage(world.scene,showToast);
   world.targets.push({x:101.7,z:-5,label:'FPS ORIGINAL MAP — 読込 / 再試行',action:()=>{void fpsStage?.load();}});
   guide=new WorldGuide();
@@ -1008,8 +1049,14 @@ function initialize():void{
   world.targets.push({x:33,z:10,label:"✦ STARSHOT RANGE — 30秒射撃チャレンジ",
     action:startStarshot});
   setOthelloMatch(currentMatch);
-  player=new PlayerController(world.colliders,worldBlocked,
-    (x,z)=>walkableHeightAt(x,z,player?player.position.y-1.65+.35:.35),stageShotObstructed);
+  player=new PlayerController(world.colliders,(x,z,radius,eye)=>{
+    if(worldBlocked(x,z,radius,eye))return true;
+    return Boolean(player&&residentStepBlocked(player.position,{x,y:eye??player.position.y,z},radius,residentNow(),resident?.motion??EMPTY_MOTION));
+  },
+    (x,z)=>{
+      const ceiling=player?player.position.y-1.65+.35:.35;
+      return Math.max(walkableHeightAt(x,z,ceiling),residentHeightAt(x,z,ceiling,residentNow(),resident?.motion??EMPTY_MOTION));
+    },stageShotObstructed);
   if((location.hostname==='localhost'||location.hostname==='127.0.0.1')&&new URLSearchParams(location.search).has('stageVisualTest')){
     Object.assign(window,{__FPS_STAGE_QA__:{load:()=>fpsStage?.load(),status:()=>fpsStage?.status,
       sourceMeshes:295,materials:()=>{let n=0;fpsStage?.root.traverse(o=>{if(o instanceof THREE.Mesh)n++;});return n;},
@@ -1058,7 +1105,7 @@ function initialize():void{
       if(!state.paused&&state.playing)camera?.drag(dx,dy,settings.sensitivity*(aiming?.62:1));
     },
     onJump:()=>{if(state.playing&&!state.paused)player?.jump()},
-    onMenu:()=>state.editingMiniGames?closeMiniGames():state.paused?closeMenu():openMenu(),
+    onMenu:()=>residentDialogue?.opened?residentDialogue.close():state.editingMiniGames?closeMiniGames():state.paused?closeMenu():openMenu(),
     onInteract:doInteraction
   });
   touchBridge=new FpsTouchBridge(shootButton,canvas,{
@@ -1114,6 +1161,21 @@ function initialize():void{
           points.push(new THREE.Vector3(x,y,z).project(qaWorld.camera));
         return {minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minY:Math.min(...points.map(p=>p.y)),maxY:Math.max(...points.map(p=>p.y))};
       }
+    }});
+  }
+  if((location.hostname==='127.0.0.1'||location.hostname==='localhost')&&new URLSearchParams(location.search).has('residentVisualTest')){
+    const qaWorld=world,qaPlayer=player,qaCamera=camera,qaResident=resident;
+    residentTestTime=1000;
+    Object.assign(window,{__RESIDENT_QA__:{
+      load:()=>Promise.all([qaResident?.load(),poko?.load()]),
+      pose:(x:number,z:number,yaw=0,pitch=0)=>{qaPlayer.teleport(x,groundHeightAt(x,z)+1.65,z);qaCamera.yaw=yaw;qaCamera.pitch=pitch;qaCamera.update(qaPlayer.position);},
+      time:(ms:number,reset=false)=>{residentTestTime=ms;if(reset&&qaResident)qaResident.motion={...EMPTY_MOTION};qaResident?.update(qaPlayer.position,1/60,ms,true,settings.reducedMotion);},
+      walk:(seconds:number,input:{x:number;y:number},yaw:number)=>{for(let i=0;i<Math.ceil(seconds*120);i++)qaPlayer.update(1/120,input,yaw,true);qaCamera.update(qaPlayer.position);},
+      jump:()=>qaPlayer.jump(),interact:doInteraction,
+      data:()=>({status:qaResident?.status,position:qaResident?.root.position.toArray(),moving:qaResident?.isWalking,
+        player:{...qaPlayer.position},motion:qaResident?.motion,dialogue:residentDialogue?.opened,poko:poko?.status,
+        inputEnabled:input?.enabled,paused:state.paused}),
+      talk:talkToResident
     }});
   }
   // LOCALHOST ONLY: screenshot-test the physical cave / secret path / hilltop.

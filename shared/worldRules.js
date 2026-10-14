@@ -1,3 +1,4 @@
+import {residentHeightAt} from "./residentRules.js";
 import {inArena} from "./combatRules.js";
 import {FPS_STAGE,inFpsStage,stageCorridor,stageGround,stageBlocked,stageShotObstructed} from "./playcanvasRules.js";
 /**
@@ -212,14 +213,16 @@ export function worldBlocked(x,z,radius=.36,eye=groundHeightAt(x,z)+1.65){
   }
   return false;
 }
-export function validWorldStep(from,to){
+export function validWorldStep(from,to,residents=null){
   if(!validWorldPosition(to))return false;
   if(crossesHouseWall(from,to))return false;
   if(worldBlocked(to.x,to.z,.32,to.y))return false;
-  const floor=walkableHeightAt(to.x,to.z,to.y-1.65+.12)+1.65;
+  let floor=walkableHeightAt(to.x,to.z,to.y-1.65+.12)+1.65;
+  if(residents)floor=Math.max(floor,residentHeightAt(to.x,to.z,to.y-1.65+.12,residents.now,residents.motion)+1.65);
+  const jumpBase=residents&&Number.isFinite(residents.jumpBase)?residents.jumpBase+1.65:floor;
   // Allow jumping (to 2.5+) and short frame-to-frame terrain corrections,
   // but no underground movement or flying above the legal jump ceiling.
-  if(to.y<floor-.24||to.y>floor+2.2)return false;
+  if(to.y<floor-.24||to.y>Math.max(floor,jumpBase)+2.2)return false;
   return true;
 }
 

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import {POKO_ANCHOR} from '../../shared/residentRules.js';
 import {DOOR,groundHeightAt} from '../../shared/worldRules.js';
 
 type Phase='unloaded'|'loading'|'hidden'|'emerging'|'idle'|'hiding'|'error';
-const ANCHOR={x:17,z:-5.7};
+const ANCHOR=POKO_ANCHOR;
 /** One local welcome character. The supplied GLB/animations are unchanged.
  * Appearance depends on each viewer leaving the house, not multiplayer authority.
  */
@@ -26,6 +27,7 @@ export class PokoWelcome {
     this.root.visible=false;scene.add(this.root);
   }
   get status():Phase{return this.phase;}
+  get talkable():boolean{return this.phase==='idle'&&this.root.visible;}
   get appearances():number{return this.popCount;}
   get clips():string[]{return Object.keys(this.actions);}
   load():Promise<void>{

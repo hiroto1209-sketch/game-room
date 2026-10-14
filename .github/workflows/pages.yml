@@ -66,6 +66,16 @@ jobs:
           path: artifacts/forest-visual/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Resident collision and conversation gate (phone portrait / landscape)
+        run: npm run test:residents:visual
+      - name: Archive resident screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: residents-screenshots
+          path: artifacts/residents-visual/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Hidden world visual gate (cave / secret trail / hilltop)
         run: npm run test:exploration:visual
       - name: Archive exploration screenshots

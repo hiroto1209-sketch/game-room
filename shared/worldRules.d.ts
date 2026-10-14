@@ -32,6 +32,6 @@ export function crossesClosedEastWall(from:{x:number;z:number},to:{x:number;z:nu
 export function outdoorColliderBoxes():GridCollider[];
 export function outsideBounds(x:number,z:number,radius?:number):boolean;
 export function worldBlocked(x:number,z:number,radius?:number,eye?:number):boolean;
-export function validWorldStep(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number}):boolean;
+export function validWorldStep(from:{x:number;y:number;z:number},to:{x:number;y:number;z:number},residents?:{now:number;motion:import("./residentRules.js").ResidentMotion;jumpBase?:number}):boolean;
 
 export function walkableHeightAt(x:number,z:number,ceiling?:number):number;

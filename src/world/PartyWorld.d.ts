@@ -5,7 +5,7 @@ import type {SignMarquee} from "./SignMarquee";
 import type {FloorOthello} from "./FloorOthello";
 import type {QualityManager} from "../performance/QualityManager";
 export type Collider = {x0:number;x1:number;z0:number;z1:number};
-export type WorldTarget = {x:number;z:number;label:string;action:()=>void};
+export type WorldTarget = {x:number;z:number;label:string;action:()=>void;enabled?:()=>boolean};
 export interface PartyWorld {
   scene:THREE.Scene; camera:THREE.PerspectiveCamera; renderer:THREE.WebGLRenderer;
   monitor:MediaMonitor;

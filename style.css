@@ -472,3 +472,16 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
   .hud-editor-actions button{padding:7px 6px}
 }
 @media(prefers-reduced-motion:reduce){.hud-editor-ghost{transition:none}}
+
+/* Resident conversations: large touch targets, safe-area padding, keyboard focus. */
+.resident-dialogue{position:fixed;inset:0;z-index:85;display:flex;align-items:flex-end;justify-content:center;background:#090d1866;padding:16px 12px max(20px,env(safe-area-inset-bottom));}
+.resident-dialogue.hidden{display:none}
+.resident-dialogue-card{width:min(100%,580px);max-height:85dvh;overflow:auto;border:1px solid #97dbc48c;border-radius:20px;background:#18212df5;box-shadow:0 16px 60px #0008;padding:22px;color:#edf8f3;}
+.resident-dialogue-card h2{font-size:19px;margin:0 0 14px;letter-spacing:.04em;color:#baf1d9}
+.resident-dialogue-card p{font-size:17px;line-height:1.8;margin:0 0 18px;min-height:85px;}
+.resident-dialogue-buttons{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.resident-dialogue-buttons span{margin-right:auto;font-size:13px;color:#abc3bb}
+.resident-dialogue-buttons button{min-height:46px;padding:10px 15px;border-radius:12px;border:1px solid #8acfb79e;background:#233b3b;color:#fff;font:inherit;font-size:14px;}
+#resident-dialogue-next{background:#bde8d6;color:#18342c;font-weight:700;}
+.resident-dialogue-buttons button:focus-visible{outline:3px solid #ffe1ac;outline-offset:3px}
+@media(max-height:460px){.resident-dialogue-card{padding:14px 20px}.resident-dialogue-card p{min-height:0;font-size:16px;margin-bottom:12px}.resident-dialogue-card h2{margin-bottom:8px}}

@@ -1,7 +1,8 @@
+import {residentHeightAt,EMPTY_MOTION,validResidentMotion,canTalkToResident,holdResident,currentResidentPose,POKO_ANCHOR} from "../../shared/residentRules.js";
 import { DurableObject } from "cloudflare:workers";
 import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
 import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE } from "../../shared/combatRules.js";
-import {SPAWN,shotObstructed} from "../../shared/worldRules.js";
+import {SPAWN,shotObstructed,walkableHeightAt} from "../../shared/worldRules.js";
 import {FPS_STAGE,inFpsStage} from "../../shared/playcanvasRules.js";
 import "../../shared/playcanvasCollisionData.js";
 import {DEFAULT_AVATAR,EMOTE_DURATION_MS} from "../../shared/avatarRules.js";
@@ -43,7 +44,10 @@ export default {
  * No chat, account details or long-term position history are stored.
  */
 export class RoomHub extends DurableObject {
-  constructor(ctx,env){super(ctx,env)}
+  constructor(ctx,env){
+    super(ctx,env);this.residentMotion={...EMPTY_MOTION};
+    ctx.blockConcurrencyWhile(async()=>{const saved=await ctx.storage.get('residents_v1');if(validResidentMotion(saved))this.residentMotion=saved;});
+  }
   members(){
     return this.ctx.getWebSockets().filter(s=>isJoined(attachment(s)));
   }
@@ -80,7 +84,8 @@ export class RoomHub extends DurableObject {
       ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0,hp:MAX_HP,
         respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:true,peaceful:false,speedBoost:false,
         lastShotAt:0,lastFireSeq:0});
-      send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn});
+      send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn,serverTime:Date.now()});
+      send(ws,{type:"npc_state",serverTime:Date.now(),motion:this.residentMotion});
       send(ws,{type:"weapon_state",unlocked:true,peaceful:false,boosted:false});
       send(ws,{type:"snapshot",players:existing.map(s=>publicPlayer(attachment(s))).filter(Boolean)});
       // Late joiners also see still-playing emotes (no database persistence).
@@ -176,6 +181,22 @@ export class RoomHub extends DurableObject {
       return;
     }
     const now=Date.now();
+    if(m.type==='npc_talk'){
+      if(session.hp<=0||now-(session.lastNpcAt??0)<500)return;
+      if(m.continue&&(session.lastNpcId!==m.id||now-(session.lastNpcAt??0)>14000))return;
+      const pose=m.id==='poko'?POKO_ANCHOR:currentResidentPose(now,this.residentMotion);
+      if(!canTalkToResident(m.id,session.player.position,now,this.residentMotion)||shotObstructed(session.player.position,{x:pose.x,y:1,z:pose.z})){
+        if(!m.continue)send(ws,{type:'error',reason:'もう少し近づいて話しかけてね'});return;
+      }
+      ws.serializeAttachment({...session,lastNpcAt:now,lastNpcId:m.id});
+      if(m.id==='tokotoko')await this.ctx.blockConcurrencyWhile(async()=>{
+        this.residentMotion=holdResident(now,this.residentMotion,session.player.position,m.continue);
+        await this.ctx.storage.put('residents_v1',this.residentMotion);
+        for(const peer of this.members())send(peer,{type:'npc_state',serverTime:Date.now(),motion:this.residentMotion});
+      });
+      if(!m.continue)send(ws,{type:'npc_dialogue',id:m.id});
+      return;
+    }
     if(m.type==="unlock_weapon"){
       if(now-(session.lastUnlockAt??0)<1500){
         send(ws,{type:"error",reason:"コマンドの入力間隔を空けてください"});return;
@@ -260,7 +281,13 @@ export class RoomHub extends DurableObject {
     if(m.sequence<=session.player.sequence)return;
     if(now-session.lastPacketAt<75)return; // per-socket max ~13 updates/s
     const elapsed=Math.max(0,Math.min(2000,now-session.lastMoveAt));
-    if(!withinMovementSpeed(session.player.position,m.position,elapsed,session.speedBoost===true)){
+    const foot=session.player.position.y-1.65;
+    const oldFloor=Math.max(walkableHeightAt(session.player.position.x,session.player.position.z,foot+.12),
+      residentHeightAt(session.player.position.x,session.player.position.z,foot+.12,now,this.residentMotion));
+    const onGround=Math.abs(foot-oldFloor)<.15;
+    const jumpBase=onGround?oldFloor:(now<(session.jumpBaseUntil??0)?session.jumpBase??0:0);
+    const jumpBaseUntil=onGround?now+2000:session.jumpBaseUntil??0;
+    if(!withinMovementSpeed(session.player.position,m.position,elapsed,session.speedBoost===true,{now,motion:this.residentMotion,jumpBase})){
       // Do not merely report "Invalid movement" forever. Send the last
       // server-approved position and let the client gracefully reconcile.
       if(now-(session.lastCorrectionAt??0)>=700){
@@ -271,7 +298,7 @@ export class RoomHub extends DurableObject {
       return;
     }
     const player={...session.player,position:m.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
-    ws.serializeAttachment({...session,player,lastMoveAt:now,lastPacketAt:now});
+    ws.serializeAttachment({...session,player,lastMoveAt:now,lastPacketAt:now,jumpBase,jumpBaseUntil});
     for(const peer of this.members())if(peer!==ws)send(peer,{type:"joined",player});
   }
   async alarm(){
