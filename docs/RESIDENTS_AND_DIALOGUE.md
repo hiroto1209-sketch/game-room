@@ -21,3 +21,5 @@ The launch velocity is 5.0 × 1.3 = 6.5. Gravity remains 11.8, so the physical a
 ## Verification
 
 New unit tests cover route clearance and continuity, pauses/holds/renewal, body blocking and escape, grounded support, strict protocol IDs, interaction visibility and the exact jump launch multiplier. Phone portrait/landscape visual tests cover actual GLB rendering, roaming, collisions, conversation pages, focus/close and control restoration. A real two-client/late-join Worker test covers shared holds, rejected distant conversation and body movement corrections. Existing FPS/HUD/forest/exploration and realtime gates remain mandatory. Physical iPhone/iPad Safari validation remains outstanding.
+
+Realtime fixture servers run sequentially with distinct ports; each fixture still opens concurrent players. This avoids competing development-server startup/CPU load while preserving every network assertion.

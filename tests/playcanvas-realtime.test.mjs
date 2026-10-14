@@ -40,7 +40,8 @@ test('three clients walk into original map, share avatars/emotes, respect cover 
   }
   async function move(i,x,z,yaw=0){
    const observer=sockets[(i+1)%3],n=++seq[i],receipt=message(observer,'joined',m=>m.player.id===ids[i]&&m.player.sequence===n);
-   sockets[i].send(JSON.stringify({type:'move',sequence:n,position:{x,y:1.65,z},yaw,pitch:0}));return receipt;
+   sockets[i].send(JSON.stringify({type:'move',sequence:n,position:{x,y:1.65,z},yaw,pitch:0}));
+   try{return await receipt;}catch(error){console.error('FPS MOVEMENT DEBUG',JSON.stringify({player:i,sequence:n,target:{x,y:1.65,z},corrections:corrections.slice(-6)}));throw error;}
   }
   async function together(x,z){await Promise.all(sockets.map((_,i)=>move(i,x,z)));await wait(105);}
   await wait(150);

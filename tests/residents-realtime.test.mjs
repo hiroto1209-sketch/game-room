@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import WebSocket from 'ws';import {spawn} from 'node:child_process';import {setTimeout as wait} from 'node:timers/promises';import {randomUUID} from 'node:crypto';
 import {currentResidentPose,EMPTY_MOTION,residentTimeAt} from '../shared/residentRules.js';
 import {insideHouse} from '../shared/worldRules.js';import {withinMovementSpeed} from '../server/src/guards.js';
-const PORT=8991,ROOM=randomUUID().replaceAll('-','');
+const PORT=8993,ROOM=randomUUID().replaceAll('-','');
 function message(s,type,predicate=()=>true){return new Promise((resolve,reject)=>{
  const timer=setTimeout(()=>{cleanup();reject(Error('Timed out: '+type));},8000);
  const onData=raw=>{const m=JSON.parse(raw.toString());if(m.type===type&&predicate(m)){cleanup();resolve(m);}};

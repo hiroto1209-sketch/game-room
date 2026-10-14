@@ -16,9 +16,11 @@ for(const size of [{name:'portrait',width:390,height:844},{name:'landscape',widt
   await page.evaluate(()=>window.__RESIDENT_QA__.walk(1,{x:0,y:1},0));
   const blocked=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.ok(blocked.player.z>12.9,'do not walk through resident');
   await page.waitForFunction(()=>document.getElementById('interaction-text').textContent.includes('TOKOTOKO'));
+  assert.equal(await page.locator('#interact-button').textContent(),'話す');
   await page.locator('#interact-button').click();await page.locator('#resident-dialogue').waitFor({state:'visible'});
   assert.ok((await page.locator('#resident-dialogue-title').textContent()).includes('TOKOTOKO'));
   const talking=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.equal(talking.paused,true);assert.equal(talking.inputEnabled,false);assert.ok(talking.camera.pitch< -.3,'frame the resident face during close conversation');
+  const eyes=await page.evaluate(()=>window.__RESIDENT_QA__.eyePositions());assert.ok(eyes.every(p=>p&&Math.abs(p[0])<1&&Math.abs(p[1])<.2),'both eyes should remain visible above the dialogue card, including at body-collision distance');
   await page.evaluate(()=>window.__RESIDENT_QA__.time(5000));const held=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.equal(held.moving,false);assert.deepEqual(held.position,talking.position);
   await page.screenshot({path:`artifacts/residents-visual/${size.name}-conversation.png`});
   const rect=await page.locator('.resident-dialogue-card').boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=size.width&&rect.y>=0&&rect.y+rect.height<=size.height);
