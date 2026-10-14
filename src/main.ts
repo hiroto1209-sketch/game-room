@@ -106,6 +106,7 @@ let poko:PokoWelcome|undefined;
 let resident:TokotokoResident|undefined;
 let residentDialogue:ResidentDialogue|undefined;
 let conversationHeartbeat:ReturnType<typeof setInterval>|undefined;
+let conversationCamera:{yaw:number;pitch:number}|null=null;
 let residentTestTime:number|undefined;
 const residentNow=()=>residentTestTime??roomClient.serverNow;
 let camera:CameraController|undefined;
@@ -712,6 +713,14 @@ function openResidentDialogue(id:ResidentId):void{
   if(!state.playing||currentHp<=0||residentDialogue?.opened)return;
   touchBridge?.reset();stopFiring();setAimMode(false);input?.reset();if(input)input.enabled=false;
   player?.stop();state.paused=true;interaction.classList.add('hidden');
+  if(camera&&player){
+    conversationCamera={yaw:camera.yaw,pitch:camera.pitch};
+    const target=id==='poko'?POKO_ANCHOR:resident?.root.position;
+    if(target){const dx=target.x-player.position.x,dz=target.z-player.position.z;
+      camera.yaw=Math.atan2(-dx,-dz);camera.pitch=Math.atan2(1-player.position.y,Math.max(.1,Math.hypot(dx,dz)));
+      camera.update(player.position);
+    }
+  }
   residentDialogue?.open(id);
   clearInterval(conversationHeartbeat);
   if(id==='tokotoko')conversationHeartbeat=setInterval(()=>{
@@ -1027,6 +1036,8 @@ function initialize():void{
   poko=new PokoWelcome(world.scene);
   resident=new TokotokoResident(world.scene);
   residentDialogue=new ResidentDialogue(()=>{
+    if(conversationCamera&&camera&&player){camera.yaw=conversationCamera.yaw;camera.pitch=conversationCamera.pitch;camera.update(player.position);}
+    conversationCamera=null;
     clearInterval(conversationHeartbeat);state.paused=false;input?.reset();if(input)input.enabled=state.playing;
   });
   const residentTarget={x:0,z:0,label:'TOKOTOKOに話しかける',action:()=>talkToResident('tokotoko'),
@@ -1174,7 +1185,7 @@ function initialize():void{
       jump:()=>qaPlayer.jump(),interact:doInteraction,
       data:()=>({status:qaResident?.status,position:qaResident?.root.position.toArray(),moving:qaResident?.isWalking,
         player:{...qaPlayer.position},motion:qaResident?.motion,dialogue:residentDialogue?.opened,poko:poko?.status,
-        inputEnabled:input?.enabled,paused:state.paused}),
+        inputEnabled:input?.enabled,paused:state.paused,camera:{yaw:qaCamera.yaw,pitch:qaCamera.pitch}}),
       talk:talkToResident
     }});
   }

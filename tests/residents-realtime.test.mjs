@@ -39,20 +39,29 @@ test('two clients share resident holds, body collision, conversation validation 
   const distant=message(a.s,'error',m=>m.reason.includes('近づいて'));
   a.s.send(JSON.stringify({type:'npc_talk',id:'tokotoko'}));await distant;
   const turbo=message(a.s,'weapon_state',m=>m.boosted);a.s.send(JSON.stringify({type:'unlock_weapon',code:'NEON777'}));await turbo;
-  async function move(x,z){
-   await wait(105);const n=++seq,receipt=message(b.s,'joined',m=>m.player.id===playerId&&m.player.sequence===n);
-   a.s.send(JSON.stringify({type:'move',sequence:n,position:{x,y:1.65,z},yaw:0,pitch:0}));await receipt;p={x,y:1.65,z};
+  async function move(x,z,allowResidentBlock=false){
+   await wait(105);const n=++seq;
+   const receipt=new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>{cleanup();reject(Error('Movement response timeout: '+JSON.stringify({from:p,to:{x,z},sequence:n})));},8000);
+    const accepted=raw=>{const m=JSON.parse(raw.toString());if(m.type==='joined'&&m.player.id===playerId&&m.player.sequence===n){cleanup();resolve({accepted:true,position:m.player.position});}};
+    const corrected=raw=>{const m=JSON.parse(raw.toString());if(m.type==='position_correction'){cleanup();resolve({accepted:false,position:m.position});}};
+    const cleanup=()=>{clearTimeout(timer);b.s.off('message',accepted);a.s.off('message',corrected);};
+    b.s.on('message',accepted);a.s.on('message',corrected);
+   });
+   a.s.send(JSON.stringify({type:'move',sequence:n,position:{x,y:1.65,z},yaw:0,pitch:0}));const result=await receipt;p=result.position;
+   if(!allowResidentBlock)assert.ok(result.accepted,'expected clear path at '+JSON.stringify({x,z,actual:p}));
+   return result.accepted;
   }
   for(let z=14.5;z>=-5;z-=.5)await move(0,z);
   for(let x=1;x<=18;x++)await move(x,-5);
   const poko=message(a.s,'npc_dialogue',m=>m.id==='poko');a.s.send(JSON.stringify({type:'npc_talk',id:'poko'}));await poko;
   await wait(150);const correction=message(a.s,'position_correction');a.s.send(JSON.stringify({type:'move',sequence:++seq,position:{x:18,y:1.65,z:-5.4},yaw:0,pitch:0}));assert.deepEqual((await correction).position,p);
   let near=false;
-  for(let attempt=0;attempt<10;attempt++){
+  for(let attempt=0;attempt<20;attempt++){
    const goal=currentResidentPose(Date.now(),motion);
    if(Math.hypot(p.x-goal.x,p.z-goal.z)<2.4){near=true;break;}
    const path=route(p,goal,motion);
-   for(const [x,z] of path.slice(0,8))await move(x,z);
+   for(const [x,z] of path.slice(0,8))if(!await move(x,z,true))break;
   }
   assert.ok(near,'walk within talking distance of the roaming resident');
   await wait(550);

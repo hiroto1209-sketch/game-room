@@ -18,12 +18,12 @@ for(const size of [{name:'portrait',width:390,height:844},{name:'landscape',widt
   await page.waitForFunction(()=>document.getElementById('interaction-text').textContent.includes('TOKOTOKO'));
   await page.locator('#interact-button').click();await page.locator('#resident-dialogue').waitFor({state:'visible'});
   assert.ok((await page.locator('#resident-dialogue-title').textContent()).includes('TOKOTOKO'));
-  const talking=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.equal(talking.paused,true);assert.equal(talking.inputEnabled,false);
+  const talking=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.equal(talking.paused,true);assert.equal(talking.inputEnabled,false);assert.ok(talking.camera.pitch< -.3,'frame the resident face during close conversation');
   await page.evaluate(()=>window.__RESIDENT_QA__.time(5000));const held=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.equal(held.moving,false);assert.deepEqual(held.position,talking.position);
   await page.screenshot({path:`artifacts/residents-visual/${size.name}-conversation.png`});
   const rect=await page.locator('.resident-dialogue-card').boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=size.width&&rect.y>=0&&rect.y+rect.height<=size.height);
   await page.locator('#resident-dialogue-next').click();assert.ok((await page.locator('#resident-dialogue-text').textContent()).includes('裏庭'));
-  await page.locator('#resident-dialogue-close').click();assert.equal((await page.evaluate(()=>window.__RESIDENT_QA__.data())).inputEnabled,true);
+  await page.locator('#resident-dialogue-close').click();const resumed=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.equal(resumed.inputEnabled,true);assert.equal(resumed.camera.pitch,0);
   await page.evaluate(()=>window.__RESIDENT_QA__.time(15000,true));const walking=await page.evaluate(()=>window.__RESIDENT_QA__.data());assert.equal(walking.moving,true);assert.ok(Math.hypot(walking.position[0]-14,walking.position[2]-12)>4);
   await page.evaluate(()=>{window.__RESIDENT_QA__.time(1000,true);window.__RESIDENT_QA__.pose(8,-5,-Math.PI/2);});
   await page.waitForFunction(()=>window.__RESIDENT_QA__.data().poko==='hidden');

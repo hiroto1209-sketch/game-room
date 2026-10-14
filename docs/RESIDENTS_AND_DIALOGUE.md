@@ -12,7 +12,7 @@ A conversation holds the resident at the current position and turns it toward th
 
 Both residents have bounded cylindrical body colliders, shared between client and Worker. Movement cannot pass through their bodies; feet above the top can pass. POKO supports landing on top after clearing it. A player who is already overlapped by a roaming resident can always move away. NPCs are neutral, with no damage or combat targeting.
 
-POKO retains its pop/hide welcome. Its anchor changes from (17,-5.7) to (18,-6.1) so its solid body does not block the straight doorway path. Talk prompts are disabled before models load or while POKO is underground. Both prompts use the existing proximity interaction button. The conversation panel pauses local controls and firing, has large touch buttons, traps keyboard focus, supports Escape, and restores controls on close. There is no forced reading timeout.
+POKO retains its pop/hide welcome. Its anchor changes from (17,-5.7) to (18,-6.1) so its solid body does not block the straight doorway path. Talk prompts are disabled before models load or while POKO is underground. Both prompts use the existing proximity interaction button. The conversation panel pauses local controls and firing, has large touch buttons, traps keyboard focus, supports Escape, and restores controls on close. It frames the resident face while reading, then restores the original view direction. There is no forced reading timeout.
 
 ## Jump
 
