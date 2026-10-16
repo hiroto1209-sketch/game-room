@@ -2,6 +2,7 @@ import { isFiniteVector3, safeDisplayName, type PlayerSnapshot } from "../types/
 import {validSignText,validUnlockCode} from "../../shared/combatRules.js";
 import {validMatch,type OthelloMatch} from "../../shared/othello.js";
 import {validResidentId,validResidentMotion,type ResidentId,type ResidentMotion} from "../../shared/residentRules.js";
+import {publicCoop,validCoopState,type CoopState} from "../../shared/coopRules.js";
 import {validAvatar,validEmote,type AvatarStyle,type EmoteKind} from "../../shared/avatarRules.js";
 export const MAX_MESSAGE_BYTES=4096;
 export const MAX_ROOM_STATE_BYTES=150000;
@@ -19,6 +20,8 @@ export const PLAYER_ID_PATTERN=/^[A-Za-z0-9_-]{8,64}$/;
 export type IncomingMessage=
   | {type:"npc_state";serverTime:number;motion:ResidentMotion}
   | {type:"npc_dialogue";id:ResidentId}
+  | ({type:"coop_state"} & CoopState)
+  | {type:"mission_clear"}
   | {type:"welcome";playerId:string;roomId:string;position?:{x:number;y:number;z:number};serverTime?:number}
   | {type:"snapshot";players:PlayerSnapshot[]}
   | {type:"joined";player:PlayerSnapshot}
@@ -45,6 +48,7 @@ export type OutgoingMessage=
   | {type:"othello";action:"place";index:number}
   | {type:"unlock_weapon";code:string}
   | {type:"peace_mode";enabled:boolean}
+  | {type:"coop_mode";enabled:boolean}
   | {type:"avatar_update";avatar:AvatarStyle}
   | {type:"emote";kind:EmoteKind};
 export function createRoomId():string{
@@ -83,6 +87,11 @@ export function parseIncoming(raw:string):IncomingMessage|null{
   const o=parsed as Record<string,unknown>;
   if(o.type==="npc_state"&&typeof o.serverTime==="number"&&Number.isFinite(o.serverTime)&&o.serverTime>0&&validResidentMotion(o.motion))return {type:"npc_state",serverTime:o.serverTime,motion:o.motion};
   if(o.type==="npc_dialogue"&&validResidentId(o.id))return {type:"npc_dialogue",id:o.id};
+  if(o.type==="mission_clear")return {type:"mission_clear"};
+  if(o.type==="coop_state"&&validCoopState(o)){
+    const clean=publicCoop(o);
+    return {type:"coop_state",...clean};
+  }
   if(o.type==="avatar_state"&&typeof o.playerId==="string"&&PLAYER_ID_PATTERN.test(o.playerId)
     &&validAvatar(o.avatar))
     return {type:"avatar_state",playerId:o.playerId,avatar:o.avatar};
@@ -145,6 +154,7 @@ export function validateOutgoing(message:OutgoingMessage):boolean{
   if(message.type==="emote")return validEmote(message.kind);
   if(message.type==="unlock_weapon")return validUnlockCode(message.code);
   if(message.type==="peace_mode")return typeof message.enabled==="boolean";
+  if(message.type==="coop_mode")return typeof message.enabled==="boolean";
   if(message.type==="othello")return message.action==="place"?
     Number.isInteger(message.index)&&message.index>=0&&message.index<64:
     ["start","join","pause","resume","reset"].includes(message.action);

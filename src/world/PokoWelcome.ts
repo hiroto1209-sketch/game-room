@@ -20,6 +20,7 @@ export class PokoWelcome {
   private retriesAfter=0;
   private elapsed=0;
   private popCount=0;
+  private cheerUntil=0;
   constructor(private readonly scene:THREE.Scene){
     this.root.name='POKO_WELCOME';
     this.root.position.set(ANCHOR.x,groundHeightAt(ANCHOR.x,ANCHOR.z),ANCHOR.z);
@@ -29,6 +30,7 @@ export class PokoWelcome {
   get status():Phase{return this.phase;}
   get talkable():boolean{return this.phase==='idle'&&this.root.visible;}
   get appearances():number{return this.popCount;}
+  cheer(now=performance.now()){this.cheerUntil=now+1400;}
   get clips():string[]{return Object.keys(this.actions);}
   load():Promise<void>{
     if(this.disposed)return Promise.resolve();
@@ -72,6 +74,8 @@ export class PokoWelcome {
   update(position:{x:number;z:number},dt:number,playing:boolean,reducedMotion:boolean):void{
     if(this.disposed)return;
     this.elapsed+=dt;
+    const hop=!reducedMotion&&performance.now()<this.cheerUntil?Math.sin((this.cheerUntil-performance.now())/1400*Math.PI)*.16:0;
+    this.root.position.y=groundHeightAt(ANCHOR.x,ANCHOR.z)+hop;
     if(!playing)return;
     if(this.previousX<=10.65&&position.x>10.65&&position.z>=DOOR.minZ-.5&&position.z<=DOOR.maxZ+.5)this.wanted=true;
     if(insideHouse(position.x,position.z))this.wanted=false;

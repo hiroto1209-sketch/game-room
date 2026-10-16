@@ -8,6 +8,7 @@ export const STOPS:readonly GuideStop[]=[
   {id:"skylook",label:"SKYLOOK VISTA",x:90,z:37,symbol:"△"},
   {id:"tower",label:"HORIZON SPIRE",x:93,z:23,symbol:"◆"},
   {id:"arena",label:"NEON ARENA",x:86,z:-40,symbol:"◉"},
+  {id:"plaza",label:"CO-OP PLAZA",x:21,z:40,symbol:"✚"},
   {id:"home",label:"PARTY HOUSE",x:0,z:0,symbol:"⌂"},
   {id:"armory",label:"WEAPON ATM",x:3,z:23,symbol:"✧"}
 ] as const;

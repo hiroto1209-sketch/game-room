@@ -2,6 +2,7 @@ import {residentHeightAt,EMPTY_MOTION,validResidentMotion,canTalkToResident,hold
 import { DurableObject } from "cloudflare:workers";
 import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
 import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE, aimWithinRate } from "../../shared/combatRules.js";
+import { applyFoeDamage, findFoeHit, fireTargetKind, freshCoop, publicCoop, reviveFoes, validCoopState } from "../../shared/coopRules.js";
 import {SPAWN,shotObstructed,walkableHeightAt} from "../../shared/worldRules.js";
 import {FPS_STAGE,inFpsStage} from "../../shared/playcanvasRules.js";
 import "../../shared/playcanvasCollisionData.js";
@@ -45,8 +46,11 @@ export default {
  */
 export class RoomHub extends DurableObject {
   constructor(ctx,env){
-    super(ctx,env);this.residentMotion={...EMPTY_MOTION};
-    ctx.blockConcurrencyWhile(async()=>{const saved=await ctx.storage.get('residents_v1');if(validResidentMotion(saved))this.residentMotion=saved;});
+    super(ctx,env);this.residentMotion={...EMPTY_MOTION};this.coop=freshCoop();
+    ctx.blockConcurrencyWhile(async()=>{
+      const saved=await ctx.storage.get('residents_v1');if(validResidentMotion(saved))this.residentMotion=saved;
+      const coop=await ctx.storage.get('coop_v1');if(validCoopState(coop))this.coop=coop;
+    });
   }
   members(){
     return this.ctx.getWebSockets().filter(s=>isJoined(attachment(s)));
@@ -54,6 +58,21 @@ export class RoomHub extends DurableObject {
   sendHealth(){
     const states=this.members().map(s=>attachment(s)).map(p=>({playerId:p.player.id,hp:p.hp,respawnAt:p.respawnAt}));
     for(const sock of this.members())send(sock,{type:"health_snapshot",players:states});
+  }
+  broadcastCoop(){
+    const payload={type:"coop_state",...publicCoop(this.coop)};
+    for(const sock of this.members())send(sock,payload);
+  }
+  async reviveCoop(now){
+    if(fireTargetKind(this.coop.enabled)!=="foes")return;
+    if(!this.coop.foes.some(f=>f.hp<=0&&f.downUntil>0&&now>=f.downUntil))return;
+    await this.ctx.blockConcurrencyWhile(async()=>{
+      const foes=reviveFoes(this.coop.foes,Date.now());
+      if(foes.every((f,i)=>f.hp===this.coop.foes[i].hp&&f.downUntil===this.coop.foes[i].downUntil))return;
+      this.coop={...this.coop,foes};
+      await this.ctx.storage.put("coop_v1",this.coop);
+      this.broadcastCoop();
+    });
   }
   async fetch(request){
     const roomId=new URL(request.url).pathname.split("/").pop();
@@ -87,6 +106,7 @@ export class RoomHub extends DurableObject {
       send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn,serverTime:Date.now()});
       send(ws,{type:"npc_state",serverTime:Date.now(),motion:this.residentMotion});
       send(ws,{type:"weapon_state",unlocked:true,peaceful:false,boosted:false});
+      send(ws,{type:"coop_state",...publicCoop(this.coop)});
       send(ws,{type:"snapshot",players:existing.map(s=>publicPlayer(attachment(s))).filter(Boolean)});
       // Late joiners also see still-playing emotes (no database persistence).
       for(const other of existing){
@@ -107,6 +127,7 @@ export class RoomHub extends DurableObject {
       return;
     }
     if(!isJoined(session)){ws.close(1008,"Join first");return;}
+    if(this.coop.enabled)await this.reviveCoop(Date.now());
     if(m.type==="room_update"){
       const now=Date.now();
       const image=m.key==="monitorImage";
@@ -214,6 +235,23 @@ export class RoomHub extends DurableObject {
       send(ws,{type:"weapon_state",unlocked:true,peaceful:m.enabled,boosted:session.speedBoost===true});
       return;
     }
+    if(m.type==="coop_mode"){
+      const stamp=Date.now();
+      if(stamp-(session.lastCoopAt??0)<700){
+        send(ws,{type:"error",reason:"協力モードの切り替えは少し待ってください"});
+        send(ws,{type:"coop_state",...publicCoop(this.coop)});
+        return;
+      }
+      await this.ctx.blockConcurrencyWhile(async()=>{
+        const next=m.enabled?{enabled:true,cleared:false,foes:freshCoop().foes}:{...this.coop,enabled:false};
+        this.coop=next;
+        await this.ctx.storage.put("coop_v1",this.coop);
+        const live=attachment(ws);
+        if(live)ws.serializeAttachment({...live,lastCoopAt:stamp});
+        this.broadcastCoop();
+      });
+      return;
+    }
     if(m.type==="avatar_update"){
       if(now-(session.lastAvatarAt??0)<800){
         send(ws,{type:"error",reason:"アバター変更は少し待ってください"});return;
@@ -261,14 +299,34 @@ export class RoomHub extends DurableObject {
       const aimed={...session.player,yaw:m.yaw,pitch:m.pitch};
       ws.serializeAttachment({...session,player:aimed,lastShotAt:now,lastFireSeq:m.sequence});
       session.player=aimed;
+      // This broadcast is cosmetic; client-supplied damage and target IDs are ignored.
+      for(const peer of this.members())send(peer,{type:"fire_event",shooterId:session.player.id,
+        position:session.player.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence});
+      if(fireTargetKind(this.coop.enabled)==="foes"){
+        await this.ctx.blockConcurrencyWhile(async()=>{
+          const stamp=Date.now();
+          const revived=reviveFoes(this.coop.foes,stamp);
+          const hit=findFoeHit(session.player.position,m.yaw,m.pitch,revived,shotObstructed);
+          let next={...this.coop,foes:revived};
+          let damage=0,targetId;
+          if(hit){
+            const applied=applyFoeDamage(next,hit.id,stamp);
+            next=applied.state;damage=applied.damage;targetId=hit.id;
+          }
+          const justCleared=next.cleared&&!this.coop.cleared;
+          this.coop=next;
+          await this.ctx.storage.put("coop_v1",this.coop);
+          this.broadcastCoop();
+          if(justCleared)for(const peer of this.members())send(peer,{type:"mission_clear"});
+          send(ws,{type:"fire_result",sequence:m.sequence,hit:damage>0,damage,...(targetId?{targetId}:{})});
+        });
+        return;
+      }
       const others=this.members().filter(peer=>peer!==ws);
       const candidates=others.map(sock=>({sock,data:attachment(sock)}))
         .filter(({data})=>data.hp>0&&!data.peaceful&&now>=data.invulnerableUntil)
         .map(({sock,data})=>({sock,id:data.player.id,hp:data.hp,position:data.player.position}));
       const victim=findHitscanTarget({id:session.player.id,hp:session.hp,position:session.player.position},candidates,m.yaw,m.pitch,shotObstructed);
-      // This broadcast is cosmetic; client-supplied damage and target IDs are ignored.
-      for(const peer of this.members())send(peer,{type:"fire_event",shooterId:session.player.id,
-        position:session.player.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence});
       if(victim){
         const peer=victim.sock, target=attachment(peer),hp=Math.max(0,target.hp-DAMAGE);
         const respawnAt=hp===0?now+RESPAWN_MS:0;
