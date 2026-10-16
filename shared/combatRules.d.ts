@@ -12,3 +12,7 @@ export function findHitscanTarget(shooter:Combatant,players:Combatant[],yaw:numb
 
 export const WEAPON_CODE:string;
 export function validUnlockCode(v:unknown):v is string;
+export const LOOK_YAW_RATE:number, LOOK_PITCH_RATE:number;
+export function angleDelta(from:number,to:number):number;
+export function aimAllowance(elapsedMs:number):{yaw:number;pitch:number};
+export function aimWithinRate(previous:{yaw:number;pitch:number}|null|undefined,next:{yaw:number;pitch:number}|null|undefined,elapsedMs:number):boolean;

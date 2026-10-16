@@ -23,6 +23,7 @@ export class SignMarquee{
     this.mesh=new THREE.Mesh(new THREE.PlaneGeometry(7.20,1.59),
       new THREE.MeshBasicMaterial({map:this.texture,toneMapped:false,depthWrite:false,side:THREE.DoubleSide}));
     this.mesh.position.set(0,2.50,-15.56);
+    this.mesh.userData.noBatch=true;
     scene.add(this.mesh);
     this.setText(this.text);
   }

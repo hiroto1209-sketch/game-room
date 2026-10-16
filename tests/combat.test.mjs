@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {ARENA,MAX_HP,DAMAGE,inArena,validSignText,signText,aimDirection,
-  raySphereDistance,findHitscanTarget,WEAPON_CODE} from "../shared/combatRules.js";
+  raySphereDistance,findHitscanTarget,WEAPON_CODE,aimAllowance,aimWithinRate} from "../shared/combatRules.js";
 import {decodeMessage} from "../server/src/guards.js";
 import {parseIncoming,validateOutgoing} from "../src/network/protocol.ts";
 
@@ -43,6 +43,16 @@ test("server detects target from shooter aim, ignoring client hit claims",()=>{
   assert.ok(Math.abs(aimDirection(0,0).x)<1e-10);
   assert.equal(aimDirection(0,0).z,-1);
   assert.equal(raySphereDistance(shooter.position,{x:0,y:0,z:-1},{x:100,y:0,z:0},.3),null);
+});
+test("aim allowance grows with time and still caps a half turn",()=>{
+  const fresh=aimAllowance(0);
+  assert.ok(fresh.yaw>=.6&&fresh.yaw<1);
+  assert.ok(fresh.pitch>=.45&&fresh.pitch<1);
+  const flick=aimAllowance(100);
+  assert.ok(flick.yaw>2&&flick.yaw<=Math.PI);
+  assert.equal(aimWithinRate({yaw:0,pitch:0},{yaw:flick.yaw,pitch:0},100),true);
+  assert.equal(aimWithinRate({yaw:0,pitch:0},{yaw:Math.PI,pitch:0},0),false);
+  assert.equal(aimWithinRate({yaw:0,pitch:0},{yaw:2.2,pitch:0},80),true);
 });
 test("clients send fire direction and sequence, never victim or damage",()=>{
   const outgoing={type:"fire",sequence:1,yaw:0,pitch:0};

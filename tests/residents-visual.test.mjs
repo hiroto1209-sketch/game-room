@@ -5,7 +5,7 @@ for(const size of [{name:'portrait',width:390,height:844},{name:'landscape',widt
  const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(PORT),'--strictPort'],{stdio:'ignore'});let browser;
  try{
   for(let i=0;i<80;i++){try{if((await fetch(ROOT)).ok)break;}catch{}await delay(250);}
-  browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader','--enable-webgl','--use-gl=angle']});
+  browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader','--enable-webgl','--use-gl=angle','--use-angle=swiftshader']});
   const page=await browser.newPage({viewport:{width:size.width,height:size.height},isMobile:true,hasTouch:true,deviceScaleFactor:1});
   const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('RESIDENT PAGE ERROR',e.message);});
   await page.goto(ROOT+'?residentVisualTest=1');await page.locator('#loading').waitFor({state:'detached',timeout:40000});await page.locator('#start-button').click();

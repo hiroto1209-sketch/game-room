@@ -11,7 +11,7 @@ for(const config of [{name:'iphone-portrait',width:390,height:844},{name:'iphone
   let browser;
   try{
    for(let i=0;i<80;i++){try{if((await fetch(ROOT)).ok)break;}catch{}await delay(250);}
-   browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader','--enable-webgl','--use-gl=angle']});
+   browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader','--enable-webgl','--use-gl=angle','--use-angle=swiftshader']});
    const page=await browser.newPage({viewport:{width:config.width,height:config.height},isMobile:true,hasTouch:true,deviceScaleFactor:1});
    const errors=[],models=[];page.on('pageerror',e=>errors.push(e.message));
    page.on('request',r=>{if(r.url().endsWith('/poko/poko.glb'))models.push(r.url());});

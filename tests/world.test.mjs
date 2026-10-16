@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import * as THREE from "three";
+import {batchStaticMeshes} from "../src/world/staticBatch.ts";
 import {
   OUTDOOR,DOOR,POND,chunkData,hashCell,groundHeightAt,insidePond,
   validWorldPosition,validWorldStep,worldBlocked,crossesClosedEastWall,shotObstructed,
@@ -173,4 +175,24 @@ test("real player jumps onto a large stone and the server accepts the whole arc"
   if(controller.position.x>rock.x1+.36){assert.equal(rejected,false);crossed=true;break;}
  }
  assert.ok(crossed,"should actually clear a large rock at normal speed");
+});
+test("static batch keeps named meshes and merges identical siblings",()=>{
+  const scene=new THREE.Scene();
+  const material=new THREE.MeshStandardMaterial({color:0x887766,roughness:.88});
+  for(let i=0;i<4;i++){
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),material);
+    mesh.position.set(i*2,0,0);
+    scene.add(mesh);
+  }
+  const named=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),material);
+  named.name="KEEP_ME";
+  scene.add(named);
+  const absorbed=batchStaticMeshes(scene);
+  assert.equal(absorbed,4);
+  assert.ok(scene.getObjectByName("KEEP_ME"));
+  const batched=scene.children.filter(child=>child.userData.batched);
+  assert.equal(batched.length,1);
+  assert.equal(batched[0].userData.batched,4);
+  named.geometry.dispose();material.dispose();
+  for(const child of batched)child.geometry.dispose();
 });

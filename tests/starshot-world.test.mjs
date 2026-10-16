@@ -27,23 +27,26 @@ test("STARSHOT enforces start, line of sight, timed round, and shot counts",()=>
   assert.equal(range.remaining,30);
   assert.equal(range.shoot({x:33,y:1.65,z:12},Math.PI/2,0),"miss");
   assert.equal(range.hits,0);
+  assert.ok(range.remaining<=29,"a miss spends one second");
   for(let n=0;n<RANGE_SHOTS;n++){
-   const spot=RANGE_SPOTS[range.activeTarget];
-   const start={x:RANGE_ENTRY.x,y:1.65,z:spot.z};
-   const endY=groundHeightAt(spot.x,spot.z)+1.92;
-   const dx=spot.x-start.x;
-   const pitch=Math.atan2(endY-start.y,dx);
+   range.update(.4);
+   const center=range.targetPoint();
+   const start={x:RANGE_ENTRY.x,y:center.y,z:center.z};
+   const dx=center.x-start.x;
+   const pitch=Math.atan2(center.y-start.y,Math.max(.01,dx));
    const hit=range.shoot(start,-Math.PI/2,pitch);
    assert.equal(hit,"hit","required non-obstructed target "+n+
-     " at x="+spot.x+" z="+spot.z);
+     " at x="+center.x+" z="+center.z);
    assert.equal(range.hits,n+1);
    time+=700;
   }
   assert.equal(range.running,false);
-  assert.equal(range.record,RANGE_SHOTS);
+  assert.ok(range.record>0&&range.record<RANGE_SECONDS);
+  const firstBest=range.record;
   assert.equal(range.shoot({x:33,y:1.65,z:12},-Math.PI/2,0),"inactive");
   range.start();time+=31_000;range.update(.016);
   assert.equal(range.running,false);
+  assert.equal(range.record,firstBest);
  }finally{range.dispose()}
 });
 test("STARSHOT misses cannot award points or modify shared PvP state",()=>{

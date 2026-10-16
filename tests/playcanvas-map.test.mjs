@@ -46,3 +46,26 @@ test('walking, turbo, jumping and elevated surfaces use the original geometry',(
  assert.ok(Math.abs(stageGround(121,-23,4)-3.15)<1e-5,'original upper walkway');
  assert.equal(stageBlocked(121,-23,.36,4.8),false,'walk above ground-level geometry');
 });
+test('practice dummies take local head and body hits without claiming server damage',async()=>{
+ const THREE=await import('three');
+ const {PracticeDummies,PRACTICE_HEAD_DAMAGE}=await import('../src/world/PracticeDummies.ts');
+ const {aimDirection}=await import('../shared/combatRules.js');
+ const scene=new THREE.Scene();
+ const dummies=new PracticeDummies(scene);
+ dummies.update(.016,{x:130,z:-2});
+ const dummy=scene.getObjectByName('PRACTICE_DUMMY_0');
+ assert.ok(dummy);
+ // The map spawn at x=121.2 looks through solid cover. Stand on the open lane.
+ const origin={x:128.2,y:dummy.position.y+1.65,z:dummy.position.z};
+ const dirX=dummy.position.x-origin.x;
+ const pitch=Math.atan2((dummy.position.y+1.53)-origin.y,dirX);
+ const head=dummies.shoot(origin,-Math.PI/2,pitch);
+ assert.equal(head?.head,true);
+ assert.equal(head?.damage,PRACTICE_HEAD_DAMAGE);
+ const bodyPitch=Math.atan2((dummy.position.y+.85)-origin.y,dirX);
+ const body=dummies.shoot(origin,-Math.PI/2,bodyPitch);
+ assert.equal(body?.head,false);
+ assert.equal(body?.damage,25);
+ assert.ok(aimDirection(-Math.PI/2,0).x>0);
+ dummies.dispose();
+});

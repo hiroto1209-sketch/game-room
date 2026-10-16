@@ -24,8 +24,12 @@ export class StarshotRange{
   private lastTarget=-1;
   private current=0;
   private endsAt=0;
-  private best=0;
   private flash=0;
+  private startedAt=0;
+  private bestTime=0;
+  private travel=1;
+  private readonly from:{x:number;y:number;z:number}={x:RANGE_SPOTS[0].x,y:0,z:RANGE_SPOTS[0].z};
+  private readonly aim:{x:number;y:number;z:number}={x:RANGE_SPOTS[0].x,y:0,z:RANGE_SPOTS[0].z};
   private readonly now:()=>number;
   constructor(scene:THREE.Scene,now=()=>performance.now()){
     this.now=now;
@@ -101,52 +105,96 @@ export class StarshotRange{
   get hits():number{return this.shots}
   get attempts():number{return this.shots+this.misses}
   get remaining():number{return this.active?Math.max(0,(this.endsAt-this.now())/1000):0}
-  get record():number{return this.best}
+  /** Best clear time in seconds. 0 means the player has not cleared a round. */
+  get record():number{return this.bestTime}
   get activeTarget():number{return this.current}
+  /** World position the live disk can be hit at, including its strafe. */
+  targetPoint():{x:number;y:number;z:number}{this.place(0);return {...this.aim}}
 
   start():void{
     this.active=true;this.shots=0;this.misses=0;
-    this.endsAt=this.now()+RANGE_SECONDS*1000;
+    this.startedAt=this.now();
+    this.endsAt=this.startedAt+RANGE_SECONDS*1000;
     this.lastTarget=-1;
     this.current=0;
     this.flash=0;
+    this.travel=1;
+    const home=this.home(0);
+    this.from.x=home.x;this.from.y=home.y;this.from.z=home.z;
+    this.place(0);
     this.updateVisual();
   }
   stop():void{this.active=false;this.updateVisual()}
   reset():void{this.stop();this.shots=0;this.misses=0}
   update(dt:number):void{
-    if(!this.active)return;
+    if(!this.active){this.place(0);return}
+    this.travel=Math.min(1,this.travel+dt/.38);
+    this.place(dt);
     if(this.now()>=this.endsAt){
-      this.active=false;this.best=Math.max(this.best,this.shots);
+      this.active=false;
       this.updateVisual();return;
     }
     if(this.flash>0){this.flash=Math.max(0,this.flash-dt);if(!this.flash)this.updateVisual();}
   }
   shoot(origin:{x:number;y:number;z:number},yaw:number,pitch:number):"hit"|"miss"|"inactive"{
     if(!this.active||this.now()>=this.endsAt)return "inactive";
+    this.place(0);
     const direction=aimDirection(yaw,pitch);
-    const spot=RANGE_SPOTS[this.current];
-    const target={x:spot.x,y:groundHeightAt(spot.x,spot.z)+1.92,z:spot.z};
+    const target=this.aim;
     const distance=raySphereDistance(origin,direction,target,.70);
     // Player must be reasonably close to the range. Never award a local
     // practice hit through an actual wall/tree/rock.
     const valid=distance!==null&&distance<=35&&
       Math.hypot(origin.x-RANGE_ENTRY.x,origin.z-RANGE_ENTRY.z)<35&&
-      !shotObstructed(origin,target);
-    if(!valid){this.misses++;return "miss"}
+      !shotObstructed(origin,{x:target.x,y:target.y,z:target.z});
+    if(!valid){
+      this.misses++;
+      this.endsAt=Math.max(this.now(),this.endsAt-1000);
+      if(this.now()>=this.endsAt)this.active=false;
+      this.updateVisual();
+      return "miss";
+    }
     this.shots++;
     if(this.shots>=RANGE_SHOTS){
       this.active=false;
-      this.best=Math.max(this.best,this.shots);
+      const elapsed=Math.max(.01,(this.now()-this.startedAt)/1000);
+      this.bestTime=this.bestTime>0?Math.min(this.bestTime,elapsed):elapsed;
       this.updateVisual();return "hit";
     }
     this.flash=.18;
     this.lastTarget=this.current;
+    this.from.x=this.aim.x;this.from.y=this.aim.y;this.from.z=this.aim.z;
     this.current=(this.current+1)%RANGE_SPOTS.length;
+    this.travel=0;
     this.updateVisual();
     return "hit";
   }
+  private home(index:number):{x:number;y:number;z:number}{
+    const spot=RANGE_SPOTS[index];
+    return {x:spot.x,y:groundHeightAt(spot.x,spot.z)+1.92,z:spot.z};
+  }
+  private place(dt:number):void{
+    const u=this.travel;
+    const home=this.home(this.current);
+    const glideX=this.from.x+(home.x-this.from.x)*u;
+    const glideY=this.from.y+(home.y-this.from.y)*u;
+    const glideZ=this.from.z+(home.z-this.from.z)*u;
+    const t=this.now()/1000;
+    this.aim.x=glideX;
+    this.aim.y=glideY+Math.sin(t*1.6)*.12;
+    this.aim.z=glideZ+Math.sin(t*2.15)*.8;
+    if(dt<0)return;
+    for(let i=0;i<this.targets.length;i++){
+      const disk=this.targets[i];
+      if(i===this.current)disk.position.set(this.aim.x-.07,this.aim.y,this.aim.z);
+      else{
+        const spot=this.home(i);
+        disk.position.set(spot.x-.07,spot.y,spot.z);
+      }
+    }
+  }
   private updateVisual():void{
+    this.place(0);
     for(let i=0;i<this.targetMaterials.length;i++){
       const material=this.targetMaterials[i];
       material.color.setHex(this.active&&i===this.current?0x9cffe8:

@@ -28,6 +28,7 @@ export class FloorOthello {
 
   constructor(scene:THREE.Scene){
     this.group.name="FLOOR OTHELLO 8x8";
+    this.group.userData.noBatch=true;
     for(let i=0;i<64;i++){
       const row=Math.floor(i/8),col=i%8;
       this.tmp.position.set((col-3.5)*STEP,.035,CENTER_Z+(row-3.5)*STEP);

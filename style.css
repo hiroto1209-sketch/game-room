@@ -172,7 +172,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 
 /* Snappy, optional FPS aim: ADS held by second thumb; the world remains primary. */
 #aim-button{right:max(109px,calc(env(safe-area-inset-right) + 105px));bottom:calc(max(13px,env(safe-area-inset-bottom)) + 176px);
-  width:47px;height:47px;font-size:17px;color:#d1fbee;border-color:#8be4d88c;
+  width:64px;height:64px;font-size:17px;color:#d1fbee;border-color:#8be4d88c;
   background:rgba(15,45,52,.57);z-index:14;touch-action:none;user-select:none}
 #aim-button small{font-size:8px}
 #aim-button.aiming{background:rgba(81,202,174,.50);box-shadow:0 0 15px #6cfbe062}
@@ -360,6 +360,11 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
   white-space:normal;
   border-radius:12px;
 }
+#hud-top-stack #combat-hud #hit-readout{
+  display:block;margin-top:2px;color:#ffe1b0;font-size:12px;font-weight:800;letter-spacing:.04em;
+}
+#hud-top-stack #combat-hud #hit-readout.hidden{display:none!important}
+#hud-top-stack #starshot-hud #range-best{font-size:10px;color:#fff4c8;font-variant-numeric:tabular-nums}
 #hud-top-stack #othello-panel{
   order:4;display:flex;
   width:160px;

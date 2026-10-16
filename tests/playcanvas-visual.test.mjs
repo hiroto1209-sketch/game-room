@@ -11,7 +11,7 @@ test('original FPS scene: '+name+' lazy loading, source meshes and walkable entr
  const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port',String(PORT),'--strictPort'],{stdio:'ignore'});let browser;
  try{
   for(let i=0;i<80;i++){try{if((await fetch(ROOT)).ok)break;}catch{}await wait(250);}
-  browser=await chromium.launch({args:['--enable-unsafe-swiftshader','--enable-webgl','--use-gl=angle']});
+  browser=await chromium.launch({args:['--enable-unsafe-swiftshader','--enable-webgl','--use-gl=angle','--use-angle=swiftshader']});
   await mkdir('artifacts/playcanvas',{recursive:true});
    const context=await browser.newContext({viewport:{width,height},isMobile:true,hasTouch:true});const page=await context.newPage(),errors=[],stageRequests=[];
    page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/stage\.glb|playcanvasCollisionData/.test(r.url()))stageRequests.push(r.url());});

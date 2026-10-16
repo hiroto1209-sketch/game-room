@@ -15,7 +15,7 @@ test("in-game HUD editor saves independent iPhone/iPad profiles and prevents gam
   try{
     await ready();
     browser=await chromium.launch({headless:true,args:["--enable-unsafe-swiftshader",
-      "--enable-webgl","--use-gl=angle"]});
+      "--enable-webgl","--use-gl=angle","--use-angle=swiftshader"]});
     const ctx=await browser.newContext({viewport:{width:390,height:844},
       isMobile:true,hasTouch:true,deviceScaleFactor:1});
     const page=await ctx.newPage();

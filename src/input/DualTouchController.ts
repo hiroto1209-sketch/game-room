@@ -31,7 +31,10 @@ export class DualTouchController{
   private down=(e:PointerEvent):void=>{
     if(!this.enabled)return;
     if(e.pointerType==="mouse"){
-      if(e.button!==0||this.lookPointer!==null)return;
+      // Desktop look is pointer-lock in main.ts. While unlocked, a mouse drag
+      // still looks, but it must never be treated as a touch joystick.
+      // Touch and pen keep the left-half / right-half split below.
+      if(document.pointerLockElement||e.button!==0||this.lookPointer!==null)return;
       this.lookPointer=e.pointerId;
     }else if(e.clientX<window.innerWidth/2){
       if(this.movePointer!==null)return;
@@ -57,6 +60,7 @@ export class DualTouchController{
       this.thumb.style.transform="translate(calc(-50% + "+(dx*k)+"px),calc(-50% + "+(dy*k)+"px))";
       e.preventDefault();
     }else if(e.pointerId===this.lookPointer){
+      if(e.pointerType==="mouse"&&document.pointerLockElement)return;
       if(this.nativeLookActive&&e.pointerType==="touch")return;
       const dx=e.clientX-this.lastX,dy=e.clientY-this.lastY;
       this.lastX=e.clientX;this.lastY=e.clientY;
