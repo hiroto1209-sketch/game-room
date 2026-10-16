@@ -11,6 +11,7 @@ type Rig={
   torso:THREE.Group;leftArm:THREE.Group;rightArm:THREE.Group;
   bodyMaterial:THREE.MeshStandardMaterial;hat:THREE.Group;
   avatar:AvatarStyle;emote:EmoteKind|null;emoteUntil:number;emoteStart:number;
+  hp:number;bar:THREE.Group;fill:THREE.Mesh;
 };
 /** Remote avatars are visual only, and never change world collision or combat hitboxes. */
 export class PlayerManager{
@@ -61,6 +62,12 @@ export class PlayerManager{
     rig.emote=kind;rig.emoteStart=performance.now();
     rig.emoteUntil=rig.emoteStart+Math.min(2600,Math.max(100,durationMs));
   }
+  setHp(id:string,hp:number):void{
+    const rig=this.remote.get(id);if(!rig)return;
+    rig.hp=Math.max(0,Math.min(100,hp));
+    rig.bar.visible=rig.hp>0&&rig.hp<100;
+    rig.fill.scale.x=Math.max(.04,rig.hp/100);
+  }
   removeRemote(id:string):void{
     const rig=this.remote.get(id);if(!rig)return;
     rig.group.removeFromParent();
@@ -78,6 +85,9 @@ export class PlayerManager{
       const delta=((snapshot.yaw-group.rotation.y+Math.PI)%(Math.PI*2)+(Math.PI*2))%(Math.PI*2)-Math.PI;
       group.rotation.y+=delta*alpha;
       name.quaternion.copy(camera.quaternion);
+      rig.bar.quaternion.copy(camera.quaternion);
+      rig.bar.visible=rig.hp>0&&rig.hp<100;
+      rig.fill.scale.x=Math.max(.04,rig.hp/100);
       if(rig.emote&&now<rig.emoteUntil){
         const t=(now-rig.emoteStart)/1000;
         if(rig.emote==="wave"){
@@ -127,8 +137,12 @@ export class PlayerManager{
     const hat=new THREE.Group();hat.position.set(0,1.92,0);torso.add(hat);
     this.rebuildHat(hat,avatar.hat);
     const name=this.makeName(displayName);group.add(name);
+    const bar=new THREE.Group();bar.position.y=2.05;bar.visible=false;
+    const back=new THREE.Mesh(new THREE.PlaneGeometry(.78,.09),new THREE.MeshBasicMaterial({color:0x1c2433}));
+    const fill=new THREE.Mesh(new THREE.PlaneGeometry(.72,.05),new THREE.MeshBasicMaterial({color:0x8cf0c2}));
+    fill.position.z=.01;bar.add(back,fill);group.add(bar);
     return {snapshot:null as unknown as PlayerSnapshot,group,name,torso,leftArm,rightArm,
-      bodyMaterial:outfit,hat,avatar,emote:null,emoteUntil:0,emoteStart:0};
+      bodyMaterial:outfit,hat,avatar,emote:null,emoteUntil:0,emoteStart:0,hp:100,bar,fill};
   }
   private rebuildHat(hat:THREE.Group,kind:AvatarHat):void{
     for(const obj of [...hat.children]){

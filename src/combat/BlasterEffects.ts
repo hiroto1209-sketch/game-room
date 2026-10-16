@@ -44,7 +44,13 @@ export class BlasterEffects{
     this.raycaster.set(this.origin,this.aim);
     this.raycaster.far=RANGE;
     this.raycaster.near=.35;
-    const hits=this.raycaster.intersectObjects(this.scene.children,true);
+    // Sprites (names, damage numbers) need a camera on the raycaster and are not
+    // world surfaces. Only test visible meshes.
+    const meshes:THREE.Object3D[]=[];
+    this.scene.traverse(obj=>{
+      if(obj instanceof THREE.Mesh&&obj.visible&&!this.skip(obj))meshes.push(obj);
+    });
+    const hits=this.raycaster.intersectObjects(meshes,false);
     for(const hit of hits){
       if(!hit.object.visible||hit.distance<.4)continue;
       if(this.skip(hit.object))continue;

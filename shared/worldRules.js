@@ -1,5 +1,7 @@
 import {residentHeightAt} from "./residentRules.js";
 import {inArena} from "./combatRules.js";
+import {inCoopPlaza} from "./coopRules.js";
+// Plaza sits where x<24 is already flat, so it does not reshape the hills.
 import {FPS_STAGE,inFpsStage,stageCorridor,stageGround,stageBlocked,stageShotObstructed} from "./playcanvasRules.js";
 /**
  * Deterministic geometry/navigation rules shared by Vite and Cloudflare Worker.
@@ -98,18 +100,18 @@ function fullChunkData(cx,cz,seed=WORLD_SEED){
   // Instanced geometry only; plants never receive unique Mesh objects.
   for(let i=0;i<72;i++){
     const x=centerX+(rand()-.5)*15,z=centerZ+(rand()-.5)*15;
-    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z})||nearExplorationFeature(x,z,.4)||terrainSlopeAt(x,z)>.48)continue;
+    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z})||inCoopPlaza(x,z)||nearExplorationFeature(x,z,.4)||terrainSlopeAt(x,z)>.48)continue;
     grass.push({x,z,size:.25+rand()*.48,twist:rand()*6.28});
   }
   for(let i=0;i<8;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
     const path=Math.abs(z+5)<(x<45?7:4.5);
-    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z})||nearExplorationFeature(x,z,2.2)||terrainSlopeAt(x,z)>.40)continue;
+    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z})||inCoopPlaza(x,z)||nearExplorationFeature(x,z,2.2)||terrainSlopeAt(x,z)>.40)continue;
     trees.push({x,z,height:2.7+rand()*2.3,color:Math.floor(rand()*3)});
   }
   for(let i=0;i<4;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
-    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z})||nearExplorationFeature(x,z,.9))continue;
+    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z})||inCoopPlaza(x,z)||nearExplorationFeature(x,z,.9))continue;
     rocks.push({x,z,size:.38+rand()*.75});
   }
   return {cx,cz,centerX,centerZ,grass,trees,rocks,blocks};

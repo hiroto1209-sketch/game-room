@@ -17,9 +17,13 @@ import {canTalkToResident,residentStepBlocked,residentHeightAt,EMPTY_MOTION,POKO
 import {PokoWelcome} from "./world/PokoWelcome";
 import {PlayCanvasStage} from "./world/PlayCanvasStage";
 import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget, inArena } from "../shared/combatRules.js";
+import {inCoopPlaza} from "../shared/coopRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
+import {FloatingDamage} from "./combat/FloatingDamage";
 import {BlasterAudio} from "./audio/BlasterAudio";
 import {PracticeDummies} from "./world/PracticeDummies";
+import {CoopPlaza} from "./world/CoopPlaza";
+import {CoopFoes} from "./world/CoopFoes";
 import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
 import {canBlasterFire,shouldSendPvpShot} from "./combat/practiceRules";
 import {WorldGuide} from "./ui/WorldGuide";
@@ -70,6 +74,7 @@ const secretOverlay=byId("secret-overlay");
 const secretCode=byId<HTMLInputElement>("secret-code");
 const secretError=byId("secret-error");
 const peaceControl=byId<HTMLInputElement>("peace-mode");
+const coopControl=byId<HTMLInputElement>("coop-mode");
 const weaponInfo=byId("weapon-info");
 const joystick=byId("joystick");
 const thumb=byId("joystick-thumb");
@@ -123,6 +128,8 @@ let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let range:StarshotRange|undefined;
 let practice:PracticeDummies|undefined;
+let coopFoes:CoopFoes|undefined;
+let floaters:FloatingDamage|undefined;
 let fpsStage:PlayCanvasStage|undefined;
 let stageQaFov:number|null=null;
 let guide:WorldGuide|undefined;
@@ -207,7 +214,7 @@ function startFiring():void{
   fireBlaster();
   fireHeld=setInterval(()=>{if(state.playing&&!state.paused)fireBlaster();else stopFiring()},425);
 }
-let weaponUnlocked=true,peaceful=false,weaponWanted=false,speedBoost=false;
+let weaponUnlocked=true,peaceful=false,coopEnabled=false,weaponWanted=false,speedBoost=false;
 let logoTaps=0,lastLogoTapAt=0,lastCorrectionToast=0;
 try{weaponWanted=sessionStorage.getItem("game-room-weapon-easteregg")==="1"}catch{}
 function closeSecret():void{
@@ -238,8 +245,15 @@ function unlockSecret():void{
 }
 function syncWeaponInfo():void{
   peaceControl.checked=peaceful;
-  weaponInfo.textContent="ブラスター初期装備 · "+(peaceful?"ピースモード":"対戦モード")
+  coopControl.checked=coopEnabled;
+  weaponInfo.textContent="ブラスター初期装備 · "+(coopEnabled?"協力モード":peaceful?"ピースモード":"対戦モード")
     +(speedBoost?" · NEON777 TURBO 6×":" · NEON777で高速移動6×");
+}
+function celebrateCoopClear():void{
+  residentDialogue?.setCleared(true);
+  poko?.cheer();
+  resident?.cheer();
+  showToast("ポコとトコトコ: 広場の的、みんなで倒せたよ！");
 }
 let currentMatch:OthelloMatch=freshMatch();
 let aimOthelloIndex:number|null=null;
@@ -416,6 +430,17 @@ function fireBlaster():void{
       crosshair.classList.add("hit-confirmed");
       window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),160);
       showHit(practiceHit.head?"HEAD "+practiceHit.damage:"HIT "+practiceHit.damage);
+      floaters?.spawn(practiceHit.point,String(practiceHit.damage),settings.reducedMotion);
+    }else if(!roomClient.online&&coopEnabled){
+      const foeHit=coopFoes?.shoot(origin,shotYaw,shotPitch);
+      if(foeHit){
+        impact=foeHit.point;
+        crosshair.classList.add("hit-confirmed");
+        window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),160);
+        showHit("HIT "+foeHit.damage);
+        floaters?.spawn(foeHit.point,String(foeHit.damage),settings.reducedMotion);
+        if(foeHit.justCleared)celebrateCoopClear();
+      }
     }
   }
   blaster.shoot(origin,shotYaw,shotPitch,impact);
@@ -435,6 +460,15 @@ let lastOutdoorZone=false;
 const roomClient=new RealtimeRoomClient({
   onResidentState:motion=>{if(resident)resident.motion={...motion};},
   onResidentDialogue:id=>openResidentDialogue(id),
+  onCoop:state=>{
+    coopEnabled=state.enabled;
+    coopControl.checked=coopEnabled;
+    const drops=coopFoes?.applyServer(state)??[];
+    for(const drop of drops)floaters?.spawn(drop.point,String(drop.damage),settings.reducedMotion);
+    residentDialogue?.setCleared(state.cleared);
+    syncWeaponInfo();
+  },
+  onMissionClear:()=>celebrateCoopClear(),
   onState:(connection:RoomConnectionState,count:number)=>{
     roomState.textContent=connection==="online"?"オンライン":connection==="offline"?"オフライン":connection==="connecting"?"接続中…":"再接続中…";
     roomCount.textContent=count+"人";
@@ -497,8 +531,14 @@ const roomClient=new RealtimeRoomClient({
     });
   },
   onHealth:(id,hp,_respawnAt)=>{
+    const prev=hpByPlayer.get(id);
     hpByPlayer.set(id,hp);
-    if(id===roomClient.playerId)setHealth(hp);
+    if(id===roomClient.playerId){setHealth(hp);return;}
+    players?.setHp(id,hp);
+    if(prev!==undefined&&hp<prev){
+      const remote=players?.getRemote(id);
+      if(remote)floaters?.spawn({x:remote.position.x,y:remote.position.y+.35,z:remote.position.z},String(prev-hp),settings.reducedMotion);
+    }
   },
   onFire:(shooterId,position,yaw,pitch)=>{
     if(shooterId!==roomClient.playerId){
@@ -816,6 +856,7 @@ function update(dt:number):void{
     const nextZone=inFpsStage(player.position.x,player.position.z)?"FPS MAP":
       inArena(player.position)?"NEON ARENA":
       Math.hypot(player.position.x-33,player.position.z-10)<18?"STARSHOT":
+      inCoopPlaza(player.position.x,player.position.z)?"CO-OP PLAZA":
       inOutdoor?
       (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"MOONLIT FOREST":"MOONLIT PLAZA") :
       "PARTY LOUNGE · 東側の扉から外へ";
@@ -845,14 +886,19 @@ function update(dt:number):void{
     shootButton.classList.toggle("hidden",!armed);
     aimButton.classList.toggle("hidden",!armed);
     crosshair.classList.toggle("armed",armed);
-    const candidate=armed?findHitscanTarget(
+    const foeAim=armed&&player?coopFoes?.aim(player.position,camera.yaw,camera.pitch)??null:null;
+    const candidate=!coopEnabled&&armed?findHitscanTarget(
       {id:roomClient.playerId||"local",hp:currentHp,position:player.position},
       players.getRemoteSnapshots().map(p=>({id:p.id,position:p.position,hp:hpByPlayer.get(p.id)??100})),
       camera.yaw,camera.pitch,shotObstructed
     ):null;
-    crosshair.classList.toggle("targeted",Boolean(candidate));
+    crosshair.classList.toggle("targeted",Boolean(coopEnabled?foeAim:candidate));
     if(armed&&currentHp>0){
+      const foe=foeAim?coopFoes?.foe(foeAim.id):undefined;
       const note=range?.running?"STARSHOT · 動く的を追え":
+        coopEnabled&&foeAim?"協力 · 的 HP "+(foe?.hp??100):
+        coopEnabled?"協力 · 広場の的を一緒に倒す":
+        foeAim?"メニューで協力モードにすると的を狙える":
         !roomClient.online?"ソロ練習 · ダメージ同期なし":
         candidate?"TARGET LOCK · HP "+(hpByPlayer.get(candidate.id)??100):
         "FIREでブラスター発射";
@@ -889,6 +935,8 @@ function update(dt:number):void{
     rangeBest.textContent=range.record>0?"BEST "+range.record.toFixed(1)+"s":"BEST —";
   }
   if(player)practice?.update(dt,player.position);
+  if(player&&camera)coopFoes?.update(world.camera,player.position);
+  floaters?.update(dt);
   if(hitReadoutUntil&&performance.now()>hitReadoutUntil){
     hitReadoutUntil=0;hitReadout.classList.add("hidden");
   }
@@ -942,6 +990,17 @@ function registerUi():void{
     if(roomClient.online){
       if(!roomClient.setPeaceMode(desired))peaceControl.checked=peaceful;
     }else{peaceful=desired;syncWeaponInfo();}
+  });
+  coopControl.addEventListener("change",()=>{
+    const desired=coopControl.checked;
+    if(roomClient.online){
+      if(!roomClient.setCoopMode(desired))coopControl.checked=coopEnabled;
+    }else{
+      coopEnabled=desired;
+      coopFoes?.setEnabled(desired);
+      if(desired)residentDialogue?.setCleared(false);
+      syncWeaponInfo();
+    }
   });
   othelloAction.addEventListener("click",othelloPrimaryAction);
   othelloPause.addEventListener("click",toggleOthelloPause);
@@ -1121,6 +1180,9 @@ function initialize():void{
   },openSign,openSecret,openMiniGames,()=>openQuickGame("target"));
   blaster=new BlasterEffects(world.scene);
   practice=new PracticeDummies(world.scene);
+  new CoopPlaza(world.scene);
+  coopFoes=new CoopFoes(world.scene);
+  floaters=new FloatingDamage(world.scene);
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   range=new StarshotRange(world.scene);
   poko=new PokoWelcome(world.scene);

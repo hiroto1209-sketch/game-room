@@ -1,4 +1,5 @@
 import {angleDelta} from "../../shared/combatRules.js";
+import type {CoopState} from "../../shared/coopRules.js";
 import type {ResidentId,ResidentMotion} from "../../shared/residentRules.js";
 import type { PlayerSnapshot } from "../types/Player";
 import { safeDisplayName } from "../types/Player";
@@ -11,6 +12,8 @@ export type RoomConnectionState="offline"|"connecting"|"online"|"reconnecting";
 export interface RoomCallbacks{
   onResidentState?(motion:ResidentMotion):void;
   onResidentDialogue?(id:ResidentId):void;
+  onCoop?(state:CoopState):void;
+  onMissionClear?():void;
   onState(state:RoomConnectionState,count:number):void;
   onSnapshot(players:PlayerSnapshot[]):void;
   onPlayer(player:PlayerSnapshot):void;
@@ -97,6 +100,9 @@ export class RealtimeRoomClient {
   setPeaceMode(enabled:boolean):boolean{
     return this.online?(this.transport?.send({type:"peace_mode",enabled})??false):false;
   }
+  setCoopMode(enabled:boolean):boolean{
+    return this.online?(this.transport?.send({type:"coop_mode",enabled})??false):false;
+  }
   setLightShow(enabled:boolean):boolean{
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"lightShow",value:enabled})??false;
@@ -136,6 +142,10 @@ export class RealtimeRoomClient {
         this.serverOffset=msg.serverTime+this.estimatedOneWayMs-Date.now();this.callbacks.onResidentState?.(msg.motion);
       }else if(msg.type==="npc_dialogue"){
         this.callbacks.onResidentDialogue?.(msg.id);
+      }else if(msg.type==="coop_state"){
+        this.callbacks.onCoop?.(msg);
+      }else if(msg.type==="mission_clear"){
+        this.callbacks.onMissionClear?.();
       }else if(msg.type==="avatar_state"){
         const remote=this.peers.get(msg.playerId);
         if(remote)this.peers.set(msg.playerId,{...remote,avatar:msg.avatar});

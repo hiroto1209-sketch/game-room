@@ -49,6 +49,9 @@ export function decodeMessage(raw){
     if(m.type==="peace_mode"&&typeof m.enabled==="boolean"&&
       Object.keys(m).every(k=>["type","enabled"].includes(k)))
       return {type:"peace_mode",enabled:m.enabled};
+    if(m.type==="coop_mode"&&typeof m.enabled==="boolean"&&
+      Object.keys(m).every(k=>["type","enabled"].includes(k)))
+      return {type:"coop_mode",enabled:m.enabled};
     if(m.type==="fire" && Number.isSafeInteger(m.sequence) && m.sequence>0 && m.sequence<=1000000000
       && typeof m.yaw==="number"&&Number.isFinite(m.yaw)&&Math.abs(m.yaw)<=1e6
       && typeof m.pitch==="number"&&Number.isFinite(m.pitch)&&Math.abs(m.pitch)<=1.22)

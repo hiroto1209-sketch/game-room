@@ -12,11 +12,13 @@ export class TokotokoResident {
  private moving=false;
  private retryAt=0;
  private disposed=false;
+ private cheerUntil=0;
  constructor(private scene:THREE.Scene){this.root.name='TOKOTOKO_RESIDENT';this.root.scale.setScalar(TOKOTOKO.scale);this.root.visible=false;scene.add(this.root);}
  get status(){return this.phase;}
  get talkable(){return this.phase==='ready'&&this.root.visible;}
  get isWalking(){return this.moving;}
  hold(now:number,viewer:{x:number;z:number},extend=false){this.motion=holdResident(now,this.motion,viewer,extend);}
+ cheer(now=performance.now()){this.cheerUntil=now+1400;}
  load():Promise<void>{
   if(this.loading)return this.loading;
   this.phase='loading';
@@ -34,7 +36,9 @@ export class TokotokoResident {
  }
  update(player:{x:number;z:number},dt:number,now:number,playing:boolean,reducedMotion:boolean):void{
   if(this.disposed)return;
-  const pose=currentResidentPose(now,this.motion);this.root.position.set(pose.x,0,pose.z);this.root.rotation.y=pose.yaw;
+  const pose=currentResidentPose(now,this.motion);
+  const hop=!reducedMotion&&performance.now()<this.cheerUntil?Math.sin((this.cheerUntil-performance.now())/1400*Math.PI)*.18:0;
+  this.root.position.set(pose.x,hop,pose.z);this.root.rotation.y=pose.yaw;
   const near=Math.hypot(player.x-pose.x,player.z-pose.z)<45;
   if(playing&&near&&(player.x>5.5||player.x< -10)&&(this.phase==='unloaded'||this.phase==='error')&&Date.now()>=this.retryAt)void this.load();
   this.root.visible=this.phase==='ready'&&near;
