@@ -78,6 +78,7 @@ export class HudLayoutEditor{
   private ghosts=new Map<HudControlId,HTMLButtonElement>();
   private onExit:()=>void=()=>{};
   private opened=false;
+  private viewportFrame=0;
   constructor(){
     for(const id of HUD_DEVICES){
       const opt=document.createElement("option");
@@ -118,9 +119,21 @@ export class HudLayoutEditor{
     for(const id of ["hud-editor-cancel","hud-editor-close"]){
       get<HTMLButtonElement>(id).addEventListener("click",()=>this.close());
     }
-    window.addEventListener("resize",()=>{this.applySaved();if(this.opened)this.renderStage()});
-    window.visualViewport?.addEventListener("resize",()=>{this.applySaved();if(this.opened)this.renderStage()});
+    // Window resize and visualViewport can arrive in either order, sometimes
+    // before innerWidth matches the new layout. Apply once after layout so a
+    // busy phone frame cannot leave the previous device profile in place.
+    window.addEventListener("resize",this.onViewportChange);
+    window.visualViewport?.addEventListener("resize",this.onViewportChange);
+    new ResizeObserver(this.onViewportChange).observe(document.documentElement);
   }
+  private readonly onViewportChange=():void=>{
+    cancelAnimationFrame(this.viewportFrame);
+    this.viewportFrame=requestAnimationFrame(()=>{
+      this.viewportFrame=0;
+      this.applySaved();
+      if(this.opened)this.renderStage();
+    });
+  };
   private get activeProfile():HudProfile{return this.working.profiles[this.current];}
   private snapshot():void{
     this.undoStack.push(JSON.parse(JSON.stringify(this.working)) as HudLayoutV1);
