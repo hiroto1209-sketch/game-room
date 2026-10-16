@@ -50,9 +50,23 @@ test("in-game HUD editor saves independent iPhone/iPad profiles and prevents gam
     await page.locator("#loading").waitFor({state:"detached",timeout:35000});
     assert.equal(await page.evaluate(()=>document.querySelector("#shoot-button").style.width),"73px");
     await page.setViewportSize({width:1180,height:820});
-    await page.waitForTimeout(300);
-    // Touch-capability remains set in mobile context; tablet layout picks saved iPad preset.
-    assert.equal(await page.evaluate(()=>document.querySelector("#shoot-button").style.width),"87px");
+    // Layout apply is deferred to the frame after resize. Under a busy runner
+    // the old 300ms sleep could still read the iPhone portrait width.
+    try{
+      await page.waitForFunction(()=>{
+        const button=document.querySelector("#shoot-button");
+        return window.innerWidth===1180&&window.innerHeight===820&&button?.style.width==="87px";
+      },null,{timeout:8000});
+    }catch(error){
+      const snap=await page.evaluate(()=>({
+        width:document.querySelector("#shoot-button")?.style.width,
+        inner:window.innerWidth+"x"+window.innerHeight,
+        visual:window.visualViewport?Math.round(window.visualViewport.width)+"x"+Math.round(window.visualViewport.height):null,
+        touch:navigator.maxTouchPoints,
+        coarse:matchMedia("(pointer:coarse)").matches
+      }));
+      throw Error("iPad landscape FIRE did not settle: "+JSON.stringify(snap)+"\n"+error);
+    }
     assert.deepEqual(errors,[]);
     await ctx.close();
   }finally{await browser?.close();srv.kill("SIGTERM")}
