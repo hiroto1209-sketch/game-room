@@ -91,7 +91,7 @@ export class WeaponViewmodel {
   fire():void{
     if(!this.active)return;
     this.kick=Math.min(.060,this.kick+.0288);
-    this.flashTime=.065;
+    this.flashTime=.11;
     this.flash.visible=true;
   }
 
@@ -113,7 +113,9 @@ export class WeaponViewmodel {
     const nextScale=this.group.scale.x+(targetScale-this.group.scale.x)*factor;
     this.group.scale.setScalar(nextScale);
     this.kick=Math.max(0,this.kick-dt*.43);
-    this.group.position.y-=this.kick;
+    // Positive X rotation lifts the muzzle, matching the upward camera kick.
+    this.group.rotation.x=this.kick*1.6;
+    this.group.position.y-=this.kick*.35;
     this.sight.visible=aiming;
     if(this.flashTime>0){
       this.flashTime=Math.max(0,this.flashTime-dt);

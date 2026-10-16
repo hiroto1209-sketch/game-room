@@ -26,6 +26,7 @@ export class MediaMonitor {
     this.texture.minFilter=THREE.LinearFilter;
     this.texture.magFilter=THREE.LinearFilter;
 
+    this.group.userData.noBatch=true;
     this.group.position.set(x,y,z);
     // Plane faces local +Z; orient it toward the center of the party room (-X).
     this.group.rotation.y=-Math.PI/2;

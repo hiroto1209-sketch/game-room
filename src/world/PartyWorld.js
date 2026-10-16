@@ -7,6 +7,7 @@ import { OutdoorWorld } from "./OutdoorWorld.ts";
 import {SignMarquee} from "./SignMarquee.ts";
 import {FloorOthello} from "./FloorOthello.ts";
 import {QualityManager} from "../performance/QualityManager.ts";
+import {batchStaticMeshes} from "./staticBatch.ts";
 
 const el = { canvas: null };
 const cfg = { exposure:1, reducedMotion:false };
@@ -329,7 +330,10 @@ function populate(){
   // Outdoor is independent from all original indoor meshes/props.
   outdoor=new OutdoorWorld(scene);
   scene.add(new THREE.DirectionalLight(0xb4d8d4,.30));
-  confetti();resetCamera();resize();
+  confetti();
+  const outdoorNode=scene.getObjectByName("THE DOOR / MOONLIT OUTSIDE");
+  batchStaticMeshes(scene,outdoorNode?[outdoorNode]:[]);
+  resetCamera();resize();
 }
 function resetCamera(){
   camera.position.set(p.x,p.y,p.z);

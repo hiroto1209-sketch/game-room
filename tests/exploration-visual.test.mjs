@@ -20,7 +20,7 @@ test("exploration world renders cave, trail and lookout on phone + desktop",asyn
   try{
     await waitForPreview();
     browser=await chromium.launch({headless:true,args:[
-      "--enable-unsafe-swiftshader","--enable-webgl","--use-gl=angle"
+      "--enable-unsafe-swiftshader","--enable-webgl","--use-gl=angle","--use-angle=swiftshader"
     ]});
     await mkdir("artifacts/exploration-visual",{recursive:true});
     const setups=[

@@ -1,7 +1,7 @@
 import {residentHeightAt,EMPTY_MOTION,validResidentMotion,canTalkToResident,holdResident,currentResidentPose,POKO_ANCHOR} from "../../shared/residentRules.js";
 import { DurableObject } from "cloudflare:workers";
 import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
-import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE } from "../../shared/combatRules.js";
+import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE, aimWithinRate } from "../../shared/combatRules.js";
 import {SPAWN,shotObstructed,walkableHeightAt} from "../../shared/worldRules.js";
 import {FPS_STAGE,inFpsStage} from "../../shared/playcanvasRules.js";
 import "../../shared/playcanvasCollisionData.js";
@@ -254,11 +254,13 @@ export class RoomHub extends DurableObject {
       if(session.peaceful){
         send(ws,{type:"error",reason:"ピースモードを解除してください"});return;
       }
-      const yawDiff=Math.atan2(Math.sin(m.yaw-session.player.yaw),Math.cos(m.yaw-session.player.yaw));
-      if(Math.abs(yawDiff)>1.4||Math.abs(m.pitch-session.player.pitch)>.9){
+      const elapsed=Math.max(0,now-(session.lastMoveAt||now));
+      if(!aimWithinRate(session.player,{yaw:m.yaw,pitch:m.pitch},elapsed)){
         send(ws,{type:"error",reason:"照準の向きが同期されていません"});return;
       }
-      ws.serializeAttachment({...session,lastShotAt:now,lastFireSeq:m.sequence});
+      const aimed={...session.player,yaw:m.yaw,pitch:m.pitch};
+      ws.serializeAttachment({...session,player:aimed,lastShotAt:now,lastFireSeq:m.sequence});
+      session.player=aimed;
       const others=this.members().filter(peer=>peer!==ws);
       const candidates=others.map(sock=>({sock,data:attachment(sock)}))
         .filter(({data})=>data.hp>0&&!data.peaceful&&now>=data.invulnerableUntil)
@@ -279,7 +281,16 @@ export class RoomHub extends DurableObject {
     if(m.type!=="move")return;
     if(session.hp<=0)return;
     if(m.sequence<=session.player.sequence)return;
-    if(now-session.lastPacketAt<75)return; // per-socket max ~13 updates/s
+    const moved=Math.hypot(m.position.x-session.player.position.x,m.position.y-session.player.position.y,m.position.z-session.player.position.z);
+    // A look update must not wait out the walk throttle, and must not
+    // apply a new position (that would be a speed bypass).
+    if(now-session.lastPacketAt<75){
+      if(moved>.45||now-(session.lastAimAt??0)<20)return;
+      const looked={...session.player,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
+      ws.serializeAttachment({...session,player:looked,lastAimAt:now});
+      for(const peer of this.members())if(peer!==ws)send(peer,{type:"joined",player:looked});
+      return;
+    }
     const elapsed=Math.max(0,Math.min(2000,now-session.lastMoveAt));
     const foot=session.player.position.y-1.65;
     const oldFloor=Math.max(walkableHeightAt(session.player.position.x,session.player.position.z,foot+.12),

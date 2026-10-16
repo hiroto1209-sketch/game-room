@@ -23,6 +23,8 @@
       <div class="start-heading"><span class="overline">WELCOME TO YOUR OWN WORLD</span><span class="start-title">GAME ROOM</span><span class="subheading">THE PARTY STARTS HERE</span></div>
       <button id="start-button" class="start-button">スタート <span aria-hidden="true">→</span></button>
       <p class="start-caption">最初からブラスター装備 · NEON777で6倍速移動</p>
+      <p class="start-caption">iPhone / iPad：左で移動、右で視点。FIRE・ADS・JUMPは同時に押せます</p>
+      <p class="start-caption">PC：クリックでマウス視点、左クリック発射、右クリックまたはQでADS、Fで単発</p>
       <section id="online-panel" class="online-panel" aria-label="オンラインルーム">
         <div id="online-note" class="online-note">オンライン機能を準備中</div>
         <label class="online-name" for="room-name">プレイヤー名</label>
@@ -47,12 +49,14 @@
         <span class="range-mode">✦ STARSHOT · SOLO</span>
         <strong id="range-progress">0 / 6 HIT</strong>
         <span id="range-time">30s</span>
+        <span id="range-best">BEST —</span>
       </div>
       <div id="combat-hud" class="hidden" aria-live="polite">
         <span class="combat-title">HEALTH</span>
         <span id="hp-label">HP 100 / 100</span>
         <div class="hp-track"><div id="hp-fill"></div></div>
         <span id="combat-note">探索モード</span>
+        <span id="hit-readout" class="hidden">HIT</span>
       </div>
       <div id="othello-panel" class="hidden" aria-live="polite">
         <span class="othello-caption">OTHELLO</span>
@@ -267,6 +271,7 @@
         <p class="monitor-help">ADS長押し中のスワイプで照準を動かせます。ADSを短くタップすると精密照準を固定できます。</p>
         <label class="setting"><span>画面の明るさ <output id="brightness-value">1.0</output></span><input id="brightness" type="range" min="0.7" max="1.6" step="0.1" value="1.0" /></label>
         <label class="toggle"><span>音楽（シンプルなBGM）</span><input id="sound-enabled" type="checkbox" /></label>
+        <label class="toggle"><span>射撃音</span><input id="shot-sound" type="checkbox" checked /></label>
         <label class="toggle"><span>ピースモード（他プレイヤーからのダメージを防ぐ）</span><input id="peace-mode" type="checkbox" checked /></label>
         <div id="weapon-info" class="monitor-help">ブラスター初期装備 · NEON777で高速移動6×</div>
         <label class="toggle"><span>動きを控えめにする</span><input id="reduced-motion" type="checkbox" /></label>

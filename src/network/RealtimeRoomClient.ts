@@ -1,3 +1,4 @@
+import {angleDelta} from "../../shared/combatRules.js";
 import type {ResidentId,ResidentMotion} from "../../shared/residentRules.js";
 import type { PlayerSnapshot } from "../types/Player";
 import { safeDisplayName } from "../types/Player";
@@ -42,6 +43,7 @@ export class RealtimeRoomClient {
   private joinSentAt=0;
   private estimatedOneWayMs=0;
   private lastSend=0;
+  private lastAim={yaw:0,pitch:0};
   private sequence=0;
   private fireSequence=0;
   private connectGeneration=0;
@@ -73,8 +75,12 @@ export class RealtimeRoomClient {
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"signText",value})??false;
   }
-  shoot(yaw:number,pitch:number):boolean{
+  shoot(yaw:number,pitch:number,position?:{x:number;y:number;z:number}):boolean{
     if(!this.online)return false;
+    const yawGap=Math.abs(angleDelta(this.lastAim.yaw,yaw));
+    const pitchGap=Math.abs(pitch-this.lastAim.pitch);
+    if(position&&(yawGap>.35||pitchGap>.2))
+      this.sendPose(performance.now(),{position,yaw,pitch},true);
     return this.transport?.send({type:"fire",sequence:++this.fireSequence,yaw,pitch})??false;
   }
   othello(action:"start"|"join"|"pause"|"resume"|"reset"|"place",index?:number):boolean{
@@ -237,14 +243,22 @@ export class RealtimeRoomClient {
       return;
     }
     if(!this.isReady||now-this.lastSend<100)return;
-    this.lastSend=now;
+    this.sendPose(now,player,false);
+  }
+  /** Aim-only refreshes skip the 100ms walk interval so a flick reaches the
+   * server before the shot that uses it. Position packets stay throttled. */
+  private sendPose(now:number,player:Omit<PlayerSnapshot,"id"|"displayName"|"sequence">,aimRefresh:boolean):void{
+    if(!this.isReady)return;
+    if(!aimRefresh&&now-this.lastSend<100)return;
+    this.lastSend=aimRefresh?this.lastSend:now;
+    this.lastAim={yaw:player.yaw,pitch:player.pitch};
     const ok=this.transport?.send({
       type:"move",
       position:{...player.position},
       yaw:player.yaw,pitch:player.pitch,
       sequence:++this.sequence
     });
-    if(!ok)this.callbacks.onError("位置の同期が一時的に失敗しました");
+    if(!ok&&!aimRefresh)this.callbacks.onError("位置の同期が一時的に失敗しました");
   }
   private clearHandshakeTimer():void{
     if(this.handshakeTimer!==null)clearTimeout(this.handshakeTimer);

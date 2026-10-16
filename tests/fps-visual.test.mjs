@@ -50,7 +50,7 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
   try{
     await waitForServer();
     browser=await chromium.launch({headless:true,args:[
-      "--enable-unsafe-swiftshader","--enable-webgl","--use-gl=angle"
+      "--enable-unsafe-swiftshader","--enable-webgl","--use-gl=angle","--use-angle=swiftshader"
     ]});
     await mkdir("artifacts/fps-visual",{recursive:true});
     for(const viewport of [

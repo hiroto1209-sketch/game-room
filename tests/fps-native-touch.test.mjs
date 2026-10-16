@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {FpsTouchBridge} from "../src/input/FpsTouchBridge.ts";
-import {recoilDelta,recoilMagnitude,RECOIL_SCALE} from "../src/camera/recoilMath.ts";
+import {recoilDelta,recoilMagnitude,RECOIL_SCALE,RECOIL_UP_SHARE} from "../src/camera/recoilMath.ts";
 const touch=(id,x,y)=>({identifier:id,clientX:x,clientY:y});
 function send(target,name,points){
  const e=new Event(name,{bubbles:true,cancelable:true});
@@ -65,27 +65,34 @@ test("native FIRE touch cancel stops shooting while unrelated look continues",()
   if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;
  }
 });
-test("360-degree recoil changes direction with exact 20% strength reduction",()=>{
+test("recoil climbs upward at 80% of the old hip and ADS magnitudes",()=>{
   assert.equal(RECOIL_SCALE,.8);
+  assert.equal(RECOIL_UP_SHARE,.7);
   const oldHip=Math.hypot(.027,.005),oldADS=Math.hypot(.006,.0015);
   assert.ok(Math.abs(recoilMagnitude(false)-oldHip*.8)<1e-12);
   assert.ok(Math.abs(recoilMagnitude(true)-oldADS*.8)<1e-12);
   const vectors=[0,.125,.25,.375,.5,.625,.75,.875].map(angle=>
     recoilDelta(false,()=>angle));
-  for(const r of vectors)
-    assert.ok(Math.abs(Math.hypot(r.yaw,r.pitch)-recoilMagnitude(false))<1e-12);
+  for(const r of vectors){
+    assert.ok(r.pitch>0,"pitch kick stays upward");
+    const climb=recoilMagnitude(false)*RECOIL_UP_SHARE;
+    assert.ok(r.pitch>climb*.8);
+    assert.ok(Math.abs(r.yaw)<=recoilMagnitude(false)*(1-RECOIL_UP_SHARE)+1e-12);
+  }
   assert.ok(vectors[0].yaw>0);
-  assert.ok(vectors[2].pitch>0);
   assert.ok(vectors[4].yaw<0);
-  assert.ok(vectors[6].pitch<0);
   assert.ok(recoilMagnitude(false)>recoilMagnitude(true)*3);
 });
-test("ADS and hip fire share full 360-degree recoil spread",()=>{
+test("ADS and hip fire keep a smaller upward kick while yaw still varies",()=>{
   for(const ads of [false,true]){
+    let minYaw=Infinity,maxYaw=-Infinity;
     for(let i=0;i<100;i++){
       const recoil=recoilDelta(ads,()=>i/100);
       assert.ok(Number.isFinite(recoil.yaw)&&Number.isFinite(recoil.pitch));
-      assert.ok(Math.abs(Math.hypot(recoil.pitch,recoil.yaw)-recoilMagnitude(ads))<1e-12);
+      assert.ok(recoil.pitch>0);
+      minYaw=Math.min(minYaw,recoil.yaw);maxYaw=Math.max(maxYaw,recoil.yaw);
     }
+    assert.ok(minYaw<0&&maxYaw>0);
   }
+  assert.ok(recoilDelta(true,()=>0).pitch<recoilDelta(false,()=>0).pitch);
 });

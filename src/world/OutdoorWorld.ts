@@ -3,6 +3,7 @@ import { chunkData, OUTDOOR, POND, WORLD_SEED, groundHeightAt, terrainVisualHeig
 import {ARENA} from "../../shared/combatRules.js";
 import {TerrainSurface} from "./TerrainSurface";
 import {HiddenExploration} from "./HiddenExploration";
+import {batchStaticMeshes} from "./staticBatch";
 
 /**
  * Procedural outdoor preview linked to the existing lobby.
@@ -178,6 +179,13 @@ export class OutdoorWorld {
     fireflyGeometry.setAttribute("position",new THREE.Float32BufferAttribute(glowPoints,3));
     this.fireflies=new THREE.Points(fireflyGeometry,new THREE.PointsMaterial({color:0xffd6a7,size:.13,depthWrite:false,transparent:true,opacity:.72}));
     this.root.add(this.fireflies);this.sharedScenery.push(this.fireflies);
+    batchStaticMeshes(this.root);
+    for(let i=this.sharedScenery.length-1;i>=0;i--){
+      if(this.sharedScenery[i].parent!==this.root)this.sharedScenery.splice(i,1);
+    }
+    for(const child of this.root.children){
+      if(child.userData.batched&&!this.sharedScenery.includes(child))this.sharedScenery.push(child);
+    }
   }
   private instance<T extends THREE.BufferGeometry>(
     parent:THREE.Group, geometry:T, material:THREE.Material,

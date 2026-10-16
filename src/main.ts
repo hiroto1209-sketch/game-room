@@ -10,14 +10,16 @@ import { RealtimeRoomClient, type RoomConnectionState } from "./network/Realtime
 import { createRoomId, isValidRoomId } from "./network/protocol";
 import { safeDisplayName } from "./types/Player";
 import { worldBlocked, groundHeightAt, walkableHeightAt, shotObstructed, insideHouse } from "../shared/worldRules.js";
-import {stageShotObstructed} from "../shared/playcanvasRules.js";
+import {stageShotObstructed,inFpsStage} from "../shared/playcanvasRules.js";
 import {TokotokoResident} from "./world/TokotokoResident";
 import {ResidentDialogue} from "./ui/ResidentDialogue";
 import {canTalkToResident,residentStepBlocked,residentHeightAt,EMPTY_MOTION,POKO_ANCHOR,type ResidentId} from "../shared/residentRules.js";
 import {PokoWelcome} from "./world/PokoWelcome";
 import {PlayCanvasStage} from "./world/PlayCanvasStage";
-import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget } from "../shared/combatRules.js";
+import { validSignText, MAX_HP, WEAPON_CODE, findHitscanTarget, inArena } from "../shared/combatRules.js";
 import {BlasterEffects} from "./combat/BlasterEffects";
+import {BlasterAudio} from "./audio/BlasterAudio";
+import {PracticeDummies} from "./world/PracticeDummies";
 import {StarshotRange,RANGE_SHOTS} from "./world/StarshotRange";
 import {canBlasterFire,shouldSendPvpShot} from "./combat/practiceRules";
 import {WorldGuide} from "./ui/WorldGuide";
@@ -61,6 +63,8 @@ const crosshair=byId("crosshair");
 const rangeHud=byId("starshot-hud");
 const rangeProgress=byId("range-progress");
 const rangeTime=byId("range-time");
+const rangeBest=byId("range-best");
+const hitReadout=byId("hit-readout");
 const secretTrigger=byId<HTMLButtonElement>("secret-trigger");
 const secretOverlay=byId("secret-overlay");
 const secretCode=byId<HTMLInputElement>("secret-code");
@@ -92,6 +96,9 @@ const othelloReset=byId<HTMLButtonElement>("othello-reset");
 const othelloQuickState=byId("othello-quick-state");
 const miniGamesOverlay=byId("minigames-overlay");
 const music=new MusicController();
+const blasterAudio=new BlasterAudio();
+const SHOT_SOUND_KEY="game-room-shot-sound-v1";
+try{blasterAudio.enabled=localStorage.getItem(SHOT_SOUND_KEY)!=="off"}catch{}
 const configuredServer=(import.meta.env.VITE_GAME_ROOM_SERVER_URL??"").trim();
 const invitation=new URLSearchParams(window.location.search).get("room");
 const inviteRoomId=invitation&&isValidRoomId(invitation)?invitation:null;
@@ -115,6 +122,7 @@ let players:PlayerManager|undefined;
 let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let range:StarshotRange|undefined;
+let practice:PracticeDummies|undefined;
 let fpsStage:PlayCanvasStage|undefined;
 let stageQaFov:number|null=null;
 let guide:WorldGuide|undefined;
@@ -127,7 +135,8 @@ let hudEditor:HudLayoutEditor|undefined;
 let currentHp=MAX_HP;
 let lastShotAt=0;
 let aiming=false;
-let aimLocked=false,smartAimFiring=false;
+let aimLocked=false,smartAimFiring=false,keyboardAim=false;
+let hitReadoutUntil=0;
 let aimFov=76;
 let fireHeld:ReturnType<typeof setInterval>|null=null;
 let firePointerId:number|null=null,aimPointerId:number|null=null;
@@ -135,7 +144,7 @@ let aimStartedLocked=false,aimStartTime=0,aimDragDistance=0;
 const fireGesture=new FireLookGesture();
 const aimGesture=new FireLookGesture();
 function refreshAimMode():void{
-  aiming=Boolean(world)&&(aimLocked||aimPointerId!==null||smartAimFiring)
+  aiming=Boolean(world)&&(aimLocked||aimPointerId!==null||smartAimFiring||keyboardAim)
     &&canBlasterFire(weaponUnlocked,peaceful,Boolean(range?.running))
     &&state.playing&&!state.paused;
   aimButton.classList.toggle("aiming",aiming);
@@ -164,6 +173,18 @@ function endAimDrag(id:number,cancelled=false):void{
   aimPointerId=null;aimGesture.reset();
   aimLocked=tapped?!aimStartedLocked:aimStartedLocked;
   refreshAimMode();
+}
+function unlockAudio():void{blasterAudio.unlock()}
+function showHit(text:string):void{
+  hitReadout.textContent=text;
+  hitReadout.classList.remove("hidden");
+  hitReadoutUntil=performance.now()+700;
+}
+function releasePointerLock():void{
+  if(document.pointerLockElement)document.exitPointerLock?.();
+}
+function desktopLookLocked():boolean{
+  return document.pointerLockElement===canvas;
 }
 function stopFiring():void{
   if(fireHeld!==null){clearInterval(fireHeld);fireHeld=null;}
@@ -372,26 +393,40 @@ function fireBlaster():void{
   lastShotAt=now;
   const origin={...player.position};
   const shotYaw=camera.yaw,shotPitch=camera.pitch;
-  blaster.shoot(origin,shotYaw,shotPitch);
+  unlockAudio();
+  blasterAudio.shot();
   weaponViewmodel?.fire();
   // Training range is LOCAL-ONLY. Suppress network PvP shots during the
   // challenge rather than allowing fake scores or unexpected peer damage.
   const practicing=range?.running??false;
+  let impact:{x:number;y:number;z:number}|null=null;
   if(practicing){
     const outcome=range?.shoot(origin,shotYaw,shotPitch);
     if(outcome==="hit"){
       crosshair.classList.add("hit-confirmed");
       window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),160);
+      impact=range?.targetPoint()??null;
+      showHit("HIT");
     }
     rangeProgress.textContent=(range?.hits??0)+" / "+RANGE_SHOTS+" HIT";
+  }else{
+    const practiceHit=practice?.shoot(origin,shotYaw,shotPitch);
+    if(practiceHit){
+      impact=practiceHit.point;
+      crosshair.classList.add("hit-confirmed");
+      window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),160);
+      showHit(practiceHit.head?"HEAD "+practiceHit.damage:"HIT "+practiceHit.damage);
+    }
   }
+  blaster.shoot(origin,shotYaw,shotPitch,impact);
   // Actual camera recoil changes subsequent shots, with much less kick in ADS.
+  // The ray above was captured before this kick.
   camera.kickRecoil(aiming);
   crosshair.animate([
     {transform:"translate(-50%, -50%) scale(1.5)"},
     {transform:"translate(-50%, -50%) scale(1)"}
   ],{duration:145,easing:"ease-out"});
-  if(shouldSendPvpShot(roomClient.online,peaceful,practicing) && !roomClient.shoot(shotYaw,shotPitch))
+  if(shouldSendPvpShot(roomClient.online,peaceful,practicing) && !roomClient.shoot(shotYaw,shotPitch,origin))
     showToast("発射通信に失敗しました");
 }
 const clock=new THREE.Clock();
@@ -466,7 +501,10 @@ const roomClient=new RealtimeRoomClient({
     if(id===roomClient.playerId)setHealth(hp);
   },
   onFire:(shooterId,position,yaw,pitch)=>{
-    if(shooterId!==roomClient.playerId)blaster?.shoot(position,yaw,pitch);
+    if(shooterId!==roomClient.playerId){
+      blasterAudio.shot();
+      blaster?.shoot(position,yaw,pitch);
+    }
   },
   onFireResult:(hit,damage)=>{
     if(hit){
@@ -476,7 +514,7 @@ const roomClient=new RealtimeRoomClient({
         {transform:"translate(-50%, -50%) scale(1)",opacity:.7}
       ],{duration:210,easing:"ease-out"});
       window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),280);
-      showToast("✦ HIT! "+damage+" DAMAGE");
+      showHit("HIT "+damage);
     }
   },
   onRespawn:position=>{
@@ -775,7 +813,10 @@ function update(dt:number):void{
       lastOutdoorZone=inOutdoor;
       showToast(inOutdoor?"🌿 THE DOOR — ようこそ月夜の世界へ！":"🏠 パーティールームにおかえり！");
     }
-    const nextZone=inOutdoor?
+    const nextZone=inFpsStage(player.position.x,player.position.z)?"FPS MAP":
+      inArena(player.position)?"NEON ARENA":
+      Math.hypot(player.position.x-33,player.position.z-10)<18?"STARSHOT":
+      inOutdoor?
       (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"MOONLIT FOREST":"MOONLIT PLAZA") :
       "PARTY LOUNGE · 東側の扉から外へ";
     if(nextZone!==currentZone){
@@ -811,7 +852,8 @@ function update(dt:number):void{
     ):null;
     crosshair.classList.toggle("targeted",Boolean(candidate));
     if(armed&&currentHp>0){
-      const note=!roomClient.online?"ソロ練習 · ダメージ同期なし":
+      const note=range?.running?"STARSHOT · 動く的を追え":
+        !roomClient.online?"ソロ練習 · ダメージ同期なし":
         candidate?"TARGET LOCK · HP "+(hpByPlayer.get(candidate.id)??100):
         "FIREでブラスター発射";
       if(combatNote.textContent!==note)combatNote.textContent=note;
@@ -837,13 +879,20 @@ function update(dt:number):void{
     // the solo round ends. The shooter must intentionally press FIRE again.
     stopFiring();setAimMode(false);
     const total=range?.hits??0;
+    const best=range?.record??0;
     rangeHud.classList.add("hidden");
-    showToast("✦ STARSHOT "+total+"/"+RANGE_SHOTS+" HIT · BEST "+(range?.record??0));
+    showToast("✦ STARSHOT "+total+"/"+RANGE_SHOTS+" HIT"+(best>0?" · BEST "+best.toFixed(1)+"s":""));
   }
   if(range?.running){
     rangeProgress.textContent=range.hits+" / "+RANGE_SHOTS+" HIT";
     rangeTime.textContent=Math.ceil(range.remaining)+"s";
+    rangeBest.textContent=range.record>0?"BEST "+range.record.toFixed(1)+"s":"BEST —";
   }
+  if(player)practice?.update(dt,player.position);
+  if(hitReadoutUntil&&performance.now()>hitReadoutUntil){
+    hitReadoutUntil=0;hitReadout.classList.add("hidden");
+  }
+  if(state.paused&&desktopLookLocked()){releasePointerLock();stopFiring();}
   if(state.playing&&player&&camera){
     const stamp=performance.now();
     if(stamp-guideLast>200){
@@ -876,7 +925,9 @@ function registerUi():void{
   });
   byId("copy-invite").addEventListener("click",()=>{void copyInvitation();});
   byId("leave-room").addEventListener("click",leaveOnlineRoom);
-  byId("start-button").addEventListener("click",start);
+  byId("start-button").addEventListener("click",()=>{unlockAudio();start();});
+  window.addEventListener("pointerdown",unlockAudio,{capture:true,passive:true});
+  window.addEventListener("touchstart",unlockAudio,{capture:true,passive:true});
   // Logo shortcut is optional: the real in-world ARMORY ATM is the main path.
   secretTrigger.addEventListener("click",()=>{
     const now=performance.now();
@@ -962,17 +1013,37 @@ function registerUi():void{
   window.addEventListener("pointercancel",releaseWeaponPointer);
   window.addEventListener("blur",()=>{stopFiring();setAimMode(false);});
   canvas.addEventListener("pointerdown",e=>{
-    if(e.pointerType==="mouse"){
-      if(e.button===0&&fireGesture.begin(e.pointerId,e.clientX,e.clientY)){firePointerId=e.pointerId;startFiring();}
-      if(e.button===2){beginAimDrag(e.pointerId,e.clientX,e.clientY);aimStartTime=-Infinity;}
+    // Touch and pen stay on the joystick / FIRE / ADS paths. Pointer lock is
+    // mouse-only so iOS Safari multi-touch is never asked to capture the cursor.
+    if(e.pointerType!=="mouse")return;
+    if(e.button===0){
+      if(desktopLookLocked()){
+        if(fireGesture.begin(e.pointerId,e.clientX,e.clientY)){firePointerId=e.pointerId;startFiring();}
+      }else if(state.playing&&!state.paused){
+        canvas.requestPointerLock?.();
+      }
     }
+    if(e.button===2&&desktopLookLocked()){beginAimDrag(e.pointerId,e.clientX,e.clientY);aimStartTime=-Infinity;}
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(e.pointerType!=="mouse"||!desktopLookLocked()||!camera||!state.playing||state.paused)return;
+    if(!e.movementX&&!e.movementY)return;
+    camera.drag(e.movementX,e.movementY,settings.sensitivity*(aiming?.56:1));
+  });
+  document.addEventListener("pointerlockchange",()=>{
+    if(!desktopLookLocked())stopFiring();
   });
   canvas.addEventListener("pointerup",e=>{
     if(e.pointerType==="mouse")releaseWeaponPointer(e);
   });
   window.addEventListener("keydown",e=>{
-    if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!state.editingSecret&&!(document.activeElement instanceof HTMLInputElement))
+    if(document.activeElement instanceof HTMLInputElement)return;
+    if(e.code==="KeyF"&&!e.repeat&&!state.editingSign&&!state.editingSecret)
       fireBlaster();
+    if(e.code==="KeyQ"&&!e.repeat&&state.playing&&!state.paused){keyboardAim=true;refreshAimMode();}
+  });
+  window.addEventListener("keyup",e=>{
+    if(e.code==="KeyQ"){keyboardAim=false;refreshAimMode();}
   });
   byId("menu-button").addEventListener("click",()=>state.paused?closeMenu():openMenu());
   byId("close-menu").addEventListener("click",closeMenu);
@@ -1026,6 +1097,13 @@ function registerUi():void{
   byId<HTMLInputElement>("reduced-motion").addEventListener("change",e=>{
     settings.reducedMotion=(e.target as HTMLInputElement).checked;
   });
+  const shotSound=byId<HTMLInputElement>("shot-sound");
+  shotSound.checked=blasterAudio.enabled;
+  shotSound.addEventListener("change",()=>{
+    blasterAudio.enabled=shotSound.checked;
+    if(shotSound.checked)unlockAudio();
+    try{localStorage.setItem(SHOT_SOUND_KEY,blasterAudio.enabled?"on":"off")}catch{}
+  });
   byId<HTMLInputElement>("sound-enabled").addEventListener("change",async e=>{
     const target=e.target as HTMLInputElement;
     if(!target.checked){music.stop();return;}
@@ -1042,6 +1120,7 @@ function initialize():void{
       showToast("照明の共有に失敗しました");
   },openSign,openSecret,openMiniGames,()=>openQuickGame("target"));
   blaster=new BlasterEffects(world.scene);
+  practice=new PracticeDummies(world.scene);
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
   range=new StarshotRange(world.scene);
   poko=new PokoWelcome(world.scene);
@@ -1191,7 +1270,13 @@ function initialize():void{
     residentTestTime=1000;
     Object.assign(window,{__RESIDENT_QA__:{
       load:()=>Promise.all([qaResident?.load(),poko?.load()]),
-      pose:(x:number,z:number,yaw=0,pitch=0)=>{qaPlayer.teleport(x,groundHeightAt(x,z)+1.65,z);qaCamera.yaw=yaw;qaCamera.pitch=pitch;qaCamera.update(qaPlayer.position);},
+      pose:(x:number,z:number,yaw=0,pitch=0)=>{
+        qaPlayer.teleport(x,groundHeightAt(x,z)+1.65,z);qaCamera.yaw=yaw;qaCamera.pitch=pitch;qaCamera.update(qaPlayer.position);
+        // Teleports skip the door sample. Record it immediately so POKO still
+        // sees an exit instead of waiting for a rendered frame that may land
+        // after the next pose.
+        poko?.update(qaPlayer.position,1/60,state.playing&&!state.paused,settings.reducedMotion);
+      },
       time:(ms:number,reset=false)=>{residentTestTime=ms;if(reset&&qaResident)qaResident.motion={...EMPTY_MOTION};qaResident?.update(qaPlayer.position,1/60,ms,true,settings.reducedMotion);},
       walk:(seconds:number,input:{x:number;y:number},yaw:number)=>{for(let i=0;i<Math.ceil(seconds*120);i++)qaPlayer.update(1/120,input,yaw,true);qaCamera.update(qaPlayer.position);},
       jump:()=>qaPlayer.jump(),interact:doInteraction,

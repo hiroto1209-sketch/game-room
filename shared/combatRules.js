@@ -44,3 +44,25 @@ export function findHitscanTarget(shooter,players,yaw,pitch,occluded=()=>false){
 
 export const WEAPON_CODE="NEON777";
 export function validUnlockCode(v){return typeof v==="string"&&v.length<=24&&/^[A-Z0-9]+$/.test(v)}
+
+/** How far aim may move since the last accepted pose, in radians.
+ * Scales with elapsed time so a finger flick between 10 Hz move packets
+ * still counts, and caps at a half-turn so a stale pose cannot spin freely.
+ */
+export const LOOK_YAW_RATE=36, LOOK_PITCH_RATE=20;
+export function angleDelta(from,to){
+  return Math.atan2(Math.sin(to-from),Math.cos(to-from));
+}
+export function aimAllowance(elapsedMs){
+  const t=Math.max(0,Number(elapsedMs)||0)/1000;
+  return {
+    yaw:Math.min(Math.PI,Math.max(.6,t*LOOK_YAW_RATE)),
+    pitch:Math.min(1.15,Math.max(.45,t*LOOK_PITCH_RATE))
+  };
+}
+export function aimWithinRate(previous,next,elapsedMs){
+  if(!previous||!next)return false;
+  const allow=aimAllowance(elapsedMs);
+  return Math.abs(angleDelta(previous.yaw??0,next.yaw??0))<=allow.yaw+1e-6
+    && Math.abs((next.pitch??0)-(previous.pitch??0))<=allow.pitch+1e-6;
+}
