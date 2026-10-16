@@ -50,6 +50,7 @@ jobs:
         run: npm run test:stage:visual
       - name: Archive original FPS screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playcanvas-fps-screenshots
@@ -60,6 +61,7 @@ jobs:
         run: npm run test:forest:visual
       - name: Archive forest welcome screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: forest-welcome-screenshots
@@ -70,6 +72,7 @@ jobs:
         run: npm run test:residents:visual
       - name: Archive resident screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: residents-screenshots
@@ -80,6 +83,7 @@ jobs:
         run: npm run test:exploration:visual
       - name: Archive exploration screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: exploration-visual-screenshots
@@ -88,6 +92,7 @@ jobs:
           retention-days: 14
       - name: Archive FPS visual screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: fps-visual-screenshots
