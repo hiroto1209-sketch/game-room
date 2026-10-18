@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ミニゲーム食堂</title>
+  <meta name="description" content="スマホで数十秒。ソフトクリームの巻きとラーメン湯切り。インストール不要。">
+  <link rel="icon" href="games/softcream/icon.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hiroto1209-sketch.github.io/game-room/minigames/">
+  <meta property="og:title" content="ミニゲーム食堂">
+  <meta property="og:description" content="ぐるぐる巻くソフトクリームと、湯を切るラーメン。スマホで数十秒。">
+  <meta property="og:image" content="https://hiroto1209-sketch.github.io/game-room/minigames/games/softcream/icon.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="theme-color" content="#2a2233">
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --card: #fff;
+      --text: #2a2233;
+      --sub: #6b6275;
+      --line: #e2e2e2;
+      --accent: #2a2233;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1a22;
+        --card: #27242f;
+        --text: #f3eef7;
+        --sub: #aaa2b5;
+        --line: #38333f;
+        --accent: #f3eef7;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px;
+      font-family: "Noto Sans JP", "Hiragino Sans", "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+    }
+    header {
+      text-align: center;
+      padding: 28px 12px;
+      margin-bottom: 8px;
+      border-radius: 20px;
+      color: var(--bg);
+      background: var(--text);
+    }
+    h1 { margin: 0; font-weight: 900; font-size: clamp(1.3em, 6vw, 2.2em); letter-spacing: 0.02em; }
+    .tag { margin: 6px 0 0; font-size: 0.9em; opacity: 0.8; }
+    h2 { font-size: 1.1em; color: var(--sub); display: flex; align-items: center; gap: 8px; }
+    #game-count { font-size: 0.8em; font-weight: normal; }
+    h2::before { content: ""; width: 6px; height: 1.1em; border-radius: 3px; background: var(--accent); }
+    .tools { display: flex; gap: 8px; align-items: center; }
+    #search {
+      flex: 1;
+      width: 100%;
+      padding: 10px 14px 10px 40px;
+      font-family: inherit;
+      font-size: 1em;
+      color: var(--text);
+      background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8294' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-4-4'/%3E%3C/svg%3E") no-repeat 14px center / 18px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+    #search:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    #lang {
+      font: inherit;
+      font-weight: 700;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--text);
+      min-width: 44px;
+      height: 42px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    .games { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 640px) { .games { grid-template-columns: 1fr 1fr; } }
+    .games li {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 6px rgb(0 0 0 / 0.04);
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+    .games li:hover, .games li:focus-within {
+      transform: translateY(-3px);
+      border-color: var(--accent);
+      box-shadow: 0 8px 20px rgb(0 0 0 / 0.08);
+    }
+    .games li:active { transform: translateY(0) scale(0.98); }
+    .games .icon { flex-shrink: 0; line-height: 0; }
+    .games .icon img { width: 84px; height: 84px; border-radius: 20px; box-shadow: 0 3px 8px rgb(0 0 0 / 0.12); }
+    .games li:hover .icon img { transform: rotate(-6deg) scale(1.04); }
+    .games a { font-weight: 900; color: var(--text); text-decoration: none; font-size: 1.05em; }
+    .games div a::after { content: ""; position: absolute; inset: 0; }
+    .games p { margin: 4px 0 0; color: var(--sub); font-size: 0.92em; }
+    .games li[hidden] { display: none; }
+    #no-hit { color: var(--sub); text-align: center; }
+    footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--line);
+      color: var(--sub);
+      font-size: 0.9em;
+      text-align: center;
+    }
+    button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="site">ミニゲーム食堂</h1>
+    <p class="tag" id="tag">インストール不要。スマホでも、パソコンでも。</p>
+  </header>
+  <main>
+    <h2>ゲーム一覧 <span id="game-count"></span></h2>
+    <div class="tools">
+      <input id="search" type="search" placeholder="ゲームをさがす" aria-label="ゲームをさがす">
+      <button id="lang" type="button">EN</button>
+    </div>
+    <ul class="games">
+      <!-- ゲームを追加するときは、この <li> をコピーして書き換える -->
+      <li>
+        <a class="icon" href="games/softcream/"><img src="games/softcream/icon.png" alt="" width="84" height="84"></a>
+        <div>
+          <a href="games/softcream/" data-ja="ソフトクリームの巻き" data-en="Soft Serve Tower">ソフトクリームの巻き</a>
+          <p data-ja="ぐるぐるなぞって、どこまで高く巻けるか" data-en="Trace circles and stack the swirl as high as you can">ぐるぐるなぞって、どこまで高く巻けるか</p>
+        </div>
+      </li>
+      <li>
+        <a class="icon" href="games/ramen/"><img src="games/ramen/icon.png" alt="" width="84" height="84"></a>
+        <div>
+          <a href="games/ramen/" data-ja="ラーメン湯切り" data-en="Ramen Shake">ラーメン湯切り</a>
+          <p data-ja="上下に振って湯を切れ。強すぎると麺が飛ぶ" data-en="Swipe up and down to drain. Too hard and the noodles fly">上下に振って湯を切れ。強すぎると麺が飛ぶ</p>
+        </div>
+      </li>
+    </ul>
+    <p id="no-hit" hidden>見つかりませんでした。</p>
+  </main>
+  <footer>
+    <p id="foot">広告なし。記録はこの端末の中だけ。</p>
+  </footer>
+  <script>
+    const I18N = {
+      ja: {
+        site: "ミニゲーム食堂",
+        tag: "インストール不要。スマホでも、パソコンでも。",
+        list: "ゲーム一覧",
+        search: "ゲームをさがす",
+        lang: "EN",
+        langLabel: "Switch to English",
+        empty: "見つかりませんでした。",
+        foot: "広告なし。記録はこの端末の中だけ。",
+        count: (n) => n + "個"
+      },
+      en: {
+        site: "Mini Game Stall",
+        tag: "No install. Play on a phone or a computer.",
+        list: "Games",
+        search: "Search games",
+        lang: "日本語",
+        langLabel: "日本語に切り替え",
+        empty: "No matches.",
+        foot: "No ads. Scores stay on this device.",
+        count: (n) => n + (n === 1 ? " game" : " games")
+      }
+    };
+    const KEY = "stall:lang";
+    function storedLang() {
+      try {
+        const v = localStorage.getItem(KEY);
+        if (v === "ja" || v === "en") return v;
+      } catch (e) {}
+      return (navigator.language || "ja").toLowerCase().startsWith("ja") ? "ja" : "en";
+    }
+    let lang = storedLang();
+    const $ = (id) => document.getElementById(id);
+    function apply() {
+      const t = I18N[lang];
+      document.documentElement.lang = lang;
+      document.title = t.site;
+      $("site").textContent = t.site;
+      $("tag").textContent = t.tag;
+      $("foot").textContent = t.foot;
+      $("search").placeholder = t.search;
+      $("search").setAttribute("aria-label", t.search);
+      $("lang").textContent = t.lang;
+      $("lang").setAttribute("aria-label", t.langLabel);
+      $("no-hit").textContent = t.empty;
+      const h2 = document.querySelector("h2");
+      h2.childNodes[0].nodeValue = t.list + " ";
+      document.querySelectorAll(".games [data-ja]").forEach((el) => {
+        el.textContent = el.dataset[lang];
+      });
+      $("game-count").textContent = t.count(document.querySelectorAll(".games li").length);
+    }
+    $("lang").addEventListener("click", () => {
+      lang = lang === "ja" ? "en" : "ja";
+      try { localStorage.setItem(KEY, lang); } catch (e) {}
+      apply();
+    });
+    $("game-count").textContent = document.querySelectorAll(".games li").length;
+    const search = $("search");
+    const games = document.querySelectorAll(".games li");
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      let hit = 0;
+      games.forEach((li) => {
+        const show = (li.textContent + " " + li.innerHTML).toLowerCase().includes(q);
+        li.hidden = !show;
+        if (show) hit++;
+      });
+      $("no-hit").hidden = hit > 0;
+    });
+    apply();
+  </script>
+</body>
+</html>
