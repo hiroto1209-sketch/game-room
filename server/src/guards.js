@@ -77,8 +77,8 @@ export function decodeMessage(raw){
 export function permittedOrigin(value){
   return value==="https://hiroto1209-sketch.github.io" || value==="http://localhost:5173" || value==="http://127.0.0.1:5173";
 }
-export function withinMovementSpeed(prev,next,elapsedMs,turbo=false,residents=null){
-  if(!validWorldStep(prev,next,residents))return false;
+export function withinMovementSpeed(prev,next,elapsedMs,turbo=false,residents=null,wings=false){
+  if(!validWorldStep(prev,next,residents,wings?4.1:2.2))return false;
   if(residents&&residentStepBlocked(prev,next,.28,residents.now,residents.motion))return false;
   if(stageShotObstructed(prev,next))return false;
   const dx=next.x-prev.x,dy=next.y-prev.y,dz=next.z-prev.z;
@@ -87,7 +87,7 @@ export function withinMovementSpeed(prev,next,elapsedMs,turbo=false,residents=nu
   const maxHorizontal=turbo?
     Math.max(.45,Math.min(15,elapsedMs*.054))+.3:
     Math.max(.45,Math.min(2.5,elapsedMs*.009))+.3;
-  if(horizontal>maxHorizontal||Math.abs(dy)>2.5)return false;
+  if(horizontal>maxHorizontal||Math.abs(dy)>(wings?4.2:2.5))return false;
   // Fast movement may cross an obstacle between two network snapshots.
   // Inspect the entire horizontal path, not only its endpoint.
   if(turbo||inFpsStage(prev.x,prev.z,2)||inFpsStage(next.x,next.z,2)){

@@ -10,6 +10,7 @@ export interface PlayerSnapshot {
   pitch: number;
   sequence: number;
   avatar?:AvatarStyle;
+  wings?:boolean;
 }
 export interface Collider { x0:number;x1:number;z0:number;z1:number }
 export function safeDisplayName(name:unknown):string{

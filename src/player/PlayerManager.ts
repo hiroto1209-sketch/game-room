@@ -9,13 +9,14 @@ const HAT_COLORS={cap:0x304b71,crown:0xffd36c,halo:0x96fff5};
 type Rig={
   snapshot:PlayerSnapshot;group:THREE.Group;name:THREE.Sprite;
   torso:THREE.Group;leftArm:THREE.Group;rightArm:THREE.Group;
-  bodyMaterial:THREE.MeshStandardMaterial;hat:THREE.Group;
+  bodyMaterial:THREE.MeshStandardMaterial;hat:THREE.Group;wings:THREE.Group;
   avatar:AvatarStyle;emote:EmoteKind|null;emoteUntil:number;emoteStart:number;
-  hp:number;bar:THREE.Group;fill:THREE.Mesh;
+  hp:number;bar:THREE.Group;fill:THREE.Mesh;local:boolean;
 };
 /** Remote avatars are visual only, and never change world collision or combat hitboxes. */
 export class PlayerManager{
   private readonly remote=new Map<string,Rig>();
+  private localBody:Rig|null=null;
   private readonly moveTarget=new THREE.Vector3();
   private static readonly maxRemotes=24;
   readonly localId:string;
@@ -38,12 +39,14 @@ export class PlayerManager{
       avatar:sanitizedAvatar(snapshot.avatar),position:{...snapshot.position}};
     if(existing){
       existing.snapshot=safe;
+      existing.wings.visible=safe.wings===true;
       if(existing.avatar.color!==safe.avatar.color||existing.avatar.hat!==safe.avatar.hat)
         this.setAvatar(snapshot.id,safe.avatar);
       return true;
     }
     const rig=this.makeAvatar(snapshot.id,safe.displayName,safe.avatar);
     rig.snapshot=safe;
+    rig.wings.visible=safe.wings===true;
     rig.group.position.set(snapshot.position.x,snapshot.position.y-1.65,snapshot.position.z);
     this.scene.add(rig.group);
     this.remote.set(snapshot.id,rig);
@@ -52,10 +55,8 @@ export class PlayerManager{
   setAvatar(id:string,raw:AvatarStyle):void{
     const rig=this.remote.get(id);if(!rig)return;
     const avatar=sanitizedAvatar(raw);
-    rig.avatar=avatar;
     rig.snapshot={...rig.snapshot,avatar};
-    rig.bodyMaterial.color.setHex(PALETTE[avatar.color]);
-    this.rebuildHat(rig.hat,avatar.hat);
+    this.applyStyle(rig,avatar);
   }
   playEmote(id:string,kind:EmoteKind,durationMs=2600):void{
     const rig=this.remote.get(id);if(!rig)return;
@@ -75,6 +76,24 @@ export class PlayerManager{
     this.remote.delete(id);
   }
   clear():void{for(const id of [...this.remote.keys()])this.removeRemote(id)}
+  /** First-person body used only by the lounge mirror camera. */
+  syncLocal(position:{x:number;y:number;z:number},yaw:number,avatar:AvatarStyle,wings:boolean):void{
+    const style=sanitizedAvatar(avatar);
+    if(!this.localBody){
+      this.localBody=this.makeAvatar("local-body","",style,true);
+      this.localBody.name.visible=false;
+      this.localBody.bar.visible=false;
+      this.scene.add(this.localBody.group);
+      this.paintLayers(this.localBody,1);
+      this.localBody.group.traverse(obj=>{obj.frustumCulled=false;});
+    }else if(this.localBody.avatar.color!==style.color||this.localBody.avatar.hat!==style.hat){
+      this.applyStyle(this.localBody,style);
+      this.paintLayers(this.localBody,1);
+    }
+    this.localBody.group.position.set(position.x,position.y-1.65,position.z);
+    this.localBody.group.rotation.y=yaw;
+    this.localBody.wings.visible=wings;
+  }
   update(dt:number,camera:THREE.Camera):void{
     const alpha=1-Math.exp(-Math.min(.1,dt)*12);
     const now=performance.now();
@@ -110,7 +129,7 @@ export class PlayerManager{
       }
     }
   }
-  private makeAvatar(id:string,displayName:string,avatar:AvatarStyle):Rig{
+  private makeAvatar(id:string,displayName:string,avatar:AvatarStyle,local=false):Rig{
     const group=new THREE.Group();group.name="GUEST_AVATAR_"+id;
     const torso=new THREE.Group();group.add(torso);
     const outfit=new THREE.MeshStandardMaterial({color:PALETTE[avatar.color],roughness:.82});
@@ -136,13 +155,39 @@ export class PlayerManager{
     add(rightArm,new THREE.SphereGeometry(.10,7,5),skin,.045,-.49,0);
     const hat=new THREE.Group();hat.position.set(0,1.92,0);torso.add(hat);
     this.rebuildHat(hat,avatar.hat);
+    const wings=this.makeWings();torso.add(wings);
     const name=this.makeName(displayName);group.add(name);
     const bar=new THREE.Group();bar.position.y=2.05;bar.visible=false;
     const back=new THREE.Mesh(new THREE.PlaneGeometry(.78,.09),new THREE.MeshBasicMaterial({color:0x1c2433}));
     const fill=new THREE.Mesh(new THREE.PlaneGeometry(.72,.05),new THREE.MeshBasicMaterial({color:0x8cf0c2}));
     fill.position.z=.01;bar.add(back,fill);group.add(bar);
     return {snapshot:null as unknown as PlayerSnapshot,group,name,torso,leftArm,rightArm,
-      bodyMaterial:outfit,hat,avatar,emote:null,emoteUntil:0,emoteStart:0,hp:100,bar,fill};
+      bodyMaterial:outfit,hat,wings,avatar,emote:null,emoteUntil:0,emoteStart:0,hp:100,bar,fill,local};
+  }
+  private makeWings():THREE.Group{
+    const group=new THREE.Group();group.name="AVATAR_WINGS";group.visible=false;
+    const shape=new THREE.Shape();
+    shape.moveTo(.02,.05);
+    shape.bezierCurveTo(.35,.42,.95,.62,1.15,.28);
+    shape.bezierCurveTo(1.28,.05,.85,-.12,.35,-.28);
+    shape.bezierCurveTo(.12,-.18,.02,-.05,.02,.05);
+    const geo=new THREE.ShapeGeometry(shape);
+    const material=new THREE.MeshStandardMaterial({color:0xf4f7ff,roughness:.45,metalness:.08,
+      side:THREE.DoubleSide,emissive:0x6e8cff,emissiveIntensity:.25});
+    const right=new THREE.Mesh(geo,material);
+    right.position.set(.18,1.15,-.08);right.rotation.y=-.35;
+    const left=new THREE.Mesh(geo,material);
+    left.position.set(-.18,1.15,-.08);left.rotation.y=.35;left.scale.x=-1;
+    group.add(right,left);
+    return group;
+  }
+  private paintLayers(rig:Rig,layer:number):void{
+    rig.group.traverse(obj=>obj.layers.set(layer));
+  }
+  private applyStyle(rig:Rig,avatar:AvatarStyle):void{
+    rig.avatar=avatar;
+    rig.bodyMaterial.color.setHex(PALETTE[avatar.color]);
+    this.rebuildHat(rig.hat,avatar.hat);
   }
   private rebuildHat(hat:THREE.Group,kind:AvatarHat):void{
     for(const obj of [...hat.children]){

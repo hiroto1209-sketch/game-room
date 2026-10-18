@@ -1,8 +1,8 @@
 import {residentHeightAt,EMPTY_MOTION,validResidentMotion,canTalkToResident,holdResident,currentResidentPose,POKO_ANCHOR} from "../../shared/residentRules.js";
 import { DurableObject } from "cloudflare:workers";
 import {freshMatch,validMatch,applyMove,BLACK,WHITE} from "../../shared/othello.js";
-import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE, aimWithinRate } from "../../shared/combatRules.js";
-import { applyFoeDamage, findFoeHit, fireTargetKind, freshCoop, publicCoop, reviveFoes, validCoopState } from "../../shared/coopRules.js";
+import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_SHIELD_MS, WEAPON_CODE, WING_CODE, aimWithinRate } from "../../shared/combatRules.js";
+import { applyFoeDamage, findFoeHit, freshFoes, publicFoes, reviveFoes, validFoeList } from "../../shared/foeRules.js";
 import {SPAWN,shotObstructed,walkableHeightAt} from "../../shared/worldRules.js";
 import {FPS_STAGE,inFpsStage} from "../../shared/playcanvasRules.js";
 import "../../shared/playcanvasCollisionData.js";
@@ -19,7 +19,7 @@ const attachment=socket=>{
   try{return socket.deserializeAttachment()||null}catch{return null}
 };
 const isJoined=state=>Boolean(state?.player?.id);
-const publicPlayer=state=>state.player;
+const present=state=>state?.player?(state.wings===true?{...state.player,wings:true}:{...state.player}):null;
 
 export default {
   async fetch(request,env){
@@ -46,10 +46,10 @@ export default {
  */
 export class RoomHub extends DurableObject {
   constructor(ctx,env){
-    super(ctx,env);this.residentMotion={...EMPTY_MOTION};this.coop=freshCoop();
+    super(ctx,env);this.residentMotion={...EMPTY_MOTION};this.foes=freshFoes();
     ctx.blockConcurrencyWhile(async()=>{
       const saved=await ctx.storage.get('residents_v1');if(validResidentMotion(saved))this.residentMotion=saved;
-      const coop=await ctx.storage.get('coop_v1');if(validCoopState(coop))this.coop=coop;
+      const foes=await ctx.storage.get('foes_v1');if(validFoeList(foes))this.foes=foes;
     });
   }
   members(){
@@ -59,20 +59,10 @@ export class RoomHub extends DurableObject {
     const states=this.members().map(s=>attachment(s)).map(p=>({playerId:p.player.id,hp:p.hp,respawnAt:p.respawnAt}));
     for(const sock of this.members())send(sock,{type:"health_snapshot",players:states});
   }
-  broadcastCoop(){
-    const payload={type:"coop_state",...publicCoop(this.coop)};
+  broadcastFoes(){
+    this.foes=reviveFoes(this.foes,Date.now());
+    const payload={type:"foe_state",foes:publicFoes(this.foes)};
     for(const sock of this.members())send(sock,payload);
-  }
-  async reviveCoop(now){
-    if(fireTargetKind(this.coop.enabled)!=="foes")return;
-    if(!this.coop.foes.some(f=>f.hp<=0&&f.downUntil>0&&now>=f.downUntil))return;
-    await this.ctx.blockConcurrencyWhile(async()=>{
-      const foes=reviveFoes(this.coop.foes,Date.now());
-      if(foes.every((f,i)=>f.hp===this.coop.foes[i].hp&&f.downUntil===this.coop.foes[i].downUntil))return;
-      this.coop={...this.coop,foes};
-      await this.ctx.storage.put("coop_v1",this.coop);
-      this.broadcastCoop();
-    });
   }
   async fetch(request){
     const roomId=new URL(request.url).pathname.split("/").pop();
@@ -81,7 +71,7 @@ export class RoomHub extends DurableObject {
     const pair=new WebSocketPair();
     const [client,server]=Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0,weaponUnlocked:true,peaceful:false,speedBoost:false,lastUnlockAt:0,lastCorrectionAt:0,lastAvatarAt:0,lastEmoteAt:0,emoteKind:null,emoteUntil:0});
+    server.serializeAttachment({roomId,player:null,lastMoveAt:0,lastPacketAt:0,lastImageAt:0,lastLightAt:0,lastSignAt:0,lastShotAt:0,hp:MAX_HP,respawnAt:0,invulnerableUntil:0,lastFireSeq:0,weaponUnlocked:true,peaceful:false,speedBoost:false,wings:false,lastUnlockAt:0,lastCorrectionAt:0,lastAvatarAt:0,lastEmoteAt:0,emoteKind:null,emoteUntil:0});
     return new Response(null,{status:101,webSocket:client});
   }
   async webSocketMessage(ws,raw){
@@ -101,13 +91,13 @@ export class RoomHub extends DurableObject {
       const player={id,displayName:safeName(m.displayName),position:spawn,yaw:0,pitch:0,sequence:0,
         avatar:{...DEFAULT_AVATAR}};
       ws.serializeAttachment({...session,player,lastMoveAt:Date.now(),lastPacketAt:0,hp:MAX_HP,
-        respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:true,peaceful:false,speedBoost:false,
+        respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:true,peaceful:false,speedBoost:false,wings:false,
         lastShotAt:0,lastFireSeq:0});
       send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn,serverTime:Date.now()});
       send(ws,{type:"npc_state",serverTime:Date.now(),motion:this.residentMotion});
       send(ws,{type:"weapon_state",unlocked:true,peaceful:false,boosted:false});
-      send(ws,{type:"coop_state",...publicCoop(this.coop)});
-      send(ws,{type:"snapshot",players:existing.map(s=>publicPlayer(attachment(s))).filter(Boolean)});
+      send(ws,{type:"foe_state",foes:publicFoes(reviveFoes(this.foes,Date.now()))});
+      send(ws,{type:"snapshot",players:existing.map(s=>present(attachment(s))).filter(Boolean)});
       // Late joiners also see still-playing emotes (no database persistence).
       for(const other of existing){
         const meta=attachment(other);
@@ -127,7 +117,6 @@ export class RoomHub extends DurableObject {
       return;
     }
     if(!isJoined(session)){ws.close(1008,"Join first");return;}
-    if(this.coop.enabled)await this.reviveCoop(Date.now());
     if(m.type==="room_update"){
       const now=Date.now();
       const image=m.key==="monitorImage";
@@ -220,38 +209,26 @@ export class RoomHub extends DurableObject {
     }
     if(m.type==="unlock_weapon"){
       if(now-(session.lastUnlockAt??0)<1500){
-        send(ws,{type:"error",reason:"コマンドの入力間隔を空けてください"});return;
+        send(ws,{type:"error",reason:"少し待ってからもう一度"});return;
       }
-      if(m.code!==WEAPON_CODE){
+      const turbo=m.code===WEAPON_CODE,wings=m.code===WING_CODE;
+      if(!turbo&&!wings){
         ws.serializeAttachment({...session,lastUnlockAt:now});
-        send(ws,{type:"error",reason:"隠しコマンドが違います"});return;
+        send(ws,{type:"error",reason:"そのコードでは解放できません"});return;
       }
-      ws.serializeAttachment({...session,lastUnlockAt:now,speedBoost:true});
-      send(ws,{type:"weapon_state",unlocked:true,peaceful:session.peaceful,boosted:true});
-      return;
-    }
-    if(m.type==="peace_mode"){
-      ws.serializeAttachment({...session,peaceful:m.enabled});
-      send(ws,{type:"weapon_state",unlocked:true,peaceful:m.enabled,boosted:session.speedBoost===true});
-      return;
-    }
-    if(m.type==="coop_mode"){
-      const stamp=Date.now();
-      if(stamp-(session.lastCoopAt??0)<700){
-        send(ws,{type:"error",reason:"協力モードの切り替えは少し待ってください"});
-        send(ws,{type:"coop_state",...publicCoop(this.coop)});
-        return;
+      const next={...session,lastUnlockAt:now,
+        speedBoost:turbo?true:session.speedBoost===true,
+        wings:wings?true:session.wings===true};
+      ws.serializeAttachment(next);
+      send(ws,{type:"weapon_state",unlocked:true,peaceful:false,boosted:next.speedBoost===true,
+        ...(next.wings?{wings:true}:{})});
+      if(wings){
+        const shown=present(next);
+        for(const peer of this.members())if(peer!==ws&&shown)send(peer,{type:"joined",player:shown});
       }
-      await this.ctx.blockConcurrencyWhile(async()=>{
-        const next=m.enabled?{enabled:true,cleared:false,foes:freshCoop().foes}:{...this.coop,enabled:false};
-        this.coop=next;
-        await this.ctx.storage.put("coop_v1",this.coop);
-        const live=attachment(ws);
-        if(live)ws.serializeAttachment({...live,lastCoopAt:stamp});
-        this.broadcastCoop();
-      });
       return;
     }
+    if(m.type==="peace_mode"||m.type==="coop_mode")return;
     if(m.type==="avatar_update"){
       if(now-(session.lastAvatarAt??0)<800){
         send(ws,{type:"error",reason:"アバター変更は少し待ってください"});return;
@@ -281,7 +258,10 @@ export class RoomHub extends DurableObject {
       ws.serializeAttachment({...session,player:revived,hp:MAX_HP,respawnAt:0,
         invulnerableUntil:now+SPAWN_SHIELD_MS,lastMoveAt:now,lastPacketAt:now});
       send(ws,{type:"respawn",position:revived.position,health:MAX_HP});
-      for(const peer of this.members())if(peer!==ws)send(peer,{type:"joined",player:revived});
+      for(const peer of this.members())if(peer!==ws){
+        const shown=present(attachment(ws));
+        if(shown)send(peer,{type:"joined",player:shown});
+      }
       this.sendHealth();
       return;
     }
@@ -289,9 +269,6 @@ export class RoomHub extends DurableObject {
       if(m.sequence<=session.lastFireSeq)return;
       if(now-(session.lastShotAt??0)<SHOT_COOLDOWN_MS)return;
       if(session.hp<=0)return;
-      if(session.peaceful){
-        send(ws,{type:"error",reason:"ピースモードを解除してください"});return;
-      }
       const elapsed=Math.max(0,now-(session.lastMoveAt||now));
       if(!aimWithinRate(session.player,{yaw:m.yaw,pitch:m.pitch},elapsed)){
         send(ws,{type:"error",reason:"照準の向きが同期されていません"});return;
@@ -302,38 +279,41 @@ export class RoomHub extends DurableObject {
       // This broadcast is cosmetic; client-supplied damage and target IDs are ignored.
       for(const peer of this.members())send(peer,{type:"fire_event",shooterId:session.player.id,
         position:session.player.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence});
-      if(fireTargetKind(this.coop.enabled)==="foes"){
-        await this.ctx.blockConcurrencyWhile(async()=>{
-          const stamp=Date.now();
-          const revived=reviveFoes(this.coop.foes,stamp);
-          const hit=findFoeHit(session.player.position,m.yaw,m.pitch,revived,shotObstructed);
-          let next={...this.coop,foes:revived};
-          let damage=0,targetId;
-          if(hit){
-            const applied=applyFoeDamage(next,hit.id,stamp);
-            next=applied.state;damage=applied.damage;targetId=hit.id;
-          }
-          const justCleared=next.cleared&&!this.coop.cleared;
-          this.coop=next;
-          await this.ctx.storage.put("coop_v1",this.coop);
-          this.broadcastCoop();
-          if(justCleared)for(const peer of this.members())send(peer,{type:"mission_clear"});
-          send(ws,{type:"fire_result",sequence:m.sequence,hit:damage>0,damage,...(targetId?{targetId}:{})});
-        });
-        return;
-      }
-      const others=this.members().filter(peer=>peer!==ws);
-      const candidates=others.map(sock=>({sock,data:attachment(sock)}))
-        .filter(({data})=>data.hp>0&&!data.peaceful&&now>=data.invulnerableUntil)
-        .map(({sock,data})=>({sock,id:data.player.id,hp:data.hp,position:data.player.position}));
-      const victim=findHitscanTarget({id:session.player.id,hp:session.hp,position:session.player.position},candidates,m.yaw,m.pitch,shotObstructed);
-      if(victim){
-        const peer=victim.sock, target=attachment(peer),hp=Math.max(0,target.hp-DAMAGE);
-        const respawnAt=hp===0?now+RESPAWN_MS:0;
-        peer.serializeAttachment({...target,hp,respawnAt});
-        for(const member of this.members())send(member,{type:"health_state",playerId:victim.id,hp,respawnAt});
-        send(ws,{type:"fire_result",sequence:m.sequence,hit:true,targetId:victim.id,damage:DAMAGE});
-      }else send(ws,{type:"fire_result",sequence:m.sequence,hit:false,damage:0});
+      const shooter={id:session.player.id,hp:session.hp,position:session.player.position};
+      const yaw=m.yaw,pitch=m.pitch,sequence=m.sequence;
+      await this.ctx.blockConcurrencyWhile(async()=>{
+        const stamp=Date.now();
+        const revived=reviveFoes(this.foes,stamp);
+        const foe=findFoeHit(shooter.position,yaw,pitch,revived,shotObstructed);
+        const candidates=this.members().filter(peer=>peer!==ws).map(sock=>({sock,data:attachment(sock)}))
+          .filter(({data})=>data?.player&&data.hp>0&&stamp>=data.invulnerableUntil)
+          .map(({sock,data})=>({sock,id:data.player.id,hp:data.hp,position:data.player.position}));
+        const victim=findHitscanTarget(shooter,candidates,yaw,pitch,shotObstructed);
+        const foeDist=foe?.distance??Infinity;
+        const playerDist=victim?.distance??Infinity;
+        if(foe&&foeDist<=playerDist){
+          const applied=applyFoeDamage(revived,foe.id,stamp);
+          this.foes=applied.foes;
+          await this.ctx.storage.put("foes_v1",this.foes);
+          this.broadcastFoes();
+          send(ws,{type:"fire_result",sequence,hit:applied.damage>0,damage:applied.damage,
+            ...(applied.damage>0?{targetId:foe.id}:{})});
+          return;
+        }
+        const changed=revived.some((f,i)=>f.hp!==this.foes[i]?.hp||f.downUntil!==this.foes[i]?.downUntil);
+        if(changed){
+          this.foes=revived;
+          await this.ctx.storage.put("foes_v1",this.foes);
+          this.broadcastFoes();
+        }
+        if(victim?.sock){
+          const peer=victim.sock,target=attachment(peer),hp=Math.max(0,target.hp-DAMAGE);
+          const respawnAt=hp===0?stamp+RESPAWN_MS:0;
+          peer.serializeAttachment({...target,hp,respawnAt});
+          for(const member of this.members())send(member,{type:"health_state",playerId:victim.id,hp,respawnAt});
+          send(ws,{type:"fire_result",sequence,hit:true,targetId:victim.id,damage:DAMAGE});
+        }else send(ws,{type:"fire_result",sequence,hit:false,damage:0});
+      });
       return;
     }
     if(m.type!=="move")return;
@@ -346,7 +326,8 @@ export class RoomHub extends DurableObject {
       if(moved>.45||now-(session.lastAimAt??0)<20)return;
       const looked={...session.player,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
       ws.serializeAttachment({...session,player:looked,lastAimAt:now});
-      for(const peer of this.members())if(peer!==ws)send(peer,{type:"joined",player:looked});
+      const shownLook=present(attachment(ws));
+      for(const peer of this.members())if(peer!==ws&&shownLook)send(peer,{type:"joined",player:shownLook});
       return;
     }
     const elapsed=Math.max(0,Math.min(2000,now-session.lastMoveAt));
@@ -356,7 +337,7 @@ export class RoomHub extends DurableObject {
     const onGround=Math.abs(foot-oldFloor)<.15;
     const jumpBase=onGround?oldFloor:(now<(session.jumpBaseUntil??0)?session.jumpBase??0:0);
     const jumpBaseUntil=onGround?now+2000:session.jumpBaseUntil??0;
-    if(!withinMovementSpeed(session.player.position,m.position,elapsed,session.speedBoost===true,{now,motion:this.residentMotion,jumpBase})){
+    if(!withinMovementSpeed(session.player.position,m.position,elapsed,session.speedBoost===true,{now,motion:this.residentMotion,jumpBase},session.wings===true)){
       // Do not merely report "Invalid movement" forever. Send the last
       // server-approved position and let the client gracefully reconcile.
       if(now-(session.lastCorrectionAt??0)>=700){
@@ -368,7 +349,8 @@ export class RoomHub extends DurableObject {
     }
     const player={...session.player,position:m.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
     ws.serializeAttachment({...session,player,lastMoveAt:now,lastPacketAt:now,jumpBase,jumpBaseUntil});
-    for(const peer of this.members())if(peer!==ws)send(peer,{type:"joined",player});
+    const shown=present(attachment(ws));
+    for(const peer of this.members())if(peer!==ws&&shown)send(peer,{type:"joined",player:shown});
   }
   async alarm(){
     // Remove room-uploaded photo after its retention window; keep short sign

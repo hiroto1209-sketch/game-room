@@ -1,7 +1,7 @@
-/** PvP is opt-in, while local solo skill practice never exposes peers to damage. */
-export function canBlasterFire(unlocked:boolean,peaceful:boolean,training:boolean):boolean{
-  return unlocked&&(training||!peaceful);
+/** The blaster is standard kit. Shots are sent whenever the room is online. */
+export function canBlasterFire(unlocked:boolean):boolean{
+  return unlocked;
 }
-export function shouldSendPvpShot(online:boolean,peaceful:boolean,training:boolean):boolean{
-  return online&&!peaceful&&!training;
+export function shouldSendPvpShot(online:boolean):boolean{
+  return online;
 }

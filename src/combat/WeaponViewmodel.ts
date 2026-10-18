@@ -79,6 +79,10 @@ export class WeaponViewmodel {
     this.group.position.set(.22,-.36,-.72);
     this.group.scale.setScalar(.9);
     this.group.visible=false;
+    // Layer 2 is the first-person weapon. The lounge mirror camera never enables it.
+    camera.layers.enable(2);
+    this.group.traverse(obj=>obj.layers.set(2));
+    this.sight.traverse(obj=>obj.layers.set(2));
   }
 
   setVisible(show:boolean):void{

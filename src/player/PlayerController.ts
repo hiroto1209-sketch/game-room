@@ -8,6 +8,8 @@ export class PlayerController {
   readonly radius=.36;
   private velocity={x:0,y:0,z:0};
   grounded=true;
+  allowDoubleJump=false;
+  private airJumps=0;
   private phase=0;
   private readonly colliders:readonly Collider[];
   private readonly extraBlocked:(x:number,z:number,radius:number,eye?:number)=>boolean;
@@ -25,17 +27,18 @@ export class PlayerController {
   reset():void{
     this.position.x=0;this.position.y=this.height+this.groundAt(0,15);this.position.z=15;
     this.velocity.x=this.velocity.y=this.velocity.z=0;this.grounded=true;
-    this.phase=0;
+    this.airJumps=0;this.phase=0;
   }
   teleport(x:number,y:number,z:number):void{
     if(![x,y,z].every(Number.isFinite))return;
     this.position.x=x;this.position.y=y;this.position.z=z;
     this.velocity.x=this.velocity.y=this.velocity.z=0;
-    this.grounded=true;
+    this.grounded=true;this.airJumps=0;
   }
   stop():void{this.velocity.x=this.velocity.z=0}
   jump():void{
-    if(this.grounded){this.velocity.y=6.5;this.grounded=false;}
+    if(this.grounded){this.velocity.y=6.5;this.grounded=false;this.airJumps=this.allowDoubleJump?1:0;}
+    else if(this.allowDoubleJump&&this.airJumps>0){this.velocity.y=6.5;this.airJumps--;}
   }
   private collides(x:number,z:number):boolean{
     if(this.extraBlocked(x,z,this.radius,this.position.y))return true;
@@ -78,7 +81,7 @@ export class PlayerController {
         {...this.position,y:this.position.y+.12},{...this.position,y:nextY+.12}))this.velocity.y=0;
       else this.position.y=nextY;
       if(this.position.y<=floor){
-        this.position.y=floor;this.velocity.y=0;this.grounded=true;
+        this.position.y=floor;this.velocity.y=0;this.grounded=true;this.airJumps=0;
       }
     }else{
       // Foundation for future walkable slopes and terrace levels.

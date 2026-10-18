@@ -76,8 +76,7 @@ test("ADS view remains unobstructed on portrait, landscape and desktop",async()=
       // simulates the worst case when zone+range+Othello+HP+compass all appear
       // at once, so a new future HUD cannot accidentally stack over them.
       const layout=await page.evaluate(()=>{
-        const ids=["combat-hud","world-guide","zone-indicator",
-          "starshot-hud","othello-panel"];
+        const ids=["combat-hud","world-guide","zone-indicator","othello-panel"];
         const original=ids.map(id=>{
           const el=document.getElementById(id);
           return {el,hidden:el.classList.contains("hidden"),shown:el.classList.contains("show")};

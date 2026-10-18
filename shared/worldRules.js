@@ -1,7 +1,6 @@
 import {residentHeightAt} from "./residentRules.js";
 import {inArena} from "./combatRules.js";
-import {inCoopPlaza} from "./coopRules.js";
-// Plaza sits where x<24 is already flat, so it does not reshape the hills.
+// Retired north-yard footprint. The skip stays so the vegetation seed is unchanged.
 import {FPS_STAGE,inFpsStage,stageCorridor,stageGround,stageBlocked,stageShotObstructed} from "./playcanvasRules.js";
 /**
  * Deterministic geometry/navigation rules shared by Vite and Cloudflare Worker.
@@ -100,18 +99,18 @@ function fullChunkData(cx,cz,seed=WORLD_SEED){
   // Instanced geometry only; plants never receive unique Mesh objects.
   for(let i=0;i<72;i++){
     const x=centerX+(rand()-.5)*15,z=centerZ+(rand()-.5)*15;
-    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z})||inCoopPlaza(x,z)||nearExplorationFeature(x,z,.4)||terrainSlopeAt(x,z)>.48)continue;
+    if((x<34&&Math.abs(z+5)<11)||insidePond(x,z,2.0)||inArena({x,z})||retiredPlaza(x,z)||nearExplorationFeature(x,z,.4)||terrainSlopeAt(x,z)>.48)continue;
     grass.push({x,z,size:.25+rand()*.48,twist:rand()*6.28});
   }
   for(let i=0;i<8;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
     const path=Math.abs(z+5)<(x<45?7:4.5);
-    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z})||inCoopPlaza(x,z)||nearExplorationFeature(x,z,2.2)||terrainSlopeAt(x,z)>.40)continue;
+    if(x<29||path||insidePond(x,z,4.0)||inArena({x,z})||retiredPlaza(x,z)||nearExplorationFeature(x,z,2.2)||terrainSlopeAt(x,z)>.40)continue;
     trees.push({x,z,height:2.7+rand()*2.3,color:Math.floor(rand()*3)});
   }
   for(let i=0;i<4;i++){
     const x=centerX+(rand()-.5)*13,z=centerZ+(rand()-.5)*13;
-    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z})||inCoopPlaza(x,z)||nearExplorationFeature(x,z,.9))continue;
+    if(x<29||Math.abs(z+5)<5.5||insidePond(x,z,2.6)||inArena({x,z})||retiredPlaza(x,z)||nearExplorationFeature(x,z,.9))continue;
     rocks.push({x,z,size:.38+rand()*.75});
   }
   return {cx,cz,centerX,centerZ,grass,trees,rocks,blocks};
@@ -132,6 +131,7 @@ export function chunkData(cx,cz,seed=WORLD_SEED){
   }
   return forestChunks[cx*OUTDOOR.rows+cz];
 }
+function retiredPlaza(x,z){return x>=14&&x<=23&&z>=34&&z<=46}
 export function insidePond(x,z,margin=0){
   const dx=(x-POND.x)/(POND.rx+margin),dz=(z-POND.z)/(POND.rz+margin);
   return dx*dx+dz*dz<1;
@@ -193,10 +193,26 @@ export function outsideBounds(x,z,radius=0){
   return x<OUTDOOR.minX+radius||x>OUTDOOR.maxX-radius||
     z<OUTDOOR.minZ+radius||z>OUTDOOR.maxZ-radius;
 }
+const LOUNGE_TABLES=[
+  {x:-6.1,z:-2,radius:.9,top:.97},
+  {x:6.1,z:-2.2,radius:.9,top:.97}
+];
+function loungeTableBlocked(x,z,radius,eye){
+  const foot=eye-1.65;
+  return LOUNGE_TABLES.some(table=>{
+    const dx=x-table.x,dz=z-table.z,reach=table.radius+radius;
+    return dx*dx+dz*dz<=reach*reach&&foot<table.top-.2;
+  });
+}
 // A rock supports a player who has cleared its top; terrain remains the one
 // continuous world floor. The ceiling prevents snapping onto rocks from below.
 export function walkableHeightAt(x,z,ceiling=.35){
   let height=groundHeightAt(x,z,ceiling);
+  for(const table of LOUNGE_TABLES){
+    const dx=x-table.x,dz=z-table.z;
+    if(dx*dx+dz*dz<=table.radius*table.radius&&table.top<=ceiling+.01)
+      height=Math.max(height,table.top);
+  }
   for(const c of colliders){
     if(c.walkable&&x>=c.x0&&x<=c.x1&&z>=c.z0&&z<=c.z1&&c.y1<=ceiling+.01)
       height=Math.max(height,c.y1);
@@ -206,6 +222,7 @@ export function walkableHeightAt(x,z,ceiling=.35){
 export function worldBlocked(x,z,radius=.36,eye=groundHeightAt(x,z)+1.65){
   if(inFpsStage(x,z,radius)&&stageBlocked(x,z,radius,eye))return true;
   if(outsideBounds(x,z,radius))return true;
+  if(loungeTableBlocked(x,z,radius,eye))return true;
   if(insideHouse(x,z))return false; // furniture/walls use actual local colliders
   for(const c of colliders){
     if(eye-1.65>=c.y1-.01||eye+.12<=c.y0)continue;
@@ -215,16 +232,16 @@ export function worldBlocked(x,z,radius=.36,eye=groundHeightAt(x,z)+1.65){
   }
   return false;
 }
-export function validWorldStep(from,to,residents=null){
+export function validWorldStep(from,to,residents=null,lift=2.2){
   if(!validWorldPosition(to))return false;
   if(crossesHouseWall(from,to))return false;
   if(worldBlocked(to.x,to.z,.32,to.y))return false;
   let floor=walkableHeightAt(to.x,to.z,to.y-1.65+.12)+1.65;
   if(residents)floor=Math.max(floor,residentHeightAt(to.x,to.z,to.y-1.65+.12,residents.now,residents.motion)+1.65);
   const jumpBase=residents&&Number.isFinite(residents.jumpBase)?residents.jumpBase+1.65:floor;
-  // Allow jumping (to 2.5+) and short frame-to-frame terrain corrections,
+  // Allow jumping and short frame-to-frame terrain corrections,
   // but no underground movement or flying above the legal jump ceiling.
-  if(to.y<floor-.24||to.y>Math.max(floor,jumpBase)+2.2)return false;
+  if(to.y<floor-.24||to.y>Math.max(floor,jumpBase)+lift)return false;
   return true;
 }
 

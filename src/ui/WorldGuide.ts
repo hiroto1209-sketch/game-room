@@ -2,15 +2,12 @@ import type {Vector3} from "../types/Player";
 export type GuideStop={id:string;label:string;x:number;z:number;symbol:string};
 export const STOPS:readonly GuideStop[]=[
   {id:'fps',label:'FPS ORIGINAL MAP',x:121.2,z:-5,symbol:'➜'},
-  {id:"range",label:"STARSHOT RANGE",x:33,z:10,symbol:"✦"},
   {id:"pond",label:"STARLIT POND",x:57,z:-27,symbol:"◈"},
   {id:"grotto",label:"ECHO GROTTO",x:65,z:32,symbol:"◇"},
   {id:"skylook",label:"SKYLOOK VISTA",x:90,z:37,symbol:"△"},
   {id:"tower",label:"HORIZON SPIRE",x:93,z:23,symbol:"◆"},
   {id:"arena",label:"NEON ARENA",x:86,z:-40,symbol:"◉"},
-  {id:"plaza",label:"CO-OP PLAZA",x:21,z:40,symbol:"✚"},
-  {id:"home",label:"PARTY HOUSE",x:0,z:0,symbol:"⌂"},
-  {id:"armory",label:"WEAPON ATM",x:3,z:23,symbol:"✧"}
+  {id:"home",label:"PARTY HOUSE",x:0,z:0,symbol:"⌂"}
 ] as const;
 export function routeInfo(position:Pick<Vector3,"x"|"z">,yaw:number,stop:GuideStop){
   const dx=stop.x-position.x,dz=stop.z-position.z;
@@ -32,7 +29,7 @@ export class WorldGuide{
   private readonly overlay:HTMLElement;
   private readonly map:HTMLCanvasElement;
   private readonly selector:HTMLSelectElement;
-  private currentId="range";
+  private currentId="home";
   private last=0;
   private onResume:()=>void=()=>{};
   constructor(){

@@ -176,6 +176,16 @@ test("real player jumps onto a large stone and the server accepts the whole arc"
  }
  assert.ok(crossed,"should actually clear a large rock at normal speed");
 });
+test("lounge tabletops can be stood on and still block a walk through the legs",()=>{
+  assert.equal(worldBlocked(-6.1,-2,.36,1.65),true);
+  assert.equal(walkableHeightAt(-6.1,-2,.4),0);
+  assert.equal(walkableHeightAt(-6.1,-2,1.2),.97);
+  assert.equal(worldBlocked(-6.1,-2,.36,.97+1.65),false);
+  assert.equal(validWorldStep({x:-6.1,y:1.65,z:-4},{x:-6.1,y:.97+1.65,z:-2}),true);
+  assert.equal(validWorldStep({x:-6.1,y:1.65,z:-4},{x:-6.1,y:1.65,z:-2}),false);
+  assert.equal(withinMovementSpeed({x:0,y:1.65,z:15},{x:0,y:5.1,z:15},400,false,null,false),false);
+  assert.equal(withinMovementSpeed({x:0,y:1.65,z:15},{x:0,y:5.1,z:15},400,false,null,true),true);
+});
 test("static batch keeps named meshes and merges identical siblings",()=>{
   const scene=new THREE.Scene();
   const material=new THREE.MeshStandardMaterial({color:0x887766,roughness:.88});
