@@ -53,7 +53,6 @@ test('three clients walk into original map, share avatars/emotes, respect cover 
   sockets[0].send(JSON.stringify({type:'avatar_update',avatar:style}));for(const m of await Promise.all(styles))assert.deepEqual(m.avatar,style);
   const emotes=[message(sockets[1],'emote_event'),message(sockets[2],'emote_event')];
   sockets[0].send(JSON.stringify({type:'emote',kind:'wave'}));for(const m of await Promise.all(emotes))assert.equal(m.kind,'wave');
-  const peace=message(sockets[2],'weapon_state',m=>m.peaceful);sockets[2].send(JSON.stringify({type:'peace_mode',enabled:true}));await peace;
   await wait(120);await move(1,123,-5);await wait(110);
   const path=route([123,-5],[125,2]);
   for(const [x,z] of path.slice(1)){await move(1,x,z);await wait(105);}
@@ -64,9 +63,13 @@ test('three clients walk into original map, share avatars/emotes, respect cover 
   assert.equal((await fire(blockedYaw)).hit,false,'original cover must stop a server-owned ray');
   for(const [x,z] of path.slice(0,-1).reverse()){await move(1,x,z);await wait(105);}
   await move(0,121.2,-5,-Math.PI/2);await wait(110);
+  // Peace mode no longer removes bystanders. Park the third player off the ray
+  // so the nearer body is the intended target, then regroup after the duel.
+  await move(2,123,-8,0);await wait(110);
   for(const hp of [75,50,25,0]){
    await wait(430);const health=message(sockets[1],'health_state',m=>m.playerId===ids[1]&&m.hp===hp);
-   assert.equal((await fire()).hit,true);assert.equal((await health).hp,hp);
+   const shot=await fire();
+   assert.equal(shot.hit,true);assert.equal(shot.targetId,ids[1]);assert.equal((await health).hp,hp);
   }
   await wait(4100);const respawn=message(sockets[1],'respawn');sockets[1].send(JSON.stringify({type:'move',sequence:++seq[1],position:{x:123,y:1.65,z:-5},yaw:0,pitch:0}));
   const revived=await respawn;assert.equal(revived.health,100);assert.deepEqual(revived.position,{x:121.2,y:1.65,z:-5});assert.equal(worldBlocked(revived.position.x,revived.position.z),false);

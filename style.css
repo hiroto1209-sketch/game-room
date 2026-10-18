@@ -225,23 +225,18 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #aim-button.aiming{border-color:#c5ffe0;background:rgba(34,104,90,.68)}
 #shoot-button{touch-action:none;overscroll-behavior:contain;-webkit-user-select:none}
 
-/* PHASE 7 — calm, touch-transparent destination guide and range HUD. */
-#world-guide,#starshot-hud{position:absolute;pointer-events:none!important;left:50%;
+/* PHASE 7 — calm, touch-transparent destination guide. */
+#world-guide{position:absolute;pointer-events:none!important;left:50%;
   transform:translateX(-50%);display:flex;align-items:center;justify-content:center;
   gap:7px;z-index:8;white-space:nowrap;background:rgba(16,23,35,.68);
   backdrop-filter:blur(8px);border:1px solid rgba(139,239,216,.3);
-  color:#edfef9;border-radius:999px;font-size:10px;letter-spacing:.05em}
-#world-guide{top:calc(max(11px,env(safe-area-inset-top)) + 66px);
+  color:#edfef9;border-radius:999px;font-size:10px;letter-spacing:.05em;
+  top:calc(max(11px,env(safe-area-inset-top)) + 66px);
   padding:7px 12px;max-width:64vw;overflow:hidden}
 #guide-label{font-size:9px;font-weight:700;overflow:hidden;text-overflow:ellipsis}
 #guide-arrow{font-size:21px;font-weight:800;line-height:12px;color:#89f6df}
 #guide-distance{color:#fff8db;font-weight:700}
-#starshot-hud{top:calc(max(11px,env(safe-area-inset-top)) + 101px);
-  padding:9px 12px;border-color:#ffd89d96;border-radius:12px;color:#fff}
-#starshot-hud .range-mode{color:#9effdf;font-size:9px}
-#starshot-hud #range-progress{font-size:13px}
-#starshot-hud #range-time{font-size:11px;font-variant-numeric:tabular-nums}
-#world-guide.hidden,#starshot-hud.hidden{display:none!important}
+#world-guide.hidden{display:none!important}
 #world-map-overlay{z-index:43;background:rgba(7,10,23,.82);padding:16px;backdrop-filter:blur(13px)}
 .world-map-card{max-height:87dvh;overflow:auto}
 #world-map-canvas{display:block;width:min(100%,420px);height:auto;margin:9px auto 15px;
@@ -250,7 +245,6 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
   background:#202435;color:#f9fffa;font-size:15px;min-height:45px}
 @media(max-width:420px){
   #world-guide{top:calc(max(10px,env(safe-area-inset-top)) + 56px);padding:6px 8px}
-  #starshot-hud{top:calc(max(11px,env(safe-area-inset-top)) + 89px);padding:6px 8px}
   #guide-label{font-size:8px}
 }
 
@@ -352,19 +346,10 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 }
 #hud-top-stack #zone-indicator.show{display:block;animation:hud-region-in .24s ease-out}
 @keyframes hud-region-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
-#hud-top-stack #starshot-hud{
-  order:3;
-  display:flex;flex-wrap:wrap;
-  justify-content:flex-start;
-  padding:7px 10px;
-  white-space:normal;
-  border-radius:12px;
-}
 #hud-top-stack #combat-hud #hit-readout{
   display:block;margin-top:2px;color:#ffe1b0;font-size:12px;font-weight:800;letter-spacing:.04em;
 }
 #hud-top-stack #combat-hud #hit-readout.hidden{display:none!important}
-#hud-top-stack #starshot-hud #range-best{font-size:10px;color:#fff4c8;font-variant-numeric:tabular-nums}
 #hud-top-stack #othello-panel{
   order:4;display:flex;
   width:160px;

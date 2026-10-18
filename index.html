@@ -22,7 +22,7 @@
     <div id="start-screen" class="screen">
       <div class="start-heading"><span class="overline">WELCOME TO YOUR OWN WORLD</span><span class="start-title">GAME ROOM</span><span class="subheading">THE PARTY STARTS HERE</span></div>
       <button id="start-button" class="start-button">スタート <span aria-hidden="true">→</span></button>
-      <p class="start-caption">最初からブラスター装備 · NEON777で6倍速移動</p>
+      <p class="start-caption">最初からブラスター装備 · どこでも撃てます</p>
       <p class="start-caption">iPhone / iPad：左で移動、右で視点。FIRE・ADS・JUMPは同時に押せます</p>
       <p class="start-caption">PC：クリックでマウス視点、左クリック発射、右クリックまたはQでADS、Fで単発</p>
       <section id="online-panel" class="online-panel" aria-label="オンラインルーム">
@@ -42,14 +42,8 @@
       <div id="zone-indicator" aria-live="polite">PARTY LOUNGE</div>
       <div id="world-guide" class="hidden" aria-live="off">
         <span id="guide-arrow" aria-hidden="true">↑</span>
-        <span id="guide-label">STARSHOT RANGE</span>
+        <span id="guide-label">PARTY HOUSE</span>
         <span id="guide-distance">—</span>
-      </div>
-      <div id="starshot-hud" class="hidden" aria-live="polite">
-        <span class="range-mode">✦ STARSHOT · SOLO</span>
-        <strong id="range-progress">0 / 6 HIT</strong>
-        <span id="range-time">30s</span>
-        <span id="range-best">BEST —</span>
       </div>
       <div id="combat-hud" class="hidden" aria-live="polite">
         <span class="combat-title">HEALTH</span>
@@ -161,10 +155,9 @@
 
     <div id="secret-overlay" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="secret-title">
       <div class="monitor-card">
-        <div class="menu-head"><div><span class="overline">PARTY HOUSE / ARMORY</span><h2 id="secret-title">NEON TURBO ATM</h2></div>
+        <div class="menu-head"><div><span class="overline">GAME ROOM</span><h2 id="secret-title">CODE</h2></div>
           <button id="secret-close" class="icon-button" type="button" aria-label="閉じる">×</button></div>
-        <p class="monitor-help">ブラスターは最初から装備。秘密コード「NEON777」を入力すると、移動速度が通常の6倍になるTURBO能力が解放されます。</p>
-        <label class="monitor-label" for="secret-code">HIDDEN CODE</label>
+        <label class="monitor-label" for="secret-code">CODE</label>
         <input id="secret-code" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="********" />
         <div id="secret-error" role="status" aria-live="polite"></div>
         <button id="secret-unlock" class="primary-menu-button" type="button">UNLOCK</button>
@@ -272,9 +265,7 @@
         <label class="setting"><span>画面の明るさ <output id="brightness-value">1.0</output></span><input id="brightness" type="range" min="0.7" max="1.6" step="0.1" value="1.0" /></label>
         <label class="toggle"><span>音楽（シンプルなBGM）</span><input id="sound-enabled" type="checkbox" /></label>
         <label class="toggle"><span>射撃音</span><input id="shot-sound" type="checkbox" checked /></label>
-        <label class="toggle"><span>ピースモード（他プレイヤーからのダメージを防ぐ）</span><input id="peace-mode" type="checkbox" checked /></label>
-        <label class="toggle"><span>協力モード（友達は撃たない。広場の的を一緒に倒す）</span><input id="coop-mode" type="checkbox" /></label>
-        <div id="weapon-info" class="monitor-help">ブラスター初期装備 · NEON777で高速移動6×</div>
+        <div id="weapon-info" class="monitor-help">ブラスター初期装備</div>
         <label class="toggle"><span>動きを控えめにする</span><input id="reduced-motion" type="checkbox" /></label>
         <button id="open-world-map" class="plain-menu-button" type="button">🧭 WORLD MAP / 目的地を探す</button>
         <button id="open-avatar-studio" class="plain-menu-button" type="button">☺ アバターをカスタムする</button>

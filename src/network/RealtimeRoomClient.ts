@@ -1,5 +1,5 @@
 import {angleDelta} from "../../shared/combatRules.js";
-import type {CoopState} from "../../shared/coopRules.js";
+import type {FoeState} from "../../shared/foeRules.js";
 import type {ResidentId,ResidentMotion} from "../../shared/residentRules.js";
 import type { PlayerSnapshot } from "../types/Player";
 import { safeDisplayName } from "../types/Player";
@@ -12,8 +12,7 @@ export type RoomConnectionState="offline"|"connecting"|"online"|"reconnecting";
 export interface RoomCallbacks{
   onResidentState?(motion:ResidentMotion):void;
   onResidentDialogue?(id:ResidentId):void;
-  onCoop?(state:CoopState):void;
-  onMissionClear?():void;
+  onFoes?(foes:FoeState[]):void;
   onState(state:RoomConnectionState,count:number):void;
   onSnapshot(players:PlayerSnapshot[]):void;
   onPlayer(player:PlayerSnapshot):void;
@@ -27,7 +26,7 @@ export interface RoomCallbacks{
   onOthello(match:OthelloMatch):void;
   onSpawn(position:{x:number;y:number;z:number}):void;
   onCorrection(position:{x:number;y:number;z:number}):void;
-  onWeaponState(unlocked:boolean,peaceful:boolean,boosted:boolean):void;
+  onWeaponState(unlocked:boolean,peaceful:boolean,boosted:boolean,wings:boolean):void;
   onAvatar(playerId:string,avatar:AvatarStyle):void;
   onEmote(playerId:string,kind:EmoteKind,durationMs:number):void;
 }
@@ -97,12 +96,6 @@ export class RealtimeRoomClient {
   unlockWeapon(code:string):boolean{
     return this.online?(this.transport?.send({type:"unlock_weapon",code})??false):false;
   }
-  setPeaceMode(enabled:boolean):boolean{
-    return this.online?(this.transport?.send({type:"peace_mode",enabled})??false):false;
-  }
-  setCoopMode(enabled:boolean):boolean{
-    return this.online?(this.transport?.send({type:"coop_mode",enabled})??false):false;
-  }
   setLightShow(enabled:boolean):boolean{
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"lightShow",value:enabled})??false;
@@ -142,10 +135,8 @@ export class RealtimeRoomClient {
         this.serverOffset=msg.serverTime+this.estimatedOneWayMs-Date.now();this.callbacks.onResidentState?.(msg.motion);
       }else if(msg.type==="npc_dialogue"){
         this.callbacks.onResidentDialogue?.(msg.id);
-      }else if(msg.type==="coop_state"){
-        this.callbacks.onCoop?.(msg);
-      }else if(msg.type==="mission_clear"){
-        this.callbacks.onMissionClear?.();
+      }else if(msg.type==="foe_state"){
+        this.callbacks.onFoes?.(msg.foes);
       }else if(msg.type==="avatar_state"){
         const remote=this.peers.get(msg.playerId);
         if(remote)this.peers.set(msg.playerId,{...remote,avatar:msg.avatar});
@@ -153,7 +144,7 @@ export class RealtimeRoomClient {
       }else if(msg.type==="emote_event"){
         this.callbacks.onEmote(msg.playerId,msg.kind,msg.durationMs);
       }else if(msg.type==="weapon_state"){
-        this.callbacks.onWeaponState(msg.unlocked,msg.peaceful,msg.boosted===true);
+        this.callbacks.onWeaponState(msg.unlocked,msg.peaceful,msg.boosted===true,msg.wings===true);
       }else if(msg.type==="position_correction"){
         this.sequence=Math.max(this.sequence,msg.sequence);
         this.lastSend=performance.now();

@@ -14,7 +14,7 @@ const cfg = { exposure:1, reducedMotion:false };
 const game = { partyMode:false, time:0 };
 const p = { x:0,y:1.65,z:15,yaw:0,pitch:0 };
 const colliders=[], balloons=[], floorMats=[], lamps=[], targets=[];
-let renderer,scene,camera,ball,monitor,outdoor,signBoard,othelloBoard,quality;
+let renderer,scene,camera,ball,monitor,outdoor,signBoard,othelloBoard,quality,atmNoise;
 let toastHandler = () => {};
 let monitorEditHandler = () => {};
 let lightEditHandler = () => {};
@@ -149,7 +149,16 @@ function table(x,z){
   tube(x,.9,z,.87,.87,.13,mat("#a77781",{metalness:.15}),18);
   tube(x,.47,z,.12,.15,.82,mat("#ddb58b",{metalness:.45}));
   tube(x,.07,z,.52,.52,.08,mat("#3a2c35"));
-  colliders.push({x0:x-.82,x1:x+.82,z0:z-.82,z1:z+.82});
+}
+function staticScreen(){
+  atmNoise=new THREE.ShaderMaterial({
+    uniforms:{uTime:{value:0}},
+    side:THREE.DoubleSide,
+    toneMapped:false,
+    vertexShader:"varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}",
+    fragmentShader:"varying vec2 vUv;uniform float uTime;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}void main(){float n=hash(floor(vUv*vec2(72.0,40.0))+floor(uTime*10.0));float v=.22+.78*n;gl_FragColor=vec4(v,v,v,1.0);}"
+  });
+  return atmNoise;
 }
 function gift(x,y,z,size,color){
   cube(x,y,z,size,size,size,mat(color));
@@ -271,25 +280,19 @@ function populate(){
   cube(2.23,2,7.93,.16,4,.17,brass);
   cube(0,3.97,7.93,4.55,.14,.17,brass);
   sign("PARTY INSIDE","FOLLOW THE LIGHTS",0,3.42,7.78,3.6,.64,"#ffc6df");
-  sign("SECRET ARMORY","FIND THE CODE",0,3.31,25.76,4.3,.82,"#a1ffe9");
   // Full-size low-cost ATM kiosk: flat static terminal screen, no extra lights
   // or animation. The entire kiosk is visually obvious at walking height.
   const atmShell=mat("#26253e",{metalness:.23,roughness:.42});
   cube(3.0,1.19,23.4,1.42,2.38,.82,atmShell,true);
   cube(3.0,1.80,22.965,1.21,1.08,.07,
     mat("#0c1a23",{emissive:"#255a5d",emissiveIntensity:.45}));
-  const atmScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.09,.83),
-    new THREE.MeshBasicMaterial({map:textImage("NEON 777","WEAPON ATM","#9fffea"),
-      side:THREE.DoubleSide,depthWrite:false}));
+  const atmScreen=new THREE.Mesh(new THREE.PlaneGeometry(1.09,.83),staticScreen());
+  atmScreen.name="ATM_STATIC";
+  atmScreen.userData.noBatch=true;
   atmScreen.position.set(3.0,1.80,22.921);
   scene.add(atmScreen);
   cube(3,1.10,22.965,.94,.20,.08,mat("#5a6887"));
   cube(3,.88,22.917,.74,.06,.10,mat("#89ecde",{emissive:"#387b77",emissiveIntensity:.2}));
-  targets.push({x:3,z:21.65,label:"✦ 武器ATM：秘密のコードを入力",
-    action:()=>armoryHandler()});
-  // Prominent guide so a guest spawned looking toward the party room can
-  // discover the new extension by turning around.
-  sign("ARMORY →","CODE TERMINAL",0,3.27,17.62,3.8,.74,"#a4ffe3");
   // Make the entire former GAME ROOM title panel editable rather than a tiny footer.
   cube(0,2.5,-15.74,7.64,1.81,.14,mat("#1f162a"));
   cube(0,3.42,-15.71,7.7,.055,.08,mat("#e8aed0",{emissive:"#b963a0",emissiveIntensity:.45}));
@@ -303,10 +306,8 @@ function populate(){
   ball=globe(0,3.17,-5.7,.46,mat("#ece1ed",{metalness:.9,roughness:.13}));
   cube(0,3.84,-5.7,.021,.53,.021,mat("#c1acbd"));
   lamps.push(light(0xf9a1d9,2.6,0,3,-5.7,7));
-  table(-6.1,-2);cake(-6.1,-2);
-  table(6.1,-2.2);tube(6.1,1.07,-2.2,.31,.31,.21,mat("#f8ce87"));
-  tube(6.1,1.25,-2.2,.18,.18,.16,mat("#fff5e1"));
-  gift(5.3,1.08,-2.36,.29,"#ad93e4");
+  table(-6.1,-2);
+  table(6.1,-2.2);
   gift(-7.3,.31,-.5,.62,"#90d4d3");
   gift(7.9,.37,-1.25,.74,"#ec95b3");
   gift(7.3,.25,-1.75,.5,"#f7ce82");
@@ -364,6 +365,7 @@ export function createPartyWorld(canvas,onToast,onEditMonitor,onEditLights,onEdi
       game.time=t;
       outdoor.update(camera.position,t);
       if(camera.position.x<24)signBoard.update(dt,reducedMotion);
+      if(atmNoise)atmNoise.uniforms.uTime.value=t;
       // Static vegetation, balloons, disco ball and floor lights: no idle
       // material/transform writes across dozens of meshes every frame.
       quality.update(dt);

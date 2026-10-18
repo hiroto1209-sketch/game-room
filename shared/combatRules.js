@@ -37,12 +37,13 @@ export function findHitscanTarget(shooter,players,yaw,pitch,occluded=()=>false){
     const hit=Math.min(body??Infinity,head??Infinity);
     if(hit<=RANGE&&hit<dist&&!occluded(shooter.position,{
       x:shooter.position.x+dir.x*hit,y:shooter.position.y+dir.y*hit,z:shooter.position.z+dir.z*hit
-    })){best=p;dist=hit}
+    })){best={...p,distance:hit};dist=hit}
   }
   return best;
 }
 
 export const WEAPON_CODE="NEON777";
+export const WING_CODE="666";
 export function validUnlockCode(v){return typeof v==="string"&&v.length<=24&&/^[A-Z0-9]+$/.test(v)}
 
 /** How far aim may move since the last accepted pose, in radians.

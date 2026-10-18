@@ -54,3 +54,19 @@ test("airborne jump input does not double-jump",()=>{
   for(let i=0;i<170;i++)player.update(.016,{x:0,y:0},0);
   assert.equal(player.grounded,true);
 });
+test("wings allow one extra jump and then wait for the landing",()=>{
+  const winged=new PlayerController([]);
+  winged.allowDoubleJump=true;
+  winged.jump();
+  for(let i=0;i<40;i++)winged.update(.016,{x:0,y:0},0);
+  const falling=winged.position.y;
+  winged.jump();
+  winged.update(.05,{x:0,y:0},0);
+  assert.ok(winged.position.y>falling+.15,"the second jump climbs again after the apex");
+  winged.jump();
+  const afterThird=winged.position.y;
+  winged.update(.016,{x:0,y:0},0);
+  assert.ok(winged.position.y-afterThird<.2,"a third jump is not granted");
+  for(let i=0;i<220;i++)winged.update(.016,{x:0,y:0},0);
+  assert.equal(winged.grounded,true);
+});
