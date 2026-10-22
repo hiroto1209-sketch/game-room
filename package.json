@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs tests/server.test.mjs tests/world.test.mjs tests/combat.test.mjs tests/othello.test.mjs tests/quick-games.test.mjs tests/fire-gesture.test.mjs tests/fps-native-touch.test.mjs tests/fps-ads-geometry.test.mjs tests/starshot-world.test.mjs tests/practice-peace.test.mjs tests/avatar-rules.test.mjs tests/exploration-world.test.mjs tests/turbo-controls.test.mjs tests/hud-layout.test.mjs tests/playcanvas-map.test.mjs tests/residents.test.mjs tests/foes.test.mjs tests/cans-gallery.test.mjs",
+    "test": "node --experimental-strip-types --test tests/core.test.mjs tests/player.test.mjs tests/server.test.mjs tests/world.test.mjs tests/combat.test.mjs tests/othello.test.mjs tests/quick-games.test.mjs tests/fire-gesture.test.mjs tests/fps-native-touch.test.mjs tests/fps-ads-geometry.test.mjs tests/starshot-world.test.mjs tests/practice-peace.test.mjs tests/avatar-rules.test.mjs tests/exploration-world.test.mjs tests/turbo-controls.test.mjs tests/hud-layout.test.mjs tests/playcanvas-map.test.mjs tests/residents.test.mjs tests/foes.test.mjs tests/cans-gallery.test.mjs tests/bowling-lane.test.mjs",
     "build": "vite build",
     "check": "npm run typecheck && npm test && npm run build && npm run check:worker",
     "test:browser": "node tests/browser.test.mjs",
