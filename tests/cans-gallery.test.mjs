@@ -41,6 +41,12 @@ test("can gallery is an original single-file page with absolute cards", () => {
   assert.match(game, /景品：おもちゃ/);
   assert.match(game, /景品：特賞/);
   assert.match(game, /全部落とし/);
+  assert.match(game, /要石/);
+  assert.match(game, /黄金/);
+  assert.match(game, /第1面/);
+  assert.match(game, /連鎖/);
+  assert.match(game, /let lang = "ja"/);
+  assert.doesNotMatch(game, /navigator\.language/);
   assert.doesNotMatch(game, /cannon|ammo\.|rapier|x282665|NEON777|秘密のコード/i);
   assert.equal(existsSync(new URL("../public/minigames/games/cans/icon.png", import.meta.url)), true);
   assert.equal(existsSync(new URL("../public/minigames/games/cans/icon.svg", import.meta.url)), true);
@@ -51,4 +57,5 @@ test("minigames list links the can gallery", () => {
   assert.match(list, /1万缶つみ射的/);
   assert.match(list, /10,000 Can Gallery/);
   assert.match(list, /games\/cans\/icon\.png/);
+  assert.match(list, /黄金缶と要石/);
 });

@@ -4,227 +4,160 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>1万缶つみ射的</title>
-  <meta name="description" content="夜店の射的。コルク銃で棚の1万缶を落とす。3発。位置、狙い、力の3タップ。">
+  <meta name="description" content="夜店の射的。黄金缶と要石を狙って、5面の缶ピラミッドをコルク銃で崩す。">
   <link rel="icon" href="icon.png">
   <link rel="apple-touch-icon" href="icon.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hiroto1209-sketch.github.io/game-room/minigames/games/cans/">
   <meta property="og:title" content="1万缶つみ射的">
-  <meta property="og:description" content="夜店の棚に積んだ1万缶を、コルク銃でどこまで落とせるか。">
+  <meta property="og:description" content="黄金缶と要石を狙って、5面の缶ピラミッドを崩す。3発。">
   <meta property="og:image" content="https://hiroto1209-sketch.github.io/game-room/minigames/games/cans/icon.png">
   <meta property="og:locale" content="ja_JP">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="1万缶つみ射的">
-  <meta name="twitter:description" content="夜店の棚に積んだ1万缶を、コルク銃でどこまで落とせるか。">
+  <meta name="twitter:description" content="黄金缶と要石を狙って、5面の缶ピラミッドを崩す。3発。">
   <meta name="twitter:image" content="https://hiroto1209-sketch.github.io/game-room/minigames/games/cans/icon.png">
   <meta name="theme-color" content="#140816">
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
     html, body {
-      margin: 0;
-      height: 100%;
-      height: 100dvh;
-      overflow: hidden;
-      background: #140816;
-      color: #fff8ea;
+      margin: 0; height: 100%; height: 100dvh; overflow: hidden;
+      background: #140816; color: #fff8ea;
       font-family: "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Yu Gothic", "WenQuanYi Micro Hei", "Droid Sans Fallback", "Hiragino Sans", Meiryo, system-ui, sans-serif;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      -webkit-tap-highlight-color: transparent;
+      touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
     }
     canvas { display: block; touch-action: none; }
-    button, a { touch-action: manipulation; }
-    a { color: inherit; }
-    #top, #hint, #gauge, #count, #result, #floats, #fx { position: fixed; z-index: 2; }
-    #fx, #floats, #count, #hint { pointer-events: none; }
+    button, a { touch-action: manipulation; font: inherit; }
+    a { color: inherit; text-decoration: none; }
     #top {
-      z-index: 6;
+      position: fixed; z-index: 6;
       top: calc(8px + env(safe-area-inset-top));
       left: calc(8px + env(safe-area-inset-left));
       right: calc(8px + env(safe-area-inset-right));
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .pill, .hud-card {
-      border: 0;
-      border-radius: 999px;
-      background: rgb(20 8 22 / 0.72);
-      color: #fff8ea;
-      box-shadow: inset 0 0 0 1px rgb(255 214 140 / 0.35);
-    }
-    .pill {
-      font: inherit;
-      font-weight: 700;
-      min-width: 44px;
-      min-height: 44px;
-      padding: 0 12px;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .cluster { display: flex; gap: 8px; }
-    #stats {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
       pointer-events: none;
-      padding: 8px 14px;
-      border-radius: 16px;
-      background: rgb(20 8 22 / 0.72);
-      box-shadow: inset 0 0 0 1px rgb(255 214 140 / 0.35);
-      text-align: right;
-      line-height: 1.25;
     }
-    #stats b { display: block; font-size: 0.95rem; }
-    #stats span { font-size: 0.78rem; opacity: 0.85; }
+    #top button, #top a { pointer-events: auto; }
+    .cluster { display: flex; flex-wrap: wrap; gap: 6px; max-width: 62%; }
+    .pill {
+      min-width: 44px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 999px;
+      background: #2a1424; color: #fff8ea; font-weight: 800;
+      box-shadow: inset 0 0 0 1px rgb(255 214 140 / 0.45);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    #stats {
+      pointer-events: none; text-align: right; line-height: 1.2;
+      background: #2a1424; color: #fff8ea; border-radius: 16px; padding: 8px 12px;
+      box-shadow: inset 0 0 0 1px rgb(255 214 140 / 0.45);
+    }
+    #stats b { display: block; font-size: 1rem; }
+    #stats span { display: block; font-size: 0.78rem; font-weight: 700; opacity: 0.92; }
+    #chainLabel { color: #ffe08a; font-size: 0.95rem !important; }
     #hint {
-      left: 0;
-      right: 0;
-      bottom: calc(78px + env(safe-area-inset-bottom));
-      text-align: center;
-      font-weight: 700;
-      font-size: clamp(0.95rem, 3.4vw, 1.25rem);
-      text-shadow: 0 2px 0 #3a1020, 0 0 12px rgb(0 0 0 / 0.8);
-      padding: 0 16px;
+      position: fixed; z-index: 4; left: 12px; right: 12px;
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      text-align: center; font-weight: 800; pointer-events: none;
+      font-size: clamp(0.95rem, 3.6vw, 1.2rem);
+      text-shadow: 0 2px 0 #3a1020;
     }
     #gauge {
-      left: 50%;
-      bottom: calc(16px + env(safe-area-inset-bottom));
-      transform: translateX(-50%);
-      width: min(440px, calc(100vw - 28px - env(safe-area-inset-left) - env(safe-area-inset-right)));
-      height: 28px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #3ecf7a, #ffe36a 55%, #ff5a3c);
-      box-shadow: 0 6px 0 rgb(0 0 0 / 0.28), inset 0 0 0 2px rgb(255 255 255 / 0.35);
+      position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
+      bottom: calc(52px + env(safe-area-inset-bottom));
+      width: min(280px, 70vw); height: 18px; border-radius: 999px;
+      background: linear-gradient(90deg, #8a4a3a 0 68%, #ffe36a 68% 86%, #3ecf7a 86%);
+      box-shadow: inset 0 0 0 2px #fff6e0;
     }
     #gauge[hidden] { display: none; }
+    #sweet {
+      position: absolute; left: 68%; top: -3px; bottom: -3px; width: 32%;
+      border-radius: 999px; box-shadow: inset 0 0 0 2px #fffaf0;
+      pointer-events: none;
+    }
     #knob {
-      position: absolute;
-      top: -6px;
-      width: 18px;
-      height: 40px;
-      margin-left: -9px;
-      border-radius: 8px;
-      background: #fff8ea;
-      box-shadow: 0 2px 0 #5a3018;
+      position: absolute; top: -5px; width: 14px; height: 28px; margin-left: -7px;
+      border-radius: 6px; background: #fffaf0; box-shadow: 0 2px 0 #5a3018;
     }
-    #count {
-      left: 0;
-      right: 0;
-      top: 16%;
-      text-align: center;
-      font-weight: 900;
-      font-size: min(18vw, 96px);
-      letter-spacing: -0.03em;
-      color: #fffaf0;
-      text-shadow: 0 4px 0 #7a2030, 0 0 24px #ffb020;
-      display: none;
+    #floater {
+      position: fixed; z-index: 4; left: 50%; top: 22%;
+      transform: translateX(-50%); font-weight: 900; font-size: 1.6rem; color: #ffe08a;
+      text-shadow: 0 2px 0 #5a1020, 0 0 12px #5a1020; pointer-events: none; opacity: 0;
     }
-    #count.show { display: block; }
-    #floats { inset: 0; z-index: 3; }
-    .floater {
-      position: absolute;
-      font-weight: 900;
-      font-size: 28px;
-      color: #ffe08a;
-      text-shadow: 0 2px 0 #4a1028;
-      transform: translate(-50%, -50%);
-      will-change: transform, opacity;
+    #tut {
+      position: fixed; z-index: 7; inset: 0; display: grid; place-items: end center;
+      padding: calc(12px + env(safe-area-inset-bottom)) 16px 18vh;
+      background: linear-gradient(transparent, rgb(12 4 16 / 0.28) 40%, rgb(12 4 16 / 0.45));
     }
-    #fx { inset: 0; width: 100%; height: 100%; z-index: 3; }
+    #tut[hidden] { display: none; }
+    #tut .row { display: flex; gap: 10px; }
+    #tut .step {
+      width: 96px; min-height: 96px; border-radius: 20px; background: #fff6e8; color: #3a1822;
+      display: grid; place-items: center; text-align: center; font-weight: 900; line-height: 1.15;
+      box-shadow: 0 10px 24px rgb(0 0 0 / 0.28);
+    }
+    #tut .step b { font-size: 1.6rem; color: #c5283d; }
+    #tut .step span { font-size: 0.78rem; }
     #result {
-      inset: 0;
-      z-index: 5;
-      display: grid;
-      place-items: center;
-      background: rgb(8 2 12 / 0.45);
-      padding: calc(12px + env(safe-area-inset-top)) 16px calc(12px + env(safe-area-inset-bottom));
+      position: fixed; z-index: 5; inset: 0; display: grid; place-items: center;
+      background: rgb(8 2 12 / 0.42);
+      padding: calc(64px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
     }
     #result[hidden] { display: none; }
     #card {
-      width: min(440px, 100%);
-      max-height: calc(100dvh - 24px);
-      overflow: auto;
-      border-radius: 24px;
-      padding: 22px 18px 16px;
-      background: #fff6e8;
-      color: #3a1822;
-      text-align: center;
-      box-shadow: 0 18px 50px rgb(0 0 0 / 0.35);
+      width: min(420px, 100%); max-height: 100%; overflow: auto; text-align: center;
+      background: #fff6e8; color: #3a1822; border-radius: 24px; padding: 18px 16px 14px;
     }
-    #card h2 { margin: 0; font-size: 1rem; letter-spacing: 0.08em; }
-    #big {
-      margin: 4px 0;
-      font-size: clamp(3rem, 12vw, 4.6rem);
-      font-weight: 900;
-      line-height: 1;
-      color: #c5283d;
-    }
-    #of { margin: 0; font-weight: 700; }
-    #stamp {
-      display: inline-block;
-      margin: 8px 0;
-      padding: 4px 12px;
-      border: 3px solid #c5283d;
-      color: #c5283d;
-      font-weight: 900;
-      border-radius: 8px;
-      transform: rotate(-6deg);
-    }
-    #stamp[hidden] { display: none; }
-    #prize { margin: 8px 0; font-size: 1.35rem; font-weight: 900; }
-    #bestline { margin: 0 0 12px; font-weight: 700; color: #8a5a32; }
+    #stars { margin: 4px 0; font-size: 2rem; letter-spacing: 0.12em; color: #e0a020; }
+    #big { font-size: clamp(3rem, 12vw, 4.4rem); font-weight: 900; line-height: 0.95; color: #c5283d; }
+    #prize { font-size: 1.3rem; font-weight: 900; margin: 6px 0; }
+    #bestline, #goalLine { margin: 0 0 8px; font-weight: 700; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .actions button {
-      font: inherit;
-      font-weight: 800;
-      min-height: 48px;
-      padding: 0 16px;
-      border-radius: 999px;
-      border: 0;
-      background: #3a1822;
-      color: #fff6e8;
-    }
+    .actions button { min-height: 46px; padding: 0 14px; border: 0; border-radius: 999px; background: #3a1822; color: #fff6e8; font-weight: 800; }
     .actions button.ghost { background: transparent; color: #3a1822; box-shadow: inset 0 0 0 2px #3a1822; }
     @media (orientation: landscape) {
-      #hint { bottom: calc(64px + env(safe-area-inset-bottom)); }
-      #count { top: 8%; font-size: min(12vw, 84px); }
-      #gauge { width: min(520px, 64vw); }
-      #card { padding: 14px 16px 12px; }
-      #big { font-size: clamp(2.4rem, 8vw, 3.6rem); }
+      #tut { place-items: center; padding-bottom: 12px; }
+      #hint { bottom: calc(10px + env(safe-area-inset-bottom)); }
+      #gauge { bottom: calc(40px + env(safe-area-inset-bottom)); }
     }
   </style>
 </head>
 <body>
-  <div id="top">
+  <header id="top">
     <div class="cluster">
       <a class="pill" id="back" href="../../">一覧</a>
       <button class="pill" id="lang" type="button">EN</button>
       <button class="pill" id="sound" type="button" aria-pressed="true">音</button>
+      <button class="pill" id="retry" type="button">やり直し</button>
     </div>
     <div id="stats">
-      <b id="shotlabel">残り 3 発</b>
-      <span id="bestlabel">ベスト 0</span>
+      <b id="stageLabel">第1面</b>
+      <span id="shotLabel">残り 3</span>
+      <span id="goalLabel">目標 8</span>
+      <span id="chainLabel" hidden>連鎖 ×2</span>
+    </div>
+  </header>
+  <div id="floater"></div>
+  <p id="hint">横にドラッグ</p>
+  <div id="gauge" hidden><i id="sweet"></i><i id="knob"></i></div>
+  <div id="tut" hidden>
+    <div class="row">
+      <div class="step"><b>1</b><span id="tut1">横にずらす</span></div>
+      <div class="step"><b>2</b><span id="tut2">高さを止める</span></div>
+      <div class="step"><b>3</b><span id="tut3">強さを止める</span></div>
     </div>
   </div>
-  <div id="count"></div>
-  <div id="hint"></div>
-  <div id="gauge" hidden><div id="knob"></div></div>
-  <div id="floats"></div>
-  <canvas id="fx"></canvas>
   <div id="result" hidden>
     <div id="card">
-      <h2 id="result-title">結果</h2>
-      <div id="big">0</div>
-      <p id="of">/ 10,000</p>
+      <div id="resultStage">第1面</div>
+      <div id="stars">☆☆☆</div>
       <div id="stamp" hidden>全部落とし</div>
+      <div id="big">0</div>
+      <p id="goalLine">目標 8</p>
       <p id="prize">景品：飴</p>
       <p id="bestline"></p>
       <div class="actions">
         <button id="again" type="button">もう一回</button>
+        <button id="next" type="button">次の面</button>
         <button id="share" type="button">共有</button>
         <button id="post" class="ghost" type="button">Xにポスト</button>
       </div>
@@ -236,432 +169,249 @@
   <script type="module">
     import * as THREE from "three";
 
-    const N = 10000;
     const W0 = 24;
     const D0 = 41;
-    const LAYERS = 24;
-    const PITCH = 0.21;
-    const CAN_R = 0.092;
-    const CAN_H = 0.23;
-    const CORK_R = 0.055;
-    const MAX_CORKS = 2000;
+    const N = 10000;
+    const MAX = N;
+    const MAX_CORKS = 240;
     const STEP = 1 / 90;
-    const NEAR_CAP = 1800;
-    const BEST_KEY = "cans-gallery:best";
-    const LANG_KEY = "cans-gallery:lang";
-    const PALETTE = ["#e23b3b", "#f2c14e", "#3db87a", "#f4f1ea", "#3a7bd5"];
+    const GRAV = 12;
+    const LANG_KEY = "cans-gallery:v2:lang";
+    const TUT_KEY = "cans-gallery:v2:tut";
+    const PALETTE = [0x2f6fce, 0x2e9e62, 0xf4f0e6, 0x5c6d92, 0xd07a3a];
+    const AIM_SPEED = 13.2;
+    const SWEET = 0.68;
 
     const TEXT = {
       ja: {
-        title: "1万缶つみ射的",
-        back: "一覧",
-        soundOn: "音",
-        soundOff: "消",
-        lang: "EN",
-        place: "ドラッグで左右。はなすと狙いへ",
-        aim: "タップで狙いを止める",
-        power: "タップで力を止める",
-        fly: "コルク、飛んでます",
-        shots: (n) => "残り " + n + " 発",
-        best: (n) => "ベスト " + n.toLocaleString("ja-JP"),
-        of: "/ 10,000",
-        result: "結果",
-        all: "全部落とし",
-        candy: "景品：飴",
-        toy: "景品：おもちゃ",
-        grand: "景品：特賞",
-        none: "景品なし",
-        again: "もう一回",
-        share: "共有",
-        post: "Xにポスト",
-        newBest: "ベスト更新",
-        shareLine: (score, prize) => score >= 10000
-          ? "1万缶つみ射的で全部落とし！（" + prize + "）"
-          : "1万缶つみ射的で" + score.toLocaleString("ja-JP") + "缶倒した（" + prize + "）"
+        title: "1万缶つみ射的", back: "一覧", lang: "EN", soundOn: "音", soundOff: "消", retry: "やり直し",
+        place: "横にドラッグ", aim: "タップで高さを止める", power: "白枠で強さを止める", fly: "",
+        stage: (n) => "第" + n + "面", shots: (n) => "残り " + n, goal: (n) => "目標 " + n,
+        down: (n) => "倒した " + n, chain: (n) => "連鎖 ×" + n, gold: "黄金!", key: "要石!",
+        tut1: "横にずらす", tut2: "高さを止める", tut3: "強さを止める",
+        again: "もう一回", next: "次の面", share: "共有", post: "Xにポスト",
+        candy: "景品：飴", toy: "景品：おもちゃ", grand: "景品：特賞", none: "残念",
+        all: "全部落とし", best: (n) => "ベスト " + n, newBest: "ベスト更新",
+        shareLine: (stage, stars, knocked) => "1万缶つみ射的 " + stage + " " + stars + " " + knocked + "缶"
       },
       en: {
-        title: "10,000 Can Gallery",
-        back: "Games",
-        soundOn: "Snd",
-        soundOff: "Off",
-        lang: "日本語",
-        place: "Drag left or right, then release",
-        aim: "Tap to stop the aim",
-        power: "Tap to stop the power",
-        fly: "Corks in the air",
-        shots: (n) => n + (n === 1 ? " shot left" : " shots left"),
-        best: (n) => "Best " + n.toLocaleString("en-US"),
-        of: "/ 10,000",
-        result: "Result",
-        all: "ALL DOWN",
-        candy: "Prize: candy",
-        toy: "Prize: toy",
-        grand: "Prize: grand",
-        none: "No prize",
-        again: "Again",
-        share: "Share",
-        post: "Post on X",
-        newBest: "New best",
-        shareLine: (score, prize) => score >= 10000
-          ? "I cleared all 10,000 cans! (" + prize + ")"
-          : "I knocked down " + score.toLocaleString("en-US") + " of 10,000 cans (" + prize + ")"
+        title: "10,000 Can Gallery", back: "Games", lang: "日本語", soundOn: "Snd", soundOff: "Off", retry: "Retry",
+        place: "Drag sideways", aim: "Tap to set height", power: "Stop inside the bracket", fly: "",
+        stage: (n) => "Stage " + n, shots: (n) => n + " left", goal: (n) => "Goal " + n,
+        down: (n) => "Down " + n, chain: (n) => "Chain ×" + n, gold: "GOLD!", key: "KEY!",
+        tut1: "Slide", tut2: "Stop height", tut3: "Stop power",
+        again: "Again", next: "Next", share: "Share", post: "Post",
+        candy: "Prize: candy", toy: "Prize: toy", grand: "Prize: grand", none: "Miss",
+        all: "ALL DOWN", best: (n) => "Best " + n, newBest: "New best",
+        shareLine: (stage, stars, knocked) => "10,000 Can Gallery " + stage + " " + stars + " " + knocked + " cans"
       }
     };
 
     const $ = (id) => document.getElementById(id);
-    let lang = (() => {
-      try {
-        const v = localStorage.getItem(LANG_KEY);
-        if (v === "ja" || v === "en") return v;
-      } catch (e) {}
-      return (navigator.language || "ja").toLowerCase().startsWith("ja") ? "ja" : "en";
-    })();
+    let lang = "ja";
+    try {
+      const saved = localStorage.getItem(LANG_KEY);
+      if (saved === "en" || saved === "ja") lang = saved;
+    } catch (e) {}
     let muted = false;
-    let best = 0;
-    try { best = Math.max(0, Number(localStorage.getItem(BEST_KEY)) || 0); } catch (e) {}
+    let seenTut = false;
+    try { seenTut = localStorage.getItem(TUT_KEY) === "1"; } catch (e) {}
 
-    const px = new Float32Array(N);
-    const py = new Float32Array(N);
-    const pz = new Float32Array(N);
-    const state = new Uint8Array(N);
-    const support = new Uint8Array(N);
-    const initSupport = new Uint8Array(N);
-    const depN = new Uint8Array(N);
-    const deps = new Int32Array(N * 4).fill(-1);
-    const info = new Float32Array(N * 2);
-    const hide = new Float32Array(N);
-    const colors = new Float32Array(N * 3);
-    const idOf = new Int32Array(LAYERS * 24 * 41).fill(-1);
-    const at = (layer, ix, iz) => idOf[(layer * 24 + ix) * 41 + iz];
-    const setAt = (layer, ix, iz, id) => { idOf[(layer * 24 + ix) * 41 + iz] = id; };
+    const ox = new Float32Array(MAX), oy = new Float32Array(MAX), oz = new Float32Array(MAX);
+    const px = new Float32Array(MAX), py = new Float32Array(MAX), pz = new Float32Array(MAX);
+    const vx = new Float32Array(MAX), vy = new Float32Array(MAX), vz = new Float32Array(MAX);
+    const rx = new Float32Array(MAX), ry = new Float32Array(MAX), rz = new Float32Array(MAX);
+    const svx = new Float32Array(MAX), svy = new Float32Array(MAX), svz = new Float32Array(MAX);
+    const state = new Uint8Array(MAX);
+    const support = new Uint8Array(MAX);
+    const initSupport = new Uint8Array(MAX);
+    const depN = new Uint8Array(MAX);
+    const deps = new Int32Array(MAX * 4);
+    const gold = new Uint8Array(MAX);
+    const keystone = new Uint8Array(MAX);
+    const colors = new Float32Array(MAX * 3);
+    const info = new Float32Array(MAX * 2);
+    const hide = new Float32Array(MAX);
 
-    let built = 0;
-    for (let layer = 0; layer < LAYERS; layer++) {
-      const w = W0 - layer;
-      const d = D0 - layer;
-      const y = CAN_H * 0.5 + layer * CAN_H;
-      for (let ix = 0; ix < w; ix++) {
-        for (let iz = 0; iz < d; iz++) {
-          const id = built++;
-          setAt(layer, ix, iz, id);
-          px[id] = (ix - (w - 1) / 2) * PITCH;
-          pz[id] = (iz - (d - 1) / 2) * PITCH - (-(D0 - 1) / 2) * PITCH;
-          py[id] = y;
-          info[id * 2] = -1;
-          const hex = PALETTE[(ix + iz + layer) % PALETTE.length];
-          const col = new THREE.Color(hex);
-          colors[id * 3] = col.r;
-          colors[id * 3 + 1] = col.g;
-          colors[id * 3 + 2] = col.b;
-          initSupport[id] = layer === 0 ? 1 : 0;
-          support[id] = initSupport[id];
-        }
-      }
-    }
-    if (built !== N) throw new Error("can count " + built);
+    const STAGES = [
+      { id: 1, kind: "tri", rows: 7, h: 0.34, pitch: 0.42, star: [6, 11, 16], gates: [[-1, 0], [1, 0]], move: [] },
+      { id: 2, kind: "tri", rows: 10, h: 0.3, pitch: 0.36, star: [8, 22, 36], gates: [[-1, 0], [1, 0], [0, 1]], move: [2] },
+      { id: 3, kind: "pyr", base: 6, h: 0.28, pitch: 0.34, star: [12, 22, 32], gates: [[-1, 0], [1, 0], [0, 1]], move: [2] },
+      { id: 4, kind: "pyr", base: 9, h: 0.26, pitch: 0.3, star: [36, 70, 120], gates: [[-1, 0], [1, 0], [-0.2, 1], [0.2, 1]], move: [2, 3] },
+      { id: 5, kind: "mass", h: 0.22, pitch: 0.2, star: [450, 900, 1300], gates: [[-1, 0], [1, 0], [-0.2, 1], [0.2, 1]], move: [2, 3] }
+    ];
 
-    for (let layer = 0; layer < LAYERS - 1; layer++) {
-      const uw = W0 - (layer + 1);
-      const ud = D0 - (layer + 1);
-      for (let ix = 0; ix < uw; ix++) {
-        for (let iz = 0; iz < ud; iz++) {
-          const child = at(layer + 1, ix, iz);
-          const legs = [[ix, iz], [ix + 1, iz], [ix, iz + 1], [ix + 1, iz + 1]];
-          for (const [lx, lz] of legs) {
-            const parent = at(layer, lx, lz);
-            const n = depN[parent];
-            deps[parent * 4 + n] = child;
-            depN[parent] = n + 1;
-            initSupport[child]++;
-            support[child]++;
-          }
-        }
-      }
-    }
+    let stageIndex = 0;
+    let count = 0;
+    let peakY = 1;
+    let canR = 0.12;
+    let canH = 0.3;
+    let gunX = 0;
+    const gunY = 0.14;
+    const gunZ = -1.85;
+    let aimPitch = 0.08;
+    let power = 0.2;
+    let lockedId = -1;
+    let pitchHeld = false;
+    let pitchLo = 0.04;
+    let pitchHi = 1.05;
+    let phase = "place";
+    let shotsLeft = 3;
+    let knocked = 0;
+    let chain = 0;
+    let bestChain = 0;
+    let lastChainAt = -10;
+    let simTime = 0;
+    let shotWall = 0;
+    let slowUntil = 0;
+    let shake = 0;
+    let kick = 0;
+    let impacted = false;
+    let aimId = -1;
+    let dragging = false;
+    let dragX = 0;
+    let audioCtx = null;
+    let sfxBudget = 0;
+    const live = [];
+    const keys = [];
+    const golds = [];
+    let gates = [];
+    let simple = true;
 
-    let minX = Infinity;
-    let minZ = Infinity;
-    let maxX = -Infinity;
-    let maxZ = -Infinity;
-    for (let i = 0; i < N; i++) {
-      if (px[i] < minX) minX = px[i];
-      if (pz[i] < minZ) minZ = pz[i];
-      if (px[i] > maxX) maxX = px[i];
-      if (pz[i] > maxZ) maxZ = pz[i];
-    }
-    const CELL = 0.42;
-    const GX = Math.ceil((maxX - minX) / CELL) + 3;
-    const GZ = Math.ceil((maxZ - minZ) / CELL) + 3;
-    const cellCount = GX * GZ;
-    const cellStart = new Int32Array(cellCount + 1);
-    const cellIndex = (x, z) => {
-      let ix = Math.floor((x - minX) / CELL) + 1;
-      let iz = Math.floor((z - minZ) / CELL) + 1;
-      ix = Math.max(0, Math.min(GX - 1, ix));
-      iz = Math.max(0, Math.min(GZ - 1, iz));
-      return iz * GX + ix;
-    };
-    for (let i = 0; i < N; i++) cellStart[cellIndex(px[i], pz[i]) + 1]++;
-    for (let c = 0; c < cellCount; c++) cellStart[c + 1] += cellStart[c];
-    const cursor = new Int32Array(cellStart.subarray(0, cellCount));
-    const items = new Int32Array(N);
-    for (let i = 0; i < N; i++) items[cursor[cellIndex(px[i], pz[i])]++] = i;
+    const bx = new Float32Array(MAX_CORKS), by = new Float32Array(MAX_CORKS), bz = new Float32Array(MAX_CORKS);
+    const cvx = new Float32Array(MAX_CORKS), cvy = new Float32Array(MAX_CORKS), cvz = new Float32Array(MAX_CORKS);
+    const cmask = new Uint16Array(MAX_CORKS), cskip = new Uint8Array(MAX_CORKS), calive = new Uint8Array(MAX_CORKS);
+    const cpunch = new Float32Array(MAX_CORKS);
+    const wakeAt = new Float32Array(MAX);
+    const body = new Uint8Array(MAX);
+    const markers = [];
+    const faceList = [];
+    let faceStamp = -1;
+    const freeCorks = [];
+    let aliveN = 0;
+    let cellStart, items, GX, GZ, minX, minZ, CELL;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x140816, 1);
     document.body.prepend(renderer.domElement);
-
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x140816);
-    scene.fog = new THREE.Fog(0x140816, 16, 42);
-    const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.08, 80);
-
-    scene.add(new THREE.HemisphereLight(0x9a8ad8, 0x3a2010, 0.9));
-    const sun = new THREE.DirectionalLight(0xffd0a0, 1.2);
-    sun.position.set(-3, 11, -6);
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.08, 80);
+    scene.add(new THREE.HemisphereLight(0xfff1dc, 0x2a1830, 1));
+    const sun = new THREE.DirectionalLight(0xfff4e4, 1.35);
+    sun.position.set(1.5, 7, -5);
     scene.add(sun);
+    const level = new THREE.Group();
+    scene.add(level);
 
-    const shelf = new THREE.Mesh(
-      new THREE.BoxGeometry(maxX - minX + 1.4, 0.28, maxZ - minZ + 1.1),
-      new THREE.MeshLambertMaterial({ color: 0x6b3d22 })
-    );
-    shelf.position.set((minX + maxX) / 2, -0.14, (minZ + maxZ) / 2);
-    scene.add(shelf);
-    const back = new THREE.Mesh(
-      new THREE.BoxGeometry(maxX - minX + 1.6, 7.2, 0.18),
-      new THREE.MeshLambertMaterial({ color: 0x4a241c })
-    );
-    back.position.set(0, 3.2, maxZ + 0.45);
-    scene.add(back);
-    const signCanvas = document.createElement("canvas");
-    signCanvas.width = 512;
-    signCanvas.height = 160;
-    {
-      const g = signCanvas.getContext("2d");
-      g.fillStyle = "#f3e2c2";
-      g.fillRect(0, 0, 512, 160);
-      g.fillStyle = "#8d1d32";
-      g.font = "700 92px sans-serif";
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText("射的", 256, 84);
-    }
-    const signTex = new THREE.CanvasTexture(signCanvas);
-    signTex.colorSpace = THREE.SRGBColorSpace;
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.4, 0.75),
-      new THREE.MeshBasicMaterial({ map: signTex })
-    );
-    sign.position.set(0, 6.15, maxZ + 0.34);
-    sign.rotation.y = Math.PI;
-    scene.add(sign);
-
-    const lanterns = [];
-    for (let i = 0; i < 6; i++) {
-      const lantern = new THREE.Mesh(
-        new THREE.SphereGeometry(0.18, 12, 10),
-        new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff5a3c : 0xffb03a })
-      );
-      const x = -2.4 + i * 0.95;
-      lantern.position.set(x, 5.55, -0.4);
-      scene.add(lantern);
-      const string = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.02, 0.02, 0.45, 5),
-        new THREE.MeshLambertMaterial({ color: 0x5c3317 })
-      );
-      string.position.set(x, 5.95, -0.4);
-      scene.add(string);
-      lanterns.push(lantern);
-    }
-
-    function canLabelTexture() {
+    function canTexture() {
       const c = document.createElement("canvas");
-      c.width = 64;
-      c.height = 64;
+      c.width = 64; c.height = 64;
       const g = c.getContext("2d");
-      g.fillStyle = "#ffffff";
+      g.fillStyle = "#fff";
       g.fillRect(0, 0, 64, 64);
-      g.fillStyle = "#2a2030";
-      g.fillRect(0, 6, 64, 8);
-      g.fillRect(0, 50, 64, 7);
+      g.fillStyle = "#241018";
+      g.fillRect(0, 0, 64, 8);
+      g.fillRect(0, 56, 64, 8);
       g.fillStyle = "#ffffff";
-      g.fillRect(8, 22, 48, 16);
+      g.fillRect(6, 26, 52, 12);
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
       return tex;
     }
-    const canMat = new THREE.MeshLambertMaterial({ map: canLabelTexture() });
-    const canGeo = new THREE.CylinderGeometry(CAN_R, CAN_R, CAN_H, 8);
-    const nearMesh = new THREE.InstancedMesh(canGeo, canMat, NEAR_CAP);
-    nearMesh.frustumCulled = false;
-    nearMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    nearMesh.count = 0;
-    scene.add(nearMesh);
-
-    const pointGeo = new THREE.BufferGeometry();
-    function packPos() {
-      const arr = new Float32Array(N * 3);
-      for (let i = 0; i < N; i++) {
-        arr[i * 3] = px[i];
-        arr[i * 3 + 1] = py[i];
-        arr[i * 3 + 2] = pz[i];
-      }
-      return arr;
-    }
-    pointGeo.setAttribute("position", new THREE.BufferAttribute(packPos(), 3));
-    pointGeo.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
-    const infoAttr = new THREE.BufferAttribute(info, 2);
-    infoAttr.setUsage(THREE.DynamicDrawUsage);
-    pointGeo.setAttribute("aInfo", infoAttr);
-    const hideAttr = new THREE.BufferAttribute(hide, 1);
-    hideAttr.setUsage(THREE.DynamicDrawUsage);
-    pointGeo.setAttribute("aHide", hideAttr);
-    const pointMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uFall: { value: 0.85 },
-        uSize: { value: 150 }
-      },
-      vertexShader: `
-        attribute vec3 aColor;
-        attribute vec2 aInfo;
-        attribute float aHide;
-        uniform float uTime;
-        uniform float uFall;
-        uniform float uSize;
-        varying vec3 vColor;
-        void main() {
-          vColor = aColor;
-          float falling = step(0.0, aInfo.x);
-          float u = clamp((uTime - aInfo.x) / uFall, 0.0, 1.0) * falling;
-          float tilt = 1.570796 * u * u;
-          vec3 p = position;
-          p.x += sin(aInfo.y) * tilt * 0.16;
-          p.z += cos(aInfo.y) * tilt * 0.16;
-          p.y -= u * u * 1.35;
-          vec4 mv = modelViewMatrix * vec4(p, 1.0);
-          gl_Position = projectionMatrix * mv;
-          float done = step(0.98, u);
-          gl_PointSize = mix(max(1.5, uSize * (0.72 + 0.28 * (1.0 - u)) / max(0.25, -mv.z)), 0.0, max(aHide, done));
-        }
-      `,
-      fragmentShader: `
-        varying vec3 vColor;
-        void main() {
-          vec2 c = gl_PointCoord - vec2(0.5);
-          if (dot(c, c) > 0.25) discard;
-          float rim = smoothstep(0.25, 0.08, dot(c, c));
-          gl_FragColor = vec4(vColor * (0.7 + 0.4 * rim), 1.0);
-        }
-      `
-    });
-    const points = new THREE.Points(pointGeo, pointMat);
-    points.frustumCulled = false;
-    scene.add(points);
-
-    const corkGeo = new THREE.SphereGeometry(CORK_R, 8, 6);
-    const corkMat = new THREE.MeshLambertMaterial({ color: 0xc9854a });
+    const canMat = new THREE.MeshLambertMaterial({ map: canTexture() });
+    let canGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.3, 10);
+    let canMesh = new THREE.InstancedMesh(canGeo, canMat, 16);
+    let pointMesh = null;
+    let infoAttr = null;
+    let hideAttr = null;
+    const corkMat = new THREE.MeshLambertMaterial({ color: 0xf2c48a });
+    const corkGeo = new THREE.CylinderGeometry(0.07, 0.075, 0.16, 10);
     const corkMesh = new THREE.InstancedMesh(corkGeo, corkMat, MAX_CORKS);
     corkMesh.frustumCulled = false;
-    corkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     corkMesh.count = 0;
     scene.add(corkMesh);
-
+    const trailGeo = new THREE.SphereGeometry(0.05, 8, 6);
+    const trailMat = new THREE.MeshBasicMaterial({ color: 0xfff3bf, depthTest: false });
+    const trail = new THREE.InstancedMesh(trailGeo, trailMat, 28);
+    trail.frustumCulled = false;
+    trail.count = 0;
+    scene.add(trail);
+    const reticle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.22, 0.03, 8, 28),
+      new THREE.MeshBasicMaterial({ color: 0xfff6c8, depthTest: false })
+    );
+    reticle.renderOrder = 6;
+    scene.add(reticle);
     const gun = new THREE.Group();
-    const stock = new THREE.Mesh(
-      new THREE.BoxGeometry(0.16, 0.14, 0.55),
-      new THREE.MeshLambertMaterial({ color: 0x6b4428 })
-    );
-    const barrel = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.045, 0.05, 0.7, 8),
-      new THREE.MeshLambertMaterial({ color: 0x8d9198 })
-    );
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.46), new THREE.MeshLambertMaterial({ color: 0x6a4326 }));
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.62, 8), new THREE.MeshLambertMaterial({ color: 0x8e939b }));
     barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = 0.45;
+    barrel.position.z = 0.42;
     gun.add(stock, barrel);
     scene.add(gun);
-    const aimBeam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.02, 0.02, 1, 6),
-      new THREE.MeshBasicMaterial({ color: 0xffe08a, transparent: true, opacity: 0.9 })
-    );
-    scene.add(aimBeam);
-    const reticle = new THREE.Mesh(
-      new THREE.TorusGeometry(0.16, 0.025, 6, 16),
-      new THREE.MeshBasicMaterial({ color: 0xfff1c4 })
-    );
-    scene.add(reticle);
-    const up = new THREE.Vector3(0, 1, 0);
-    const dir = new THREE.Vector3();
     const dummy = new THREE.Object3D();
-    const focus = new THREE.Vector3();
-    const camLook = new THREE.Vector3();
     const tmpColor = new THREE.Color();
+    const aimPoints = [];
+    const up = new THREE.Vector3(0, 1, 0);
+    const camLook = new THREE.Vector3();
 
-    const bx = new Float32Array(MAX_CORKS);
-    const by = new Float32Array(MAX_CORKS);
-    const bz = new Float32Array(MAX_CORKS);
-    const vx = new Float32Array(MAX_CORKS);
-    const vy = new Float32Array(MAX_CORKS);
-    const vz = new Float32Array(MAX_CORKS);
-    const corkMask = new Uint16Array(MAX_CORKS);
-    const corkSkip = new Uint8Array(MAX_CORKS);
-    const corkAlive = new Uint8Array(MAX_CORKS);
-    const freeCorks = [];
-    let aliveN = 0;
-    let gates = [];
-    let gateGroup = new THREE.Group();
-    scene.add(gateGroup);
-
-    let phase = "place";
-    let gunX = 0;
-    let aimPitch = 0.28;
-    let power = 0.5;
-    let shotsLeft = 3;
-    let score = 0;
-    let standing = N;
-    let simTime = 0;
-    let lastKnock = -10;
-    let shotWall = 0;
-    let slowUntil = 0;
-    let shake = 0;
-    let impacted = false;
-    let dragging = false;
-    let dragX = 0;
-    let infoDirtyMin = N;
-    let infoDirtyMax = -1;
-    let sfxBudget = 0;
-    let audioCtx = null;
-    let countShown = false;
-    let lastRumble = -10;
-    const floaters = [];
-
+    function t() { return TEXT[lang]; }
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
     function wave(ms, period) {
       const f = ((ms / 1000) % period) / period;
       return f < 0.5 ? f * 2 : 2 - f * 2;
     }
-    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-    function muzzle(out) {
-      out.set(gunX, 1.02, -4.15);
-      return out;
+    function bestKey() { return "cans-gallery:v2:best:" + STAGES[stageIndex].id; }
+    function readBest() {
+      try { return Math.max(0, Number(localStorage.getItem(bestKey())) || 0); } catch (e) { return 0; }
     }
-    function aimVector(pitch) {
-      const p = pitch == null ? aimPitch : pitch;
-      dir.set(0, Math.sin(p), Math.cos(p));
-      return dir;
+    function stageDef() { return STAGES[stageIndex]; }
+    function muzzle() { return { x: gunX, y: gunY + 0.1, z: gunZ + 0.55 }; }
+    function shotPunch() {
+      if (power >= SWEET) return 0.94 + (power - SWEET) / (1 - SWEET) * 0.28;
+      if (power >= 0.4) return 0.62;
+      return 0.4;
     }
-    function prizeId(n) {
-      if (n >= 7000) return "grand";
-      if (n >= 2000) return "toy";
-      if (n >= 1) return "candy";
-      return "none";
+    function heightAtPitch(pitch) {
+      const m = muzzle();
+      let y = m.y;
+      let z = m.z;
+      let vy = Math.sin(pitch) * AIM_SPEED;
+      const vz = Math.cos(pitch) * AIM_SPEED;
+      let guard = 0;
+      while (guard++ < 80 && z < 0.02 && y > -0.5) {
+        vy -= GRAV * 0.035;
+        y += vy * 0.035;
+        z += vz * 0.035;
+      }
+      return y;
     }
-    function prizeLabel(n) {
-      return TEXT[lang][prizeId(n)];
+    function pitchForY(target) {
+      let lo = -0.1, hi = 1.25;
+      for (let i = 0; i < 12; i++) {
+        const mid = (lo + hi) * 0.5;
+        if (heightAtPitch(mid) < target) lo = mid;
+        else hi = mid;
+      }
+      return (lo + hi) * 0.5;
     }
-    function t() { return TEXT[lang]; }
+    function calibrateAim() {
+      pitchLo = pitchForY(canH * 0.5);
+      pitchHi = pitchForY(Math.min(peakY, 2.65));
+      if (pitchHi < pitchLo + 0.2) pitchHi = pitchLo + 0.2;
+    }
+    function previewVelocity() {
+      return { vx: 0, vy: Math.sin(aimPitch) * AIM_SPEED, vz: Math.cos(aimPitch) * AIM_SPEED };
+    }
+    function velocityTo(tx, ty, tz) {
+      const m = muzzle();
+      const dx = tx - m.x, dy = ty - m.y, dz = tz - m.z;
+      const dist = Math.hypot(dx, dy, dz);
+      const flight = clamp(dist / 7.4, 0.28, 0.48);
+      return { vx: dx / flight, vy: dy / flight + 0.5 * GRAV * flight, vz: dz / flight };
+    }
 
     function applyLang() {
       const s = t();
@@ -670,25 +420,30 @@
       $("back").textContent = s.back;
       $("lang").textContent = s.lang;
       $("sound").textContent = muted ? s.soundOff : s.soundOn;
-      $("shotlabel").textContent = s.shots(shotsLeft);
-      $("bestlabel").textContent = s.best(best);
-      $("result-title").textContent = s.result;
-      $("of").textContent = s.of;
-      $("stamp").textContent = s.all;
+      $("retry").textContent = s.retry;
+      $("tut1").textContent = s.tut1;
+      $("tut2").textContent = s.tut2;
+      $("tut3").textContent = s.tut3;
       $("again").textContent = s.again;
+      $("next").textContent = s.next;
       $("share").textContent = s.share;
       $("post").textContent = s.post;
+      $("stamp").textContent = s.all;
       const hint = { place: s.place, aim: s.aim, power: s.power, fly: s.fly, result: "" };
       $("hint").textContent = hint[phase] || "";
-      if (phase === "result") $("prize").textContent = prizeLabel(score);
+      $("stageLabel").textContent = s.stage(stageDef().id);
+      $("shotLabel").textContent = phase === "fly" || phase === "result" ? s.down(knocked) : s.shots(shotsLeft);
+      $("goalLabel").textContent = s.goal(stageDef().star[0]);
+      $("chainLabel").hidden = chain < 2;
+      $("chainLabel").textContent = s.chain(chain);
+      $("gauge").hidden = phase !== "power";
+      if (phase === "power") $("knob").style.left = (power * 100) + "%";
     }
 
     function ensureAudio() {
-      if (!audioCtx) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return null;
-        audioCtx = new AC();
-      }
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!audioCtx) audioCtx = new AC();
       if (audioCtx.state === "suspended") audioCtx.resume();
       return audioCtx;
     }
@@ -705,449 +460,794 @@
       o.start();
       o.stop(ac.currentTime + dur);
     }
-    function playPop() { tone(180 + Math.random() * 40, 0.07, "sine", 0.12); }
-    function playClang() {
-      if (sfxBudget >= 3) return;
+    function playPop() { tone(210, 0.06, "sine", 0.14); }
+    function playClang(combo) {
+      if (sfxBudget >= 6) return;
       sfxBudget++;
-      tone(680 + Math.random() * 420, 0.09, "triangle", 0.08);
+      tone(520 + combo * 28 + Math.random() * 80, 0.07, "triangle", 0.07);
     }
-    function playRumble() {
-      const ac = audioCtx;
-      if (!ac || muted) return;
-      const frames = Math.floor(ac.sampleRate * 0.35);
-      const buffer = ac.createBuffer(1, frames, ac.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / frames);
-      const src = ac.createBufferSource();
-      const filter = ac.createBiquadFilter();
-      const g = ac.createGain();
-      src.buffer = buffer;
-      filter.type = "lowpass";
-      filter.frequency.value = 240;
-      g.gain.value = 0.2;
-      src.connect(filter).connect(g).connect(ac.destination);
-      src.start();
+    function playGold() { tone(880, 0.12, "square", 0.05); tone(1320, 0.16, "sine", 0.05); }
+    function playKey() { tone(160, 0.09, "triangle", 0.08); tone(90, 0.14, "sine", 0.07); }
+    function playThud() {
+      if (sfxBudget >= 5) return;
+      sfxBudget++;
+      tone(90, 0.05, "sine", 0.08);
     }
 
-    function markInfo(id) {
-      if (id < infoDirtyMin) infoDirtyMin = id;
-      if (id > infoDirtyMax) infoDirtyMax = id;
+    function link(parent, child) {
+      const n = depN[parent];
+      if (n >= 4) return;
+      deps[parent * 4 + n] = child;
+      depN[parent] = n + 1;
+      initSupport[child]++;
     }
-    function flushInfo() {
-      if (infoDirtyMax < infoDirtyMin) return;
-      const start = infoDirtyMin * 2;
-      const count = (infoDirtyMax - infoDirtyMin + 1) * 2;
-      infoAttr.clearUpdateRanges();
-      infoAttr.addUpdateRange(start, count);
-      infoAttr.needsUpdate = true;
-      infoDirtyMin = N;
-      infoDirtyMax = -1;
+    function paint(id, hex) {
+      tmpColor.setHex(hex);
+      colors[id * 3] = tmpColor.r;
+      colors[id * 3 + 1] = tmpColor.g;
+      colors[id * 3 + 2] = tmpColor.b;
+    }
+    function pushCan(x, y, z, hex) {
+      const id = count++;
+      ox[id] = x; oy[id] = y; oz[id] = z;
+      px[id] = x; py[id] = y; pz[id] = z;
+      if (y > peakY) peakY = y;
+      paint(id, hex);
+      info[id * 2] = -1;
+      return id;
     }
 
-    function knock(id) {
-      if (state[id] !== 0) return 0;
-      const queue = [id];
-      const depth = [0];
-      let n = 0;
-      for (let q = 0; q < queue.length; q++) {
-        const cur = queue[q];
-        if (state[cur] !== 0) continue;
-        state[cur] = 1;
-        const d = depth[q];
-        info[cur * 2] = simTime + d * 0.028;
-        info[cur * 2 + 1] = Math.random() * Math.PI * 2;
-        markInfo(cur);
-        standing--;
-        score++;
-        n++;
-        lastKnock = simTime;
-        const base = cur * 4;
-        for (let k = 0; k < depN[cur]; k++) {
-          const child = deps[base + k];
-          if (child < 0 || state[child] !== 0) continue;
-          support[child]--;
-          const init = initSupport[child];
-          const now = support[child];
-          if (now * 2 <= init) {
-            queue.push(child);
-            depth.push(d + 1);
+    function buildTriangle(rows, H, P) {
+      const start = [];
+      for (let row = 0; row < rows; row++) {
+        start[row] = count;
+        const n = rows - row;
+        for (let i = 0; i < n; i++) {
+          const x = (i - (n - 1) / 2) * P;
+          const y = H * 0.5 + row * H * 0.96;
+          const id = pushCan(x, y, row * 0.035, PALETTE[(i + row) % PALETTE.length]);
+          if (row === 0) initSupport[id] = 1;
+        }
+      }
+      for (let row = 1; row < rows; row++) {
+        const n = rows - row;
+        for (let i = 0; i < n; i++) link(start[row - 1] + i, start[row] + i), link(start[row - 1] + i + 1, start[row] + i);
+      }
+      const key = start[0] + ((rows - 1) >> 1);
+      keystone[key] = 1;
+      keys.push(key);
+      paint(key, 0xff2a3a);
+      const top = count - 1;
+      gold[top] = 1;
+      golds.push(top);
+      if (rows >= 10) {
+        const g2 = start[rows - 4] + 1;
+        gold[g2] = 1;
+        golds.push(g2);
+      }
+    }
+    function buildPyramid(base, H, P) {
+      const start = [];
+      const front = (base - 1) / 2 * P;
+      for (let layer = 0; layer < base; layer++) {
+        start[layer] = count;
+        const side = base - layer;
+        for (let ix = 0; ix < side; ix++) {
+          for (let iz = 0; iz < side; iz++) {
+            const x = (ix - (side - 1) / 2) * P;
+            const z = (iz - (side - 1) / 2) * P + front;
+            const y = H * 0.5 + layer * H * 0.96;
+            const id = pushCan(x, y, z, PALETTE[(ix + iz + layer) % PALETTE.length]);
+            if (layer === 0) initSupport[id] = 1;
           }
         }
       }
-      if (!impacted) {
-        impacted = true;
-        slowUntil = performance.now() + 600;
-        shake = 0.42;
-        countShown = true;
+      for (let layer = 0; layer < base - 1; layer++) {
+        const side = base - layer - 1;
+        for (let ix = 0; ix < side; ix++) {
+          for (let iz = 0; iz < side; iz++) {
+            const child = start[layer + 1] + ix * side + iz;
+            const lowSide = side + 1;
+            const legs = [[ix, iz], [ix + 1, iz], [ix, iz + 1], [ix + 1, iz + 1]];
+            for (const [lx, lz] of legs) link(start[layer] + lx * lowSide + lz, child);
+          }
+        }
       }
-      playClang();
-      if (n > 24 && simTime - lastRumble > 0.45) {
-        lastRumble = simTime;
-        playRumble();
+      const mid = (base - 1) >> 1;
+      const key = start[0] + mid * base;
+      keystone[key] = 1;
+      keys.push(key);
+      if (base >= 8) {
+        const sideKey = start[0] + (mid - 2) * base;
+        keystone[sideKey] = 1;
+        keys.push(sideKey);
       }
-      return n;
+      const goldLayer = Math.max(1, base - 3);
+      const gSide = base - goldLayer;
+      const g = start[goldLayer] + (gSide >> 1) * gSide;
+      gold[g] = 1;
+      golds.push(g);
+    }
+    function buildMass(H, P) {
+      const start = [];
+      const front = (D0 - 1) / 2 * P;
+      for (let layer = 0; layer < W0; layer++) {
+        start[layer] = count;
+        const w = W0 - layer;
+        const d = D0 - layer;
+        for (let ix = 0; ix < w; ix++) {
+          for (let iz = 0; iz < d; iz++) {
+            const x = (ix - (w - 1) / 2) * P;
+            const z = (iz - (d - 1) / 2) * P + front;
+            const y = H * 0.5 + layer * H * 0.98;
+            const id = pushCan(x, y, z, PALETTE[(ix + iz + layer) % PALETTE.length]);
+            if (layer === 0) initSupport[id] = 1;
+          }
+        }
+      }
+      for (let layer = 0; layer < W0 - 1; layer++) {
+        const w = W0 - layer;
+        const d = D0 - layer;
+        const uw = w - 1;
+        const ud = d - 1;
+        for (let ix = 0; ix < uw; ix++) {
+          for (let iz = 0; iz < ud; iz++) {
+            const child = start[layer + 1] + ix * ud + iz;
+            for (const [lx, lz] of [[ix, iz], [ix + 1, iz], [ix, iz + 1], [ix + 1, iz + 1]]) {
+              link(start[layer] + lx * d + lz, child);
+            }
+          }
+        }
+      }
+      const mid = (W0 - 1) >> 1;
+      const keyA = mid * D0;
+      const keyB = (mid - 3) * D0;
+      const keyC = (mid + 3) * D0;
+      keystone[keyA] = keystone[keyB] = keystone[keyC] = 1;
+      keys.push(keyA, keyB, keyC);
+      const spots = [[3, mid, 0], [6, mid - 3, 0], [8, mid + 3, 0], [11, mid, 0]];
+      for (const [layer, ix, iz] of spots) {
+        const w = W0 - layer;
+        const d = D0 - layer;
+        const id = start[layer] + ix * d + iz;
+        if (id >= start[layer] && id < start[layer] + w * d) {
+          gold[id] = 1;
+          golds.push(id);
+          paint(id, 0xffd76a);
+        }
+      }
+      if (count !== N) throw new Error("mass " + count);
     }
 
-    function forNearCans(x, z, fn) {
+    function buildGrid() {
+      minX = Infinity; minZ = Infinity;
+      let maxX = -Infinity, maxZ = -Infinity;
+      for (let i = 0; i < count; i++) {
+        if (ox[i] < minX) minX = ox[i];
+        if (oz[i] < minZ) minZ = oz[i];
+        if (ox[i] > maxX) maxX = ox[i];
+        if (oz[i] > maxZ) maxZ = oz[i];
+      }
+      CELL = Math.max(0.34, stageDef().pitch);
+      GX = Math.ceil((maxX - minX) / CELL) + 3;
+      GZ = Math.ceil((maxZ - minZ) / CELL) + 3;
+      const cells = GX * GZ;
+      cellStart = new Int32Array(cells + 1);
+      const cellOf = (x, z) => {
+        let ix = Math.floor((x - minX) / CELL) + 1;
+        let iz = Math.floor((z - minZ) / CELL) + 1;
+        ix = clamp(ix, 0, GX - 1);
+        iz = clamp(iz, 0, GZ - 1);
+        return iz * GX + ix;
+      };
+      for (let i = 0; i < count; i++) cellStart[cellOf(ox[i], oz[i]) + 1]++;
+      for (let c = 0; c < cells; c++) cellStart[c + 1] += cellStart[c];
+      const cursor = new Int32Array(cellStart.subarray(0, cells));
+      items = new Int32Array(count);
+      for (let i = 0; i < count; i++) items[cursor[cellOf(ox[i], oz[i])]++] = i;
+    }
+    function forNear(x, z, fn) {
       const ix = Math.floor((x - minX) / CELL) + 1;
       const iz = Math.floor((z - minZ) / CELL) + 1;
       for (let dz = -1; dz <= 1; dz++) {
         for (let dx = -1; dx <= 1; dx++) {
-          const cx = ix + dx;
-          const cz = iz + dz;
+          const cx = ix + dx, cz = iz + dz;
           if (cx < 0 || cz < 0 || cx >= GX || cz >= GZ) continue;
           const c = cz * GX + cx;
           for (let k = cellStart[c]; k < cellStart[c + 1]; k++) fn(items[k]);
         }
       }
     }
-    const HIT_R = (CAN_R + CORK_R) * (CAN_R + CORK_R);
-    function hitAt(i, x, y, z) {
-      let hit = false;
-      forNearCans(x, z, (id) => {
-        if (state[id] !== 0) return;
-        const dx = x - px[id];
-        const dz = z - pz[id];
-        if (dx * dx + dz * dz > HIT_R) return;
-        if (Math.abs(y - py[id]) > CAN_H * 0.5 + CORK_R) return;
-        knock(id);
-        hit = true;
-      });
-      return hit;
-    }
 
-    function spawnCork(x, y, z, svx, svy, svz, mask) {
-      if (!freeCorks.length || aliveN >= MAX_CORKS) return -1;
-      const i = freeCorks.pop();
-      corkAlive[i] = 1;
-      corkSkip[i] = 1;
-      corkMask[i] = mask || 0;
-      bx[i] = x;
-      by[i] = y;
-      bz[i] = z;
-      vx[i] = svx;
-      vy[i] = svy;
-      vz[i] = svz;
-      aliveN++;
-      return i;
-    }
-    function killCork(i) {
-      if (!corkAlive[i]) return;
-      corkAlive[i] = 0;
-      aliveN--;
-      freeCorks.push(i);
-    }
-
-    function gateTexture(label) {
+    function labelTex(text) {
       const c = document.createElement("canvas");
-      c.width = 256;
-      c.height = 128;
+      c.width = 128; c.height = 64;
       const g = c.getContext("2d");
-      g.clearRect(0, 0, 256, 128);
-      g.fillStyle = "rgba(255, 236, 190, 0.92)";
-      g.beginPath();
-      g.rect(8, 16, 240, 96);
-      g.fill();
-      g.lineWidth = 8;
-      g.strokeStyle = "#6a1230";
-      g.stroke();
-      g.fillStyle = "#3a1028";
-      g.font = "700 64px sans-serif";
+      g.clearRect(0, 0, 128, 64);
+      g.fillStyle = "rgba(255, 244, 214, 0.92)";
+      g.fillRect(4, 8, 120, 48);
+      g.fillStyle = "#4a1028";
+      g.font = "700 36px sans-serif";
       g.textAlign = "center";
       g.textBaseline = "middle";
-      g.fillText(label, 128, 66);
+      g.fillText(text, 64, 34);
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace;
       return tex;
     }
-    function popup(x, y, z, text) {
-      const el = document.createElement("div");
-      el.className = "floater";
-      el.textContent = text;
-      $("floats").appendChild(el);
-      floaters.push({ el, x, y, z, age: 0 });
-      if (floaters.length > 8) {
-        const old = floaters.shift();
-        old.el.remove();
-      }
-    }
-    function clearGates() {
-      for (const g of gates) {
-        g.mesh.material.map.dispose();
-        g.mesh.material.dispose();
-        g.mesh.geometry.dispose();
-      }
-      gateGroup.clear();
+    function makeGates() {
       gates = [];
+      const spec = stageDef();
+      let span = 0.7;
+      for (let i = 0; i < count; i++) span = Math.max(span, Math.abs(ox[i]));
+      spec.gates.forEach((pair, index) => {
+        const side = pair[0] < 0 ? -1 : 1;
+        const x = pair[0] === 0 ? side * span * 0.62 : side * (span + 0.38);
+        const arch = new THREE.Mesh(
+          new THREE.TorusGeometry(0.2, 0.012, 6, 18, Math.PI),
+          new THREE.MeshBasicMaterial({ color: 0xffe7b0, transparent: true, opacity: 0.8, depthWrite: false })
+        );
+        arch.rotation.z = Math.PI;
+        const mul = index % 2 === 0;
+        const n = mul ? (index === 0 ? 2 : 3) : 4 + index;
+        const tag = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.28, 0.13),
+          new THREE.MeshBasicMaterial({ map: labelTex((mul ? "×" : "+") + n), transparent: true, depthWrite: false, side: THREE.DoubleSide })
+        );
+        tag.position.y = 0.32;
+        const group = new THREE.Group();
+        group.add(arch, tag);
+        group.position.set(x, 0.46, -0.88);
+        level.add(group);
+        gates.push({
+          x, z: -0.88, w: 0.34, kind: mul ? "x" : "+", n,
+          moving: spec.move.includes(index), amp: Math.min(0.28, span * 0.18), speed: 0.85 + index * 0.15, phase: index,
+          used: false, bit: index, group, arch, tag, xNow: x
+        });
+      });
     }
-    function buildGates() {
-      clearGates();
-      const cols = [-1.35, 0, 1.35];
-      let bit = 0;
-      for (let row = 0; row < 4; row++) {
-        for (let c = 0; c < cols.length; c++) {
-          if (Math.random() < 0.22) continue;
-          if (bit > 11) continue;
-          const moving = Math.random() < 0.34;
-          const mul = Math.random() < 0.55;
-          const n = mul ? [2, 2, 3, 3, 4, 5][(Math.random() * 6) | 0] : 8 + row * 6 + ((Math.random() * 8) | 0);
-          const gate = {
-            x: cols[c] + (Math.random() - 0.5) * 0.15,
-            z: -3.15 + row * 0.72,
-            w: moving ? 0.78 : 1.15,
-            kind: mul ? "x" : "+",
-            n,
-            moving,
-            amp: 0.42 + Math.random() * 0.25,
-            speed: 0.7 + Math.random() * 0.9,
-            phase: Math.random() * Math.PI * 2,
-            used: false,
-            bit,
-            xNow: cols[c]
-          };
-          const label = (mul ? "×" : "+") + n;
-          const mesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(gate.w, 3.4),
-            new THREE.MeshBasicMaterial({ map: gateTexture(label), transparent: true, depthWrite: false, side: THREE.DoubleSide })
-          );
-          mesh.position.set(gate.x, 2.15, gate.z);
-          gate.mesh = mesh;
-          gateGroup.add(mesh);
-          gates.push(gate);
-          bit++;
+    function badgeTex(text, fill) {
+      const c = document.createElement("canvas");
+      c.width = 128; c.height = 128;
+      const g = c.getContext("2d");
+      g.clearRect(0, 0, 128, 128);
+      g.fillStyle = fill;
+      g.beginPath();
+      g.arc(64, 64, 58, 0, Math.PI * 2);
+      g.fill();
+      g.lineWidth = 8;
+      g.strokeStyle = "#fff6e0";
+      g.stroke();
+      g.fillStyle = "#fffaf2";
+      g.font = "900 72px sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(text, 64, 70);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+    function addBadge(id, text, fill) {
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(Math.max(0.22, canR * 1.85), Math.max(0.22, canR * 1.85)),
+        new THREE.MeshBasicMaterial({ map: badgeTex(text, fill), transparent: true, depthWrite: false })
+      );
+      mesh.position.set(ox[id], oy[id], oz[id] - canR - 0.03);
+      mesh.rotation.y = Math.PI;
+      mesh.renderOrder = 4;
+      level.add(mesh);
+      markers.push(mesh);
+      mesh.userData.can = id;
+    }
+    function clearLevel() {
+      level.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        const mats = obj.material ? (Array.isArray(obj.material) ? obj.material : [obj.material]) : [];
+        for (const mat of mats) {
+          if (mat.map) mat.map.dispose();
+          mat.dispose();
+        }
+      });
+      markers.length = 0;
+      level.clear();
+    }
+    function makeDressing() {
+      const half = Math.max(1.6, Math.min(peakY, 2.4));
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(half * 2.4, 0.16, 1.4), new THREE.MeshLambertMaterial({ color: 0x7a4a2c }));
+      shelf.position.set(0, -0.08, 0.2);
+      level.add(shelf);
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(8, 0.08, 3.2), new THREE.MeshLambertMaterial({ color: 0x3a241c }));
+      floor.position.set(0, -0.04, -1.35);
+      level.add(floor);
+      if (!simple && peakY > 3) {
+        const mass = new THREE.Mesh(
+          new THREE.BoxGeometry(3.4, Math.min(peakY, 4.4), 0.7),
+          new THREE.MeshLambertMaterial({ color: 0x4a2c34 })
+        );
+        mass.position.set(0, Math.min(peakY, 4.4) * 0.48, 1.25);
+        level.add(mass);
+      }
+      for (const side of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.12), new THREE.MeshLambertMaterial({ color: 0x5c3318 }));
+        post.position.set(side * (half * 0.95 + 0.4), 1.05, -0.2);
+        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshBasicMaterial({ color: side < 0 ? 0xffb03a : 0xff5a3c }));
+        lamp.position.set(side * (half * 0.95 + 0.4), 1.85, -0.35);
+        level.add(post, lamp);
+      }
+      for (const id of keys) {
+        paint(id, 0xff2a3a);
+        addBadge(id, "要", "#d0122a");
+      }
+      for (const id of golds) {
+        paint(id, 0xffd76a);
+        addBadge(id, "金", "#e0a020");
+      }
+    }
+
+    function mountCans() {
+      if (canMesh) {
+        scene.remove(canMesh);
+        canMesh.geometry.dispose();
+      }
+      canGeo = new THREE.CylinderGeometry(canR, canR * 0.96, canH, simple ? 12 : 8);
+      const cap = simple ? count : 420;
+      canMesh = new THREE.InstancedMesh(canGeo, canMat, cap);
+      canMesh.frustumCulled = false;
+      canMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      canMesh.count = simple ? count : 0;
+      scene.add(canMesh);
+      if (pointMesh) {
+        scene.remove(pointMesh);
+        pointMesh.geometry.dispose();
+        pointMesh.material.dispose();
+        pointMesh = null;
+      }
+      if (!simple) {
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          pos[i * 3] = ox[i]; pos[i * 3 + 1] = oy[i]; pos[i * 3 + 2] = oz[i];
+          info[i * 2] = -1;
+        }
+        geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute("aColor", new THREE.BufferAttribute(colors.subarray(0, count * 3), 3));
+        infoAttr = new THREE.BufferAttribute(info.subarray(0, count * 2), 2);
+        infoAttr.setUsage(THREE.DynamicDrawUsage);
+        geo.setAttribute("aInfo", infoAttr);
+        hideAttr = new THREE.BufferAttribute(hide.subarray(0, count), 1);
+        hideAttr.setUsage(THREE.DynamicDrawUsage);
+        geo.setAttribute("aHide", hideAttr);
+        const mat = new THREE.ShaderMaterial({
+          uniforms: { uTime: { value: 0 }, uSize: { value: 90 } },
+          vertexShader: `
+            attribute vec3 aColor; attribute vec2 aInfo; attribute float aHide;
+            uniform float uTime; uniform float uSize; varying vec3 vColor;
+            void main() {
+              vColor = aColor;
+              float falling = step(0.0, aInfo.x);
+              float u = clamp((uTime - aInfo.x) / 0.7, 0.0, 1.0) * falling;
+              vec3 p = position;
+              p.y += u * 0.35 - u * u * 1.8;
+              p.z -= u * 0.9;
+              vec4 mv = modelViewMatrix * vec4(p, 1.0);
+              gl_Position = projectionMatrix * mv;
+              float far = smoothstep(0.08, 0.72, position.z);
+              gl_PointSize = mix(max(3.0, uSize / max(0.3, -mv.z)), 0.0, max(max(aHide, far), step(0.96, u)));
+            }
+          `,
+          fragmentShader: `
+            varying vec3 vColor;
+            void main() {
+              vec2 c = gl_PointCoord - 0.5;
+              if (dot(c, c) > 0.22) discard;
+              gl_FragColor = vec4(vColor, 1.0);
+            }
+          `
+        });
+        pointMesh = new THREE.Points(geo, mat);
+        pointMesh.frustumCulled = false;
+        scene.add(pointMesh);
+      }
+    }
+
+    function resetCorks() {
+      aliveN = 0;
+      freeCorks.length = 0;
+      calive.fill(0);
+      for (let i = MAX_CORKS - 1; i >= 0; i--) freeCorks.push(i);
+    }
+    function loadStage(index) {
+      stageIndex = clamp(index, 0, STAGES.length - 1);
+      const spec = stageDef();
+      clearLevel();
+      count = 0; peakY = 0.4; keys.length = 0; golds.length = 0; live.length = 0;
+      state.fill(0); support.fill(0); initSupport.fill(0); depN.fill(0); gold.fill(0); keystone.fill(0); body.fill(0);
+      deps.fill(-1);
+      canH = spec.h;
+      canR = spec.h * 0.42;
+      if (spec.kind === "tri") buildTriangle(spec.rows, spec.h, spec.pitch);
+      else if (spec.kind === "pyr") buildPyramid(spec.base, spec.h, spec.pitch);
+      else buildMass(spec.h, spec.pitch);
+      for (let i = 0; i < count; i++) support[i] = initSupport[i];
+      simple = count <= 500;
+      buildGrid();
+      makeDressing();
+      makeGates();
+      mountCans();
+      resetCorks();
+      calibrateAim();
+      gunX = 0; aimPitch = pitchLo; power = 0.2; pitchHeld = false; lockedId = -1;
+      shotsLeft = 3; knocked = 0; chain = 0; bestChain = 0;
+      phase = "place"; impacted = false; shotWall = 0; kick = 0; aimId = -1; faceStamp = -1;
+      $("result").hidden = true;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, simple ? 2 : 1));
+      applyLang();
+    }
+
+    function noteChain() {
+      const now = simTime;
+      if (now - lastChainAt < 0.75) chain++;
+      else chain = 1;
+      lastChainAt = now;
+      if (chain > bestChain) bestChain = chain;
+      if (chain >= 2) {
+        const el = $("floater");
+        el.textContent = t().chain(chain);
+        el.style.opacity = "1";
+      }
+    }
+    function rememberFall(id, gen) {
+      wakeAt[id] = simTime + gen * 0.042;
+      if (simple || live.length < 90) {
+        body[id] = 1;
+        live.push(id);
+        return;
+      }
+      info[id * 2] = wakeAt[id];
+      info[id * 2 + 1] = Math.random() * 6.28;
+      if (infoAttr) {
+        infoAttr.clearUpdateRanges();
+        infoAttr.addUpdateRange(id * 2, 2);
+        infoAttr.needsUpdate = true;
+      }
+    }
+    function wedge(id, punch) {
+      const sweet = punch >= 0.9;
+      const goldOnly = gold[id] && !keystone[id];
+      const t = clamp((punch - 0.32) / 0.85, 0.08, 1);
+      const reach = goldOnly ? 0.4 + t * 1.05 : 0.32 + t * 1.55;
+      const slope = goldOnly ? 0.06 + t * 0.22 : 0.08 + t * 0.78;
+      const cap = simple ? Math.round(18 + t * (keystone[id] ? 170 : 28)) : Math.round(40 + t * (keystone[id] ? 480 : 80));
+      const pitch = stageDef().pitch;
+      let used = 0;
+      for (let i = 0; i < count; i++) {
+        if (used >= cap || state[i] !== 0) continue;
+        const dy = oy[i] - oy[id];
+        if (goldOnly) {
+          if (dy < -canH * (1.35 + t * 0.7)) continue;
+        } else if (dy < -canH * 0.2) continue;
+        const dx = Math.abs(ox[i] - ox[id]);
+        const dz = Math.abs(oz[i] - oz[id]);
+        const band = goldOnly ? pitch * (0.62 + t * 0.38) : canR * reach + Math.max(0, dy) * slope;
+        const deep = goldOnly ? pitch * 0.9 : canR * 2.4 + Math.max(0, dy) * 0.95;
+        if (dx < band && dz < deep) {
+          const gen = 1 + Math.max(0, Math.floor(Math.abs(dy) / Math.max(0.18, canH)));
+          topple(i, punch * 0.9, gen);
+          used++;
         }
       }
+    }
+    function columnPop(id, punch) {
+      if (punch < 0.9) return;
+      const pitch = stageDef().pitch;
+      let used = 0;
+      for (let i = 0; i < count; i++) {
+        if (used >= 8 || state[i] !== 0) continue;
+        const dy = oy[i] - oy[id];
+        if (dy < canH * 0.4 || dy > canH * 3.6) continue;
+        if (Math.abs(ox[i] - ox[id]) > pitch * 0.58) continue;
+        if (Math.abs(oz[i] - oz[id]) > pitch * 1.2) continue;
+        topple(i, punch * 0.75, 1 + Math.floor(dy / canH), false);
+        used++;
+      }
+    }
+    function topple(id, punch, gen, spread) {
+      if (id < 0 || state[id] !== 0) return;
+      const unzip = !!spread || ((gen || 0) === 0 && punch >= 0.9 && !!keystone[id]);
+      state[id] = 1;
+      knocked++;
+      px[id] = ox[id]; py[id] = oy[id]; pz[id] = oz[id];
+      const side = Math.sign(ox[id] - gunX) || (id % 2 ? -1 : 1);
+      vx[id] = side * (0.65 + Math.random() * 0.85) * Math.min(punch, 1.2);
+      vy[id] = (2.5 + Math.random() * 1.45) * Math.min(punch, 1.15);
+      vz[id] = (-0.22 - Math.random() * 0.48) * Math.min(punch, 1.1);
+      svx[id] = (Math.random() - 0.5) * 16;
+      svy[id] = (Math.random() - 0.5) * 11;
+      svz[id] = (Math.random() - 0.5) * 16;
+      rememberFall(id, gen || 0);
+      noteChain();
+      playClang(chain);
+      if (gold[id]) playGold();
+      else if (keystone[id]) playKey();
+      if (!impacted) {
+        impacted = true;
+        slowUntil = performance.now() + (keystone[id] ? 100 : 55);
+        shake = keystone[id] ? 0.12 : 0.05;
+      }
+      const base = id * 4;
+      for (let k = 0; k < depN[id]; k++) {
+        const child = deps[base + k];
+        if (child < 0 || state[child] !== 0) continue;
+        support[child]--;
+        const bare = support[child] === 0;
+        const loose = unzip && support[child] * 2 <= initSupport[child];
+        if (bare || loose) topple(child, punch * 0.92, (gen || 0) + 1, unzip);
+      }
+      if ((gen || 0) === 0 && (keystone[id] || gold[id])) wedge(id, punch);
+      else if ((gen || 0) === 0) columnPop(id, punch);
+      if ((gen || 0) === 0) {
+        const el = $("floater");
+        if (keystone[id] && chain >= 2) el.textContent = t().key + " " + t().chain(chain);
+        else if (gold[id]) el.textContent = t().gold;
+        else if (chain >= 2) el.textContent = t().chain(chain);
+        el.style.opacity = "1";
+      }
+    }
+
+    function hitAt(x, y, z, punch) {
+      let best = -1;
+      let bestD = 1e9;
+      const rad = (canR + 0.09) * (canR + 0.09);
+      forNear(x, z, (id) => {
+        if (state[id] !== 0) return;
+        const dx = x - ox[id], dy = y - oy[id], dz = z - oz[id];
+        const flat = dx * dx + dz * dz;
+        if (flat > rad || Math.abs(dy) > canH * 0.65) return;
+        const d = flat + dy * dy;
+        if (d < bestD) { bestD = d; best = id; }
+      });
+      if (best < 0) return false;
+      topple(best, punch, 0, false);
+      return true;
+    }
+    function spawnCork(x, y, z, svx, svy, svz, mask, punch) {
+      if (!freeCorks.length || aliveN >= MAX_CORKS) return -1;
+      const i = freeCorks.pop();
+      calive[i] = 1; cskip[i] = 1; cmask[i] = mask || 0;
+      cpunch[i] = punch == null ? 0.6 : punch;
+      bx[i] = x; by[i] = y; bz[i] = z; cvx[i] = svx; cvy[i] = svy; cvz[i] = svz;
+      aliveN++;
+      return i;
+    }
+    function killCork(i) {
+      if (!calive[i]) return;
+      calive[i] = 0; aliveN--; freeCorks.push(i);
     }
     function passGate(i, gate) {
       if (gate.kind === "+" && gate.used) return;
       const extra = gate.kind === "x" ? gate.n - 1 : gate.n;
-      if (gate.kind === "+") {
-        gate.used = true;
-        gate.mesh.material.opacity = 0.28;
-      }
-      popup(gate.xNow, by[i] + 0.4, gate.z, (gate.kind === "x" ? "×" : "+") + gate.n);
+      if (gate.kind === "+") gate.used = true;
       for (let k = 0; k < extra; k++) {
         spawnCork(
-          bx[i] + (Math.random() - 0.5) * 0.2,
-          by[i] + (Math.random() - 0.5) * 0.12,
-          gate.z + 0.08,
-          vx[i] + (Math.random() - 0.5) * 2.4,
-          vy[i] + (Math.random() - 0.5) * 1.5,
-          vz[i] * (0.94 + Math.random() * 0.08),
-          corkMask[i] | (1 << gate.bit)
+          bx[i] + (Math.random() - 0.5) * 0.12, by[i], gate.z + 0.06,
+          cvx[i] + (Math.random() - 0.5) * 1.4, cvy[i] + (Math.random() - 0.5) * 0.8, cvz[i] * 0.96,
+          cmask[i] | (1 << gate.bit), cpunch[i] * 0.62
         );
       }
       playPop();
+      $("floater").textContent = (gate.kind === "x" ? "×" : "+") + gate.n;
+      $("floater").style.opacity = "1";
     }
     function tryGates(i, z0, z1) {
-      for (let g = 0; g < gates.length; g++) {
-        const gate = gates[g];
-        if ((corkMask[i] & (1 << gate.bit)) !== 0) continue;
+      for (const gate of gates) {
+        if ((cmask[i] & (1 << gate.bit)) !== 0) continue;
         if (!(z0 < gate.z && z1 >= gate.z)) continue;
-        corkMask[i] |= 1 << gate.bit;
+        cmask[i] |= 1 << gate.bit;
         if (Math.abs(bx[i] - gate.xNow) > gate.w * 0.5) continue;
-        if (by[i] < 0.15 || by[i] > 6.4) continue;
+        if (by[i] < 0.12 || by[i] > 0.52) continue;
         passGate(i, gate);
       }
     }
-
     function stepCork(i, dt) {
-      const speed = Math.hypot(vx[i], vy[i], vz[i]);
-      const sub = Math.max(1, Math.ceil((speed * dt) / 0.16));
+      const speed = Math.hypot(cvx[i], cvy[i], cvz[i]);
+      const sub = Math.max(1, Math.ceil((speed * dt) / 0.14));
       const h = dt / sub;
       for (let s = 0; s < sub; s++) {
-        if (!corkAlive[i]) return;
+        if (!calive[i]) return;
         const z0 = bz[i];
-        vy[i] -= 12 * h;
-        vx[i] *= 1 - 0.12 * h;
-        bx[i] += vx[i] * h;
-        by[i] += vy[i] * h;
-        bz[i] += vz[i] * h;
+        cvy[i] -= GRAV * h;
+        bx[i] += cvx[i] * h; by[i] += cvy[i] * h; bz[i] += cvz[i] * h;
         tryGates(i, z0, bz[i]);
-        if (hitAt(i, bx[i], by[i], bz[i])) {
-          vz[i] *= 0.62;
-          vy[i] *= 0.75;
-          vx[i] += (Math.random() - 0.5) * 1.2;
-          if (vz[i] < 3.5) {
-            killCork(i);
-            return;
-          }
-        }
-        if (by[i] < -0.6 || bz[i] > maxZ + 0.8 || bz[i] < -8 || Math.abs(bx[i]) > 6) {
+        if (hitAt(bx[i], by[i], bz[i], cpunch[i])) {
           killCork(i);
           return;
+        }
+        if (by[i] < 0.04) {
+          by[i] = 0.04; cvy[i] = Math.abs(cvy[i]) * 0.35; cvz[i] *= 0.72;
+          playThud();
+          if (bz[i] > 0.45 && cvz[i] < 2) { killCork(i); return; }
+        }
+        if (bz[i] > 8 || Math.abs(bx[i]) > 5) { killCork(i); return; }
+      }
+    }
+    function integrateCans(dt) {
+      for (let k = live.length - 1; k >= 0; k--) {
+        const i = live[k];
+        if (simTime < wakeAt[i]) continue;
+        vy[i] -= GRAV * dt;
+        px[i] += vx[i] * dt; py[i] += vy[i] * dt; pz[i] += vz[i] * dt;
+        rx[i] += svx[i] * dt; ry[i] += svy[i] * dt; rz[i] += svz[i] * dt;
+        if (py[i] < canR) {
+          py[i] = canR;
+          if (vy[i] < 0) vy[i] = -vy[i] * 0.5;
+          vx[i] *= 0.78; vz[i] *= 0.72;
+          svx[i] *= 0.8; svz[i] *= 0.8;
+          if (Math.abs(vy[i]) > 0.8) playThud();
+          if (Math.abs(vy[i]) < 0.45 && Math.hypot(vx[i], vz[i]) < 0.35) {
+            state[i] = 2;
+            body[i] = 0;
+            live.splice(k, 1);
+          }
         }
       }
     }
     function step(dt) {
       simTime += dt;
       for (let i = 0; i < MAX_CORKS; i++) {
-        if (!corkAlive[i] || corkSkip[i]) continue;
+        if (!calive[i] || cskip[i]) continue;
         stepCork(i, dt);
       }
-      corkSkip.fill(0);
-      flushInfo();
+      cskip.fill(0);
+      integrateCans(dt);
     }
 
-    function enterAim() {
-      phase = "aim";
-      applyLang();
+    function predict() {
+      aimPoints.length = 0;
+      const m = muzzle();
+      let x = m.x, y = m.y, z = m.z;
+      let vx, vy, vz;
+      const tracking = phase === "power" && lockedId >= 0 && state[lockedId] === 0;
+      if (tracking) {
+        const v = velocityTo(ox[lockedId], oy[lockedId], oz[lockedId] - canR * 0.25);
+        vx = v.vx; vy = v.vy; vz = v.vz;
+        aimId = lockedId;
+      } else {
+        const v = previewVelocity();
+        vx = v.vx; vy = v.vy; vz = v.vz;
+        aimId = -1;
+      }
+      const column = Math.max(canR * 1.15, stageDef().pitch * 0.55);
+      let guard = 0;
+      let hitX = x, hitY = y, crossed = false;
+      while (guard++ < 72 && y > -0.25 && z < 3.4) {
+        vy -= GRAV * 0.035;
+        x += vx * 0.035; y += vy * 0.035; z += vz * 0.035;
+        aimPoints.push(x, y, z);
+        if (!crossed && z >= 0.02) { hitX = x; hitY = y; crossed = true; if (!tracking) break; }
+        if (tracking && z >= oz[lockedId] - canR) break;
+      }
+      if (!tracking && crossed) {
+        let best = 1e9;
+        let pick = -1;
+        x = hitX; y = hitY;
+        forNear(x, 0.02, (id) => {
+          if (state[id] !== 0 || oz[id] > 0.28) return;
+          const dx = x - ox[id];
+          const dy = y - oy[id];
+          if (Math.abs(dx) > column) return;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < best) { best = d2; pick = id; }
+        });
+        if (pick >= 0 && best < column * column + canH * canH * 0.36) {
+          aimId = pick;
+          aimPoints.push(ox[pick], oy[pick], oz[pick] - canR);
+        }
+      }
     }
-    function enterPower() {
-      phase = "power";
+
+    function showResult() {
+      phase = "result";
+      const spec = stageDef();
+      const starN = knocked >= spec.star[2] ? 3 : knocked >= spec.star[1] ? 2 : knocked >= spec.star[0] ? 1 : 0;
+      const all = spec.kind === "mass" && knocked >= N;
+      const fresh = knocked > readBest();
+      if (fresh) { try { localStorage.setItem(bestKey(), String(knocked)); } catch (e) {} }
+      $("result").hidden = false;
+      $("stars").textContent = "★★★".slice(0, starN) + "☆☆☆".slice(0, 3 - starN);
+      $("stars").style.color = starN ? "#e0a020" : "#b9a89a";
+      $("stamp").hidden = !all;
+      $("resultStage").textContent = t().stage(spec.id);
+      $("goalLine").textContent = t().goal(spec.star[0]) + " / " + t().down(knocked);
+      const prize = all ? "grand" : starN >= 3 ? "grand" : starN === 2 ? "toy" : starN === 1 ? "candy" : "none";
+      $("prize").textContent = t()[prize];
+      $("bestline").textContent = fresh ? t().newBest : t().best(readBest());
+      $("next").hidden = !(starN >= 1 && stageIndex < STAGES.length - 1);
       applyLang();
+      $("bestline").textContent = fresh ? t().newBest : t().best(readBest());
+      const target = knocked;
+      const t0 = performance.now();
+      const tick = (now) => {
+        if (phase !== "result") return;
+        const u = Math.min(1, (now - t0) / 700);
+        $("big").textContent = Math.round(target * (1 - (1 - u) ** 3)).toLocaleString("ja-JP");
+        if (u < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+    function endShot() {
+      const spec = stageDef();
+      if (shotsLeft <= 0 || knocked >= count) showResult();
+      else { phase = "place"; impacted = false; applyLang(); }
     }
     function fire() {
       phase = "fly";
       shotsLeft--;
       impacted = false;
       shotWall = 0;
-      countShown = score > 0;
-      const o = muzzle(new THREE.Vector3());
-      const d = aimVector();
-      const speed = 11 + power * 22;
-      spawnCork(o.x, o.y, o.z, d.x * speed, d.y * speed, d.z * speed, 0);
+      chain = 0;
+      kick = 1.2;
+      const punch = shotPunch();
+      const m = muzzle();
+      let vx, vy, vz;
+      if (lockedId >= 0 && state[lockedId] === 0) {
+        const v = velocityTo(ox[lockedId], oy[lockedId], oz[lockedId] - canR * 0.2);
+        vx = v.vx; vy = v.vy; vz = v.vz;
+        aimId = lockedId;
+      } else {
+        const v = previewVelocity();
+        vx = v.vx; vy = v.vy; vz = v.vz;
+      }
+      aimPitch = Math.atan2(vy, Math.max(0.25, vz));
+      spawnCork(m.x, m.y, m.z, vx, vy, vz, 0, punch);
       playPop();
+      shake = 0.04;
       applyLang();
     }
-    function showResult() {
-      phase = "result";
-      $("hint").textContent = "";
-      $("gauge").hidden = true;
-      aimBeam.visible = false;
-      reticle.visible = false;
-      const fresh = score > best;
-      if (fresh) {
-        best = score;
-        try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {}
-      }
-      $("result").hidden = false;
-      $("stamp").hidden = score !== 10000;
-      $("prize").textContent = prizeLabel(score);
-      $("bestline").textContent = fresh ? t().newBest : t().best(best);
+    function enterAim() {
+      phase = "aim";
+      lockedId = -1;
       applyLang();
-      $("bestline").textContent = fresh ? t().newBest : t().best(best);
-      const t0 = performance.now();
-      const tick = (now) => {
-        const u = Math.min(1, (now - t0) / 900);
-        const e = 1 - (1 - u) ** 3;
-        $("big").textContent = Math.round(score * e).toLocaleString(lang === "ja" ? "ja-JP" : "en-US");
-        if (u < 1) requestAnimationFrame(tick);
-        else if (score === 10000) burst(160);
-        else if (score >= 2000) burst(80);
-      };
-      requestAnimationFrame(tick);
-      if (score >= 2000) burst(40);
     }
-    function endShot() {
-      if (shotsLeft <= 0 || standing <= 0) showResult();
-      else {
-        phase = "place";
-        impacted = false;
-        applyLang();
+    function enterPower() {
+      predict();
+      lockedId = aimId;
+      if (lockedId >= 0) {
+        const m = muzzle();
+        aimPitch = Math.atan2(oy[lockedId] - m.y, Math.max(0.25, oz[lockedId] - m.z));
       }
-    }
-    function resetRound() {
-      for (let i = 0; i < N; i++) {
-        state[i] = 0;
-        support[i] = initSupport[i];
-        info[i * 2] = -1;
-        info[i * 2 + 1] = 0;
-        hide[i] = 0;
-      }
-      infoAttr.clearUpdateRanges();
-      infoAttr.needsUpdate = true;
-      standing = N;
-      score = 0;
-      shotsLeft = 3;
-      phase = "place";
-      gunX = 0;
-      aimPitch = 0.28;
-      power = 0.5;
-      simTime = 0;
-      lastKnock = -10;
-      shotWall = 0;
-      slowUntil = 0;
-      shake = 0;
-      impacted = false;
-      countShown = false;
-      aliveN = 0;
-      freeCorks.length = 0;
-      corkAlive.fill(0);
-      for (let i = MAX_CORKS - 1; i >= 0; i--) freeCorks.push(i);
-      buildGates();
-      $("result").hidden = true;
-      $("count").classList.remove("show");
-      $("big").textContent = "0";
+      phase = "power";
       applyLang();
     }
 
-    const fx = $("fx");
-    const fxCtx = fx.getContext("2d");
-    const bits = [];
-    function burst(n) {
-      for (let i = 0; i < n; i++) {
-        bits.push({
-          x: Math.random() * fx.width,
-          y: fx.height * (0.35 + Math.random() * 0.3),
-          vx: (Math.random() - 0.5) * 8,
-          vy: -3 - Math.random() * 6,
-          g: 0.12 + Math.random() * 0.08,
-          w: 4 + Math.random() * 5,
-          h: 7 + Math.random() * 6,
-          color: PALETTE[(Math.random() * PALETTE.length) | 0],
-          life: 50 + Math.random() * 30
-        });
-      }
+    function starCount() {
+      const spec = stageDef();
+      return knocked >= spec.star[2] ? 3 : knocked >= spec.star[1] ? 2 : knocked >= spec.star[0] ? 1 : 0;
     }
-    function drawFx() {
-      fxCtx.clearRect(0, 0, fx.width, fx.height);
-      for (let i = bits.length - 1; i >= 0; i--) {
-        const b = bits[i];
-        b.life--;
-        b.vy += b.g;
-        b.x += b.vx;
-        b.y += b.vy;
-        if (b.life <= 0 || b.y > fx.height) {
-          bits.splice(i, 1);
-          continue;
-        }
-        fxCtx.globalAlpha = Math.max(0, b.life / 40);
-        fxCtx.fillStyle = b.color;
-        fxCtx.fillRect(b.x, b.y, b.w, b.h);
-      }
-      fxCtx.globalAlpha = 1;
-    }
-
     function shareText() {
+      const stars = "★★★".slice(0, starCount()) + "☆☆☆".slice(0, 3 - starCount());
       const url = location.href.split("#")[0];
-      return t().shareLine(score, prizeLabel(score)) + "\n" + url + "\n#1万缶つみ射的";
+      return t().shareLine(t().stage(stageDef().id), stars, knocked) + "\n" + url + "\n#1万缶つみ射的";
     }
     function resultImage() {
       renderer.render(scene, camera);
-      const w = 720;
-      const h = 900;
+      const w = 720, h = 900;
       const c = document.createElement("canvas");
-      c.width = w;
-      c.height = h;
+      c.width = w; c.height = h;
       const g = c.getContext("2d");
       const src = renderer.domElement;
       const scale = Math.max(w / src.width, h / src.height);
-      const dw = src.width * scale;
-      const dh = src.height * scale;
-      g.drawImage(src, (w - dw) / 2, (h - dh) / 2, dw, dh);
-      g.fillStyle = "rgba(12, 4, 16, 0.55)";
+      g.drawImage(src, (w - src.width * scale) / 2, (h - src.height * scale) / 2, src.width * scale, src.height * scale);
+      g.fillStyle = "rgba(20,8,22,0.62)";
       g.fillRect(0, h * 0.62, w, h * 0.38);
       g.fillStyle = "#fff6e8";
-      g.font = "700 42px sans-serif";
       g.textAlign = "center";
-      g.fillText(t().title, w / 2, h * 0.72);
-      g.fillStyle = "#ffd0dc";
-      g.font = "900 92px sans-serif";
-      g.fillText(score.toLocaleString(lang === "ja" ? "ja-JP" : "en-US"), w / 2, h * 0.84);
       g.font = "700 36px sans-serif";
-      g.fillStyle = "#ffe08a";
-      g.fillText(prizeLabel(score), w / 2, h * 0.92);
+      g.fillText(t().stage(stageDef().id), w / 2, h * 0.72);
+      g.font = "900 84px sans-serif";
+      g.fillStyle = "#ffd0a8";
+      g.fillText(String(knocked), w / 2, h * 0.84);
+      g.font = "700 32px sans-serif";
+      g.fillText($("prize").textContent, w / 2, h * 0.92);
       return new Promise((resolve) => c.toBlob(resolve, "image/png"));
     }
     async function shareResult() {
@@ -1155,84 +1255,206 @@
       const url = location.href.split("#")[0];
       try {
         const blob = await resultImage();
-        const file = new File([blob], "10000-cans.png", { type: "image/png" });
+        const file = new File([blob], "cans.png", { type: "image/png" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], text, url });
           return;
         }
-      } catch (e) {
-        if (e && e.name === "AbortError") return;
-      }
-      try {
-        if (navigator.share) {
-          await navigator.share({ text, url });
-          return;
-        }
-      } catch (e) {
-        if (e && e.name === "AbortError") return;
-      }
+      } catch (e) { if (e && e.name === "AbortError") return; }
+      try { if (navigator.share) { await navigator.share({ text, url }); return; } }
+      catch (e) { if (e && e.name === "AbortError") return; }
       try { await navigator.clipboard.writeText(text); } catch (e) {}
     }
-    function postX() {
-      const href = "https://x.com/intent/post?text=" + encodeURIComponent(shareText());
-      window.open(href, "_blank", "noopener");
+
+    function drawCans() {
+      const showAim = phase === "aim" || phase === "power" || phase === "place";
+      if (simple) {
+        for (let i = 0; i < count; i++) {
+          const down = state[i] !== 0;
+          dummy.position.set(down ? px[i] : ox[i], down ? py[i] : oy[i], down ? pz[i] : oz[i]);
+          dummy.rotation.set(down ? rx[i] : 0, down ? ry[i] : 0, down ? rz[i] : 0);
+          const s = gold[i] ? 1.06 : 1;
+          dummy.scale.set(s, s, s);
+          dummy.updateMatrix();
+          canMesh.setMatrixAt(i, dummy.matrix);
+          const hot = i === aimId && showAim;
+          tmpColor.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
+          if (hot) tmpColor.lerp(new THREE.Color(0xffffff), 0.55);
+          if (state[i] !== 0) tmpColor.multiplyScalar(0.85);
+          canMesh.setColorAt(i, tmpColor);
+        }
+        canMesh.count = count;
+        canMesh.instanceMatrix.needsUpdate = true;
+        if (canMesh.instanceColor) canMesh.instanceColor.needsUpdate = true;
+        return;
+      }
+      hide.fill(0);
+      if (faceStamp !== knocked) {
+        const scored = [];
+        for (let i = 0; i < count; i++) {
+          if (state[i] === 2) continue;
+          if (state[i] === 1 && !body[i]) continue;
+          const score = (state[i] === 1 && body[i] ? -2 : 0) + oz[i] * 3 + Math.abs(ox[i]) * 0.22 + oy[i] * 0.06;
+          scored.push(i, score);
+        }
+        const order = [];
+        for (let k = 0; k < scored.length; k += 2) order.push(k);
+        order.sort((a, b) => scored[a + 1] - scored[b + 1]);
+        faceList.length = 0;
+        for (let k = 0; k < order.length && faceList.length < 420; k++) faceList.push(scored[order[k]]);
+        faceStamp = knocked;
+      }
+      let n = 0;
+      for (let k = 0; k < faceList.length; k++) {
+        const i = faceList[k];
+        if (state[i] === 1 && !body[i]) continue;
+        const down = state[i] !== 0;
+        dummy.position.set(down ? px[i] : ox[i], down ? py[i] : oy[i], down ? pz[i] : oz[i]);
+        dummy.rotation.set(down ? rx[i] : 0, down ? ry[i] : 0, down ? rz[i] : 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        canMesh.setMatrixAt(n, dummy.matrix);
+        tmpColor.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
+        if (i === aimId && showAim) tmpColor.lerp(new THREE.Color(0xffffff), 0.45);
+        canMesh.setColorAt(n, tmpColor);
+        hide[i] = 1;
+        n++;
+      }
+      canMesh.count = n;
+      canMesh.instanceMatrix.needsUpdate = true;
+      if (canMesh.instanceColor) canMesh.instanceColor.needsUpdate = true;
+      if (hideAttr) {
+        hideAttr.clearUpdateRanges();
+        hideAttr.needsUpdate = true;
+      }
+      if (pointMesh) pointMesh.material.uniforms.uTime.value = simTime;
+    }
+    function drawCorks() {
+      let n = 0;
+      for (let i = 0; i < MAX_CORKS; i++) {
+        if (!calive[i]) continue;
+        dummy.position.set(bx[i], by[i], bz[i]);
+        dummy.rotation.set(Math.PI / 2, simTime * 6, 0);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        corkMesh.setMatrixAt(n++, dummy.matrix);
+      }
+      corkMesh.count = n;
+      corkMesh.instanceMatrix.needsUpdate = true;
+      const dots = Math.min(24, Math.floor(aimPoints.length / 3));
+      for (let i = 0; i < dots; i++) {
+        const k = Math.floor(i * (aimPoints.length / 3) / dots);
+        dummy.position.set(aimPoints[k * 3], aimPoints[k * 3 + 1], aimPoints[k * 3 + 2]);
+        const end = i === dots - 1 ? 1.7 : 1;
+        dummy.scale.set(end, end, end);
+        dummy.updateMatrix();
+        trail.setMatrixAt(i, dummy.matrix);
+      }
+      trail.count = (phase === "aim" || phase === "power" || phase === "place") ? dots : 0;
+      trail.instanceMatrix.needsUpdate = true;
+    }
+    function updateReticle() {
+      const show = phase === "aim" || phase === "power" || phase === "place";
+      reticle.visible = show && aimId >= 0 && state[aimId] === 0;
+      if (!reticle.visible) return;
+      reticle.position.set(ox[aimId], oy[aimId], oz[aimId] - canR - 0.06);
+      reticle.scale.setScalar(Math.max(0.85, canR / 0.13));
+      const hex = keystone[aimId] ? 0xff4050 : gold[aimId] ? 0xffd76a : 0xfff6c8;
+      reticle.material.color.setHex(hex);
+      reticle.lookAt(camera.position);
+    }
+    function updateMarkers(now) {
+      const s = 1 + Math.sin(now * 0.007) * 0.08;
+      for (const mesh of markers) {
+        const id = mesh.userData.can;
+        const up = state[id] === 0;
+        mesh.visible = up;
+        if (!up) continue;
+        mesh.scale.setScalar(s);
+        mesh.position.set(ox[id], oy[id], oz[id] - canR - 0.03);
+      }
+    }
+    function updateCamera(dt) {
+      const tall = peakY > 3;
+      const frameH = Math.min(peakY, tall ? 2.15 : 2.55);
+      const dist = tall ? 2.85 : clamp(2.75 + frameH * 0.28, 3.05, 4.15);
+      const lookY = tall ? 0.78 : clamp(frameH * 0.46, 0.7, 1.35);
+      const tx = gunX * 0.05;
+      const ty = lookY + 0.42;
+      const tz = gunZ - dist * 0.78;
+      const k = 1 - Math.pow(0.0015, dt);
+      camera.position.x += (tx - camera.position.x) * k;
+      camera.position.y += (ty - camera.position.y) * k;
+      camera.position.z += (tz - camera.position.z) * k;
+      if (shake > 0.001) {
+        camera.position.x += (Math.random() - 0.5) * shake;
+        camera.position.y += (Math.random() - 0.5) * shake * 0.5;
+        shake *= Math.pow(0.02, dt);
+      }
+      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+      const span = frameH * (aspect > 1.15 ? 0.7 : 0.96) + 0.62;
+      const camDist = Math.max(0.8, dist * 0.78);
+      camera.fov = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(span / (2 * camDist))), 30, 48);
+      camera.aspect = aspect;
+      camera.updateProjectionMatrix();
+      camLook.set(gunX * 0.03, lookY, 0.02);
+      camera.lookAt(camLook);
+      gun.position.set(gunX, gunY - kick * 0.05, gunZ - kick * 0.2);
+      gun.rotation.set(-aimPitch - kick * 0.4, Math.sin(kick * 8) * 0.04, kick * 0.08);
+      kick *= Math.pow(0.001, dt);
+    }
+    function updateGates(now) {
+      const fade = phase === "aim" || phase === "power" || phase === "place";
+      for (const gate of gates) {
+        gate.xNow = gate.x + (gate.moving ? Math.sin(now * 0.001 * gate.speed + gate.phase) * gate.amp : 0);
+        gate.group.position.x = gate.xNow;
+        const opacity = fade ? 0.16 : (gate.used ? 0.28 : 0.72);
+        gate.arch.material.opacity = opacity;
+        gate.tag.material.opacity = fade ? 0.28 : 0.95;
+      }
     }
 
     function onResize() {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      camera.aspect = w / Math.max(1, h);
-      camera.fov = w > h ? 40 : 52;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-      fx.width = w;
-      fx.height = h;
+      renderer.setSize(window.innerWidth, window.innerHeight);
     }
     window.addEventListener("resize", onResize);
     onResize();
 
     window.addEventListener("pointerdown", (e) => {
-      if (e.target.closest("button, a")) return;
+      if (e.target.closest("button, a, #tut")) return;
       ensureAudio();
-      if (phase === "place") {
-        dragging = true;
-        dragX = e.clientX;
-      } else if (phase === "aim") enterPower();
+      hideTut();
+      if (phase === "place") { dragging = true; dragX = e.clientX; }
+      else if (phase === "aim") enterPower();
       else if (phase === "power") fire();
     });
     window.addEventListener("pointermove", (e) => {
       if (!dragging || phase !== "place") return;
-      const dx = (e.clientX - dragX) / Math.max(1, window.innerWidth);
-      gunX = clamp(gunX + dx * 5.2, -2.05, 2.05);
+      const span = Math.max(1.2, peakY * 0.9);
+      gunX = clamp(gunX + ((e.clientX - dragX) / Math.max(1, window.innerWidth)) * span * 2.2, -span, span);
       dragX = e.clientX;
     });
     window.addEventListener("pointerup", () => {
       if (!dragging) return;
       dragging = false;
-      if (phase === "place") enterAim();
+      if (phase === "place") { pitchHeld = false; enterAim(); }
     });
-    window.addEventListener("pointercancel", () => {
-      if (dragging && phase === "place") enterAim();
-      dragging = false;
-    });
+    window.addEventListener("pointercancel", () => { dragging = false; });
     window.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft" || e.key === "a") gunX = clamp(gunX - 0.12, -2.05, 2.05);
-      if (e.key === "ArrowRight" || e.key === "d") gunX = clamp(gunX + 0.12, -2.05, 2.05);
+      const span = Math.max(1.2, peakY * 0.9);
+      if (e.key === "ArrowLeft" || e.key === "a") gunX = clamp(gunX - 0.08, -span, span);
+      if (e.key === "ArrowRight" || e.key === "d") gunX = clamp(gunX + 0.08, -span, span);
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         ensureAudio();
         if (phase === "place") enterAim();
         else if (phase === "aim") enterPower();
         else if (phase === "power") fire();
-        else if (phase === "result") resetRound();
+        else if (phase === "result") loadStage(stageIndex);
       }
     });
-    document.addEventListener("touchstart", (e) => {
-      if (e.target === renderer.domElement) e.preventDefault();
-    }, { passive: false });
-    document.addEventListener("touchmove", (e) => {
-      if (phase === "place") e.preventDefault();
-    }, { passive: false });
+    document.addEventListener("touchstart", (e) => { if (e.target === renderer.domElement) e.preventDefault(); }, { passive: false });
+    document.addEventListener("touchmove", (e) => { if (phase === "place") e.preventDefault(); }, { passive: false });
     let lastTouch = 0;
     document.addEventListener("touchend", (e) => {
       const now = Date.now();
@@ -1243,6 +1465,12 @@
     document.addEventListener("contextmenu", (e) => e.preventDefault());
     document.addEventListener("gesturestart", (e) => e.preventDefault());
 
+    function hideTut() {
+      if ($("tut").hidden) return;
+      $("tut").hidden = true;
+      seenTut = true;
+      try { localStorage.setItem(TUT_KEY, "1"); } catch (e) {}
+    }
     $("lang").addEventListener("click", () => {
       lang = lang === "ja" ? "en" : "ja";
       try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
@@ -1254,200 +1482,99 @@
       ensureAudio();
       applyLang();
     });
-    $("again").addEventListener("click", () => resetRound());
+    $("retry").addEventListener("click", () => loadStage(stageIndex));
+    $("again").addEventListener("click", () => loadStage(stageIndex));
+    $("next").addEventListener("click", () => loadStage(stageIndex + 1));
     $("share").addEventListener("click", () => shareResult());
-    $("post").addEventListener("click", () => postX());
-
-    function updateNear() {
-      let candidates = 0;
-      const r2 = 3.1 * 3.1;
-      for (let i = 0; i < N; i++) {
-        if (state[i] === 1 && simTime > info[i * 2] + 1.05) continue;
-        const dx = px[i] - focus.x;
-        const dy = py[i] - focus.y;
-        const dz = pz[i] - focus.z;
-        if (dx * dx + dy * dy + dz * dz < r2) candidates++;
-      }
-      const stride = Math.max(1, Math.ceil(candidates / NEAR_CAP));
-      let seen = 0;
-      let nearN = 0;
-      hide.fill(0);
-      for (let i = 0; i < N; i++) {
-        const falling = state[i] === 1;
-        const started = falling ? info[i * 2] : -1;
-        const u = falling && started >= 0 ? clamp((simTime - started) / 0.85, 0, 1) : 0;
-        if (u > 0.98) continue;
-        const dx = px[i] - focus.x;
-        const dy = py[i] - focus.y;
-        const dz = pz[i] - focus.z;
-        if (dx * dx + dy * dy + dz * dz >= r2) continue;
-        seen++;
-        if (seen % stride !== 0) continue;
-        if (nearN >= NEAR_CAP) break;
-        const tilt = 1.570796 * u * u;
-        const yaw = info[i * 2 + 1];
-        dummy.position.set(
-          px[i] + Math.sin(yaw) * tilt * 0.16,
-          py[i] - u * u * 1.35,
-          pz[i] + Math.cos(yaw) * tilt * 0.16
-        );
-        dummy.rotation.set(Math.cos(yaw) * tilt, yaw * 0.15, -Math.sin(yaw) * tilt);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        nearMesh.setMatrixAt(nearN, dummy.matrix);
-        tmpColor.setRGB(colors[i * 3], colors[i * 3 + 1], colors[i * 3 + 2]);
-        nearMesh.setColorAt(nearN, tmpColor);
-        hide[i] = 1;
-        nearN++;
-      }
-      nearMesh.count = nearN;
-      nearMesh.instanceMatrix.needsUpdate = true;
-      if (nearMesh.instanceColor) nearMesh.instanceColor.needsUpdate = true;
-      hideAttr.clearUpdateRanges();
-      hideAttr.needsUpdate = true;
-    }
-
-    function updateCorkMeshes() {
-      let n = 0;
-      for (let i = 0; i < MAX_CORKS; i++) {
-        if (!corkAlive[i]) continue;
-        dummy.position.set(bx[i], by[i], bz[i]);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        corkMesh.setMatrixAt(n, dummy.matrix);
-        n++;
-        if (n === 1 || bz[i] > focus.z) focus.set(bx[i], by[i], bz[i]);
-      }
-      corkMesh.count = n;
-      corkMesh.instanceMatrix.needsUpdate = true;
-      return n;
-    }
-
-    function updateCamera(dt) {
-      const wide = phase === "fly" && impacted;
-      const tx = wide ? 0 : gunX * 0.25;
-      const ty = wide ? 5.6 : 1.85;
-      const tz = wide ? -8.4 : -6.5;
-      const lx = wide ? 0 : gunX * 0.1;
-      const ly = wide ? 2.5 : 2.15;
-      const lz = wide ? 3.2 : 1.2;
-      const k = 1 - Math.pow(0.001, dt);
-      camera.position.x += (tx - camera.position.x) * k;
-      camera.position.y += (ty - camera.position.y) * k;
-      camera.position.z += (tz - camera.position.z) * k;
-      if (shake > 0.001) {
-        camera.position.x += (Math.random() - 0.5) * shake;
-        camera.position.y += (Math.random() - 0.5) * shake;
-        shake *= Math.pow(0.04, dt);
-      }
-      camLook.set(lx, ly, lz);
-      camera.lookAt(camLook);
-    }
-
-    function updateGun(now) {
-      if (phase === "aim") aimPitch = 0.05 + wave(now, 1.6) * 0.72;
-      if (phase === "power") power = wave(now, 1.2);
-      const o = muzzle(new THREE.Vector3());
-      gun.position.copy(o);
-      gun.rotation.set(-aimPitch, 0, 0);
-      const d = aimVector();
-      const len = 5.2;
-      aimBeam.visible = phase === "aim" || phase === "power";
-      reticle.visible = aimBeam.visible;
-      aimBeam.scale.set(1, len, 1);
-      aimBeam.position.set(o.x + d.x * len * 0.5, o.y + d.y * len * 0.5, o.z + d.z * len * 0.5);
-      aimBeam.quaternion.setFromUnitVectors(up, d);
-      const travel = (-0.16 - o.z) / d.z;
-      reticle.position.set(o.x + d.x * travel, clamp(o.y + d.y * travel, 0.25, 6.2), -0.16);
-      $("gauge").hidden = phase !== "power";
-      if (phase === "power") $("knob").style.left = (power * 100) + "%";
-      const showCount = (phase === "fly" || phase === "result") && countShown;
-      const count = $("count");
-      count.classList.toggle("show", showCount && phase !== "result");
-      if (showCount) count.textContent = score.toLocaleString(lang === "ja" ? "ja-JP" : "en-US");
-    }
-
-    function updateFloaters(dt) {
-      for (let i = floaters.length - 1; i >= 0; i--) {
-        const f = floaters[i];
-        f.age += dt;
-        f.y += dt * 0.45;
-        const v = new THREE.Vector3(f.x, f.y, f.z).project(camera);
-        f.el.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth) + "px";
-        f.el.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight) + "px";
-        f.el.style.opacity = String(Math.max(0, 1 - f.age / 0.8));
-        if (f.age > 0.8) {
-          f.el.remove();
-          floaters.splice(i, 1);
-        }
-      }
-    }
+    $("post").addEventListener("click", () => {
+      window.open("https://x.com/intent/post?text=" + encodeURIComponent(shareText()), "_blank", "noopener");
+    });
+    $("tut").addEventListener("pointerdown", (e) => { e.stopPropagation(); hideTut(); });
 
     let acc = 0;
     let last = performance.now();
     function frame(now) {
-      const realDt = Math.min(0.033, (now - last) / 1000);
+      const elapsed = Math.min(0.08, Math.max(0, (now - last) / 1000));
+      const realDt = Math.min(0.033, elapsed);
       last = now;
       sfxBudget = 0;
-      if (phase !== "fly") simTime += realDt;
-      else {
-        shotWall += realDt;
-        const scale = now < slowUntil ? 0.25 : 1;
+      if ((phase === "aim" || phase === "place") && !pitchHeld) {
+        aimPitch = pitchLo + (pitchHi - pitchLo) * wave(now, 2.55);
+      }
+      if (phase === "power") power = wave(now, 1.85);
+      if ($("floater").style.opacity !== "0") {
+        const next = Math.max(0, Number($("floater").style.opacity) - realDt * 0.8);
+        $("floater").style.opacity = String(next);
+      }
+      if (phase === "fly") {
+        shotWall += elapsed;
+        const scale = now < slowUntil ? 0.45 : 1;
         acc += realDt * scale;
         let guard = 0;
-        while (acc >= STEP && guard++ < 6) {
-          step(STEP);
-          acc -= STEP;
-        }
-        const settled = aliveN === 0 && shotWall > 0.7 && (simTime - lastKnock > 1.6 || lastKnock < 0);
-        if (settled || shotWall > 12) endShot();
+        while (acc >= STEP && guard++ < 6) { step(STEP); acc -= STEP; }
+        const quiet = aliveN === 0 && shotWall > 1.25;
+        if (quiet || shotWall > 2.5) endShot();
+      } else if (live.length) {
+        integrateCans(Math.min(STEP, realDt));
       }
-      const wall = performance.now() / 1000;
-      for (const lantern of lanterns) lantern.position.y = 5.55 + Math.sin(wall * 1.7 + lantern.position.x) * 0.05;
-      for (const gate of gates) {
-        gate.xNow = gate.x + (gate.moving ? Math.sin(wall * gate.speed + gate.phase) * gate.amp : 0);
-        gate.mesh.position.x = gate.xNow;
-      }
-      updateGun(now);
-      if (phase === "fly" && aliveN > 0) updateCorkMeshes();
-      else if (!(phase === "fly" && impacted)) focus.set(gunX, 2.2, 1.4);
-      else updateCorkMeshes();
-      if (!(phase === "fly" && aliveN > 0)) {
-        if (impacted) focus.set(0, 2.4, 2);
-        corkMesh.count = phase === "fly" ? corkMesh.count : 0;
-      }
-      pointMat.uniforms.uTime.value = simTime;
-      updateNear();
+      if (phase !== "result") predict();
+      updateGates(now);
+      updateMarkers(now);
+      drawCans();
+      drawCorks();
+      updateReticle();
       updateCamera(realDt);
-      updateFloaters(realDt);
+      if (phase === "fly") {
+        $("shotLabel").textContent = t().down(knocked);
+        $("chainLabel").hidden = chain < 2;
+        $("chainLabel").textContent = t().chain(chain);
+      }
       renderer.render(scene, camera);
-      drawFx();
       requestAnimationFrame(frame);
     }
 
-    for (let i = MAX_CORKS - 1; i >= 0; i--) freeCorks.push(i);
-    buildGates();
-    camera.position.set(0, 1.85, -6.5);
-    camera.lookAt(0, 2.15, 1.2);
-    applyLang();
-
+    camera.position.set(0, 1.1, -3.4);
+    camera.lookAt(0, 1, 0.2);
+    loadStage(0);
+    if (!seenTut) {
+      $("tut").hidden = false;
+      setTimeout(hideTut, 3000);
+    }
     window.__cans = {
       get phase() { return phase; },
-      get score() { return score; },
-      get standing() { return standing; },
+      get score() { return knocked; },
+      get knocked() { return knocked; },
+      get standing() { return count - knocked; },
       get shots() { return shotsLeft; },
+      get stage() { return stageDef().id; },
+      get total() { return count; },
       get gunX() { return gunX; },
+      get aimId() { return aimId; },
+      get pitch() { return aimPitch; },
+      get power() { return power; },
+      get locked() { return lockedId; },
       get gates() { return gates.length; },
-      get cam() { return [camera.position.x, camera.position.y, camera.position.z]; },
-      get impacted() { return impacted; },
-      get total() { return N; },
-      nudge(dx) { gunX = clamp(gunX + dx, -2.05, 2.05); },
+      get lang() { return lang; },
+      get stars() { return starCount(); },
+      keys() { return keys.slice(); },
+      golds() { return golds.slice(); },
+      nudge(dx) { const span = Math.max(1.2, peakY); gunX = clamp(gunX + dx, -span, span); },
       releasePlace() { if (phase === "place") enterAim(); },
-      stopAim(v) { if (v != null) aimPitch = v; if (phase === "aim") enterPower(); },
-      stopPower(v) { if (v != null) power = v; if (phase === "power") fire(); }
+      stopAim(v) { if (v != null) { aimPitch = v; pitchHeld = true; } if (phase === "aim") enterPower(); },
+      stopPower(v) { if (v != null) power = v; if (phase === "power") fire(); },
+      setShot(pitch, pow) { aimPitch = pitch; pitchHeld = true; if (pow != null) power = pow; },
+      fireAt(i, pow) {
+        if (state[i] !== 0) return false;
+        gunX = ox[i];
+        lockedId = i;
+        if (pow != null) power = pow;
+        if (phase === "place" || phase === "aim") phase = "power";
+        fire();
+        return true;
+      },
+      loadStage(n) { loadStage(n); },
+      hideTut
     };
-
     requestAnimationFrame(frame);
   </script>
 </body>
