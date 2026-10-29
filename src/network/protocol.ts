@@ -4,6 +4,7 @@ import {validMatch,type OthelloMatch} from "../../shared/othello.js";
 import {validResidentId,validResidentMotion,type ResidentId,type ResidentMotion} from "../../shared/residentRules.js";
 import {publicFoes,validFoeList,type FoeState} from "../../shared/foeRules.js";
 import {validAvatar,validEmote,type AvatarStyle,type EmoteKind} from "../../shared/avatarRules.js";
+import {validGroveView,type GroveView} from "../../shared/groveRules.js";
 export const MAX_MESSAGE_BYTES=4096;
 export const MAX_ROOM_STATE_BYTES=150000;
 export const MAX_SHARED_IMAGE_CHARS=110000;
@@ -35,8 +36,11 @@ export type IncomingMessage=
   | {type:"fire_event";shooterId:string;position:{x:number;y:number;z:number};yaw:number;pitch:number;sequence:number}
   | {type:"respawn";position:{x:number;y:number;z:number};health:number}
   | {type:"othello_state";match:OthelloMatch}
-  | {type:"weapon_state";unlocked:boolean;peaceful:boolean;boosted?:boolean;wings?:boolean}
-  | {type:"position_correction";position:{x:number;y:number;z:number};sequence:number};
+| {type:"weapon_state";unlocked:boolean;peaceful:boolean;boosted?:boolean;wings?:boolean}
+  | {type:"position_correction";position:{x:number;y:number;z:number};sequence:number}
+  | {type:"grove_state";grove:GroveView}
+  | {type:"grove_hit";id:number;damage:number;crit:boolean;killed:boolean;hp:number;x:number;y:number;z:number}
+  | {type:"grove_rank";rank:number};
 export type OutgoingMessage=
   | {type:"npc_talk";id:ResidentId;continue?:boolean}
   | {type:"join";roomId:string;displayName:string}
@@ -47,7 +51,9 @@ export type OutgoingMessage=
   | {type:"othello";action:"place";index:number}
   | {type:"unlock_weapon";code:string}
   | {type:"avatar_update";avatar:AvatarStyle}
-  | {type:"emote";kind:EmoteKind};
+  | {type:"emote";kind:EmoteKind}
+  | {type:"grove_summon"}
+  | {type:"grove_upgrade"};
 export function createRoomId():string{
   const bytes=new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -147,6 +153,15 @@ export function parseIncoming(raw:string):IncomingMessage|null{
     return {type:"left",playerId:o.playerId};
   if(o.type==="error"&&typeof o.reason==="string")
     return {type:"error",reason:o.reason.slice(0,120)};
+  if(o.type==="grove_state"&&validGroveView(o.grove)) return {type:"grove_state",grove:o.grove};
+  if(o.type==="grove_hit"&&Number.isInteger(o.id)&&Number(o.id)>0
+    &&Number.isFinite(o.damage)&&Number(o.damage)>=0&&Number(o.damage)<=200
+    &&typeof o.crit==="boolean"&&typeof o.killed==="boolean"
+    &&Number.isInteger(o.hp)&&Number(o.hp)>=0&&Number(o.hp)<=500
+    &&Number.isFinite(o.x)&&Number.isFinite(o.y)&&Number.isFinite(o.z))
+    return {type:"grove_hit",id:Number(o.id),damage:Number(o.damage),crit:o.crit===true,killed:o.killed===true,hp:Number(o.hp),x:Number(o.x),y:Number(o.y),z:Number(o.z)};
+  if(o.type==="grove_rank"&&Number.isInteger(o.rank)&&Number(o.rank)>=0&&Number(o.rank)<=2)
+    return {type:"grove_rank",rank:Number(o.rank)};
   return null;
 }
 export function validateOutgoing(message:OutgoingMessage):boolean{
@@ -162,6 +177,7 @@ export function validateOutgoing(message:OutgoingMessage):boolean{
     if(message.key==="monitorImage")return validSharedImage(message.value);
     return validSignText(message.value);
   }
+  if(message.type==="grove_summon"||message.type==="grove_upgrade")return true;
   if(message.type==="fire")return Number.isSafeInteger(message.sequence)&&message.sequence>0
     &&Number.isFinite(message.yaw)&&Math.abs(message.yaw)<=1e6
     &&Number.isFinite(message.pitch)&&Math.abs(message.pitch)<=1.22;

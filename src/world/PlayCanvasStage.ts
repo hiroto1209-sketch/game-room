@@ -5,6 +5,8 @@ import {FPS_STAGE,inFpsStage,setStageAccess} from '../../shared/playcanvasRules.
 export class PlayCanvasStage{
  readonly root=new THREE.Group();
  status:'idle'|'loading'|'ready'|'failed'='idle';
+ /** The playable room is dressed as a forest. Collision geometry stays loaded. */
+ forestDress=true;
  private disposed=false;
  private model:THREE.Object3D|null=null;
  private readonly resources:THREE.Mesh[]=[];
@@ -42,7 +44,7 @@ export class PlayCanvasStage{
  update(p:{x:number;z:number}):void{
   // Nothing is fetched during the original lobby startup.
   if(p.x>87&&Math.abs(p.z)<36&&this.status==='idle')void this.load();
-  if(this.model)this.model.visible=inFpsStage(p.x,p.z,58);
+  if(this.model)this.model.visible=inFpsStage(p.x,p.z,58)&&!this.forestDress;
  }
  private release(root:THREE.Object3D):void{
   const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>();

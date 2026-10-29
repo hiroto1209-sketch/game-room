@@ -475,3 +475,11 @@ button:focus-visible,input:focus-visible{outline:2px solid #ffd089;outline-offse
 #resident-dialogue-next{background:#bde8d6;color:#18342c;font-weight:700;}
 .resident-dialogue-buttons button:focus-visible{outline:3px solid #ffe1ac;outline-offset:3px}
 @media(max-height:460px){.resident-dialogue-card{padding:14px 20px}.resident-dialogue-card p{min-height:0;font-size:16px;margin-bottom:12px}.resident-dialogue-card h2{margin-bottom:8px}}
+
+#grove-quest{display:flex;flex-direction:column;gap:2px;margin-top:6px;padding:8px 10px;border-radius:12px;background:#182018cc;color:#f4ffe8;max-width:220px;pointer-events:none}
+#grove-quest b{font-size:13px}
+#grove-quest span{font-size:12px;opacity:.9}
+#grove-talk{position:fixed;left:12px;right:12px;bottom:max(16px,env(safe-area-inset-bottom));z-index:40;margin:0 auto;width:min(440px,100%);background:#f4efe4;color:#24180f;border-radius:18px;padding:14px 14px 12px;box-shadow:0 12px 30px #0006}
+#grove-speaker{margin:0;font-weight:800}
+#grove-line{margin:6px 0 10px;font-size:16px;line-height:1.45}
+#grove-next{min-height:46px;min-width:88px;border:0;border-radius:999px;background:#24180f;color:#f4efe4;font-weight:800;padding:0 16px}
