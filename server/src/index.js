@@ -5,6 +5,7 @@ import { findHitscanTarget, MAX_HP, DAMAGE, SHOT_COOLDOWN_MS, RESPAWN_MS, SPAWN_
 import { applyFoeDamage, findFoeHit, freshFoes, publicFoes, reviveFoes, validFoeList } from "../../shared/foeRules.js";
 import {SPAWN,shotObstructed,walkableHeightAt} from "../../shared/worldRules.js";
 import {FPS_STAGE,inFpsStage} from "../../shared/playcanvasRules.js";
+import {freshGrove,beginWave,stepGrove,shootGrove,viewOf,nearStone,inGrove,rankForKills} from "../../shared/groveRules.js";
 import "../../shared/playcanvasCollisionData.js";
 import {DEFAULT_AVATAR,EMOTE_DURATION_MS} from "../../shared/avatarRules.js";
 import { validRoomId, permittedOrigin, decodeMessage, safeName, MAX_PLAYERS, withinMovementSpeed } from "./guards.js";
@@ -46,7 +47,7 @@ export default {
  */
 export class RoomHub extends DurableObject {
   constructor(ctx,env){
-    super(ctx,env);this.residentMotion={...EMPTY_MOTION};this.foes=freshFoes();
+super(ctx,env);this.residentMotion={...EMPTY_MOTION};this.foes=freshFoes();this.grove=freshGrove();this.groveAt=0;this.groveSent=0;
     ctx.blockConcurrencyWhile(async()=>{
       const saved=await ctx.storage.get('residents_v1');if(validResidentMotion(saved))this.residentMotion=saved;
       const foes=await ctx.storage.get('foes_v1');if(validFoeList(foes))this.foes=foes;
@@ -59,10 +60,36 @@ export class RoomHub extends DurableObject {
     const states=this.members().map(s=>attachment(s)).map(p=>({playerId:p.player.id,hp:p.hp,respawnAt:p.respawnAt}));
     for(const sock of this.members())send(sock,{type:"health_snapshot",players:states});
   }
-  broadcastFoes(){
+broadcastFoes(){
     this.foes=reviveFoes(this.foes,Date.now());
     const payload={type:"foe_state",foes:publicFoes(this.foes)};
     for(const sock of this.members())send(sock,payload);
+  }
+  broadcastGrove(){
+    const msg={type:"grove_state",grove:viewOf(this.grove)};
+    for(const sock of this.members())send(sock,msg);
+  }
+  tickGrove(now){
+    const players=this.members().map(s=>attachment(s))
+      .filter(p=>p?.player&&p.hp>0&&inGrove(p.player.position))
+      .map(p=>({id:p.player.id,x:p.player.position.x,z:p.player.position.z,hp:p.hp}));
+    if(this.grove.phase!=="fight"||players.length===0){this.groveAt=now;return;}
+    const dt=Math.min(0.25,Math.max(0,now-(this.groveAt||now))/1000);
+    this.groveAt=now;
+    if(dt<=0)return;
+    const stepped=stepGrove(this.grove,dt,players);
+    this.grove=stepped.state;
+    for(const ev of stepped.events){
+      const sock=this.members().find(s=>attachment(s)?.player?.id===ev.playerId);
+      if(!sock)continue;
+      const target=attachment(sock);
+      if(!target||target.hp<=0||now<(target.invulnerableUntil??0))continue;
+      const hp=Math.max(0,target.hp-ev.damage);
+      const respawnAt=hp===0?now+RESPAWN_MS:0;
+      sock.serializeAttachment({...target,hp,respawnAt});
+      for(const member of this.members())send(member,{type:"health_state",playerId:ev.playerId,hp,respawnAt});
+    }
+    if(now-(this.groveSent||0)>140){this.groveSent=now;this.broadcastGrove();}
   }
   async fetch(request){
     const roomId=new URL(request.url).pathname.split("/").pop();
@@ -94,6 +121,7 @@ export class RoomHub extends DurableObject {
         respawnAt:0,invulnerableUntil:Date.now()+2000,weaponUnlocked:true,peaceful:false,speedBoost:false,wings:false,
         lastShotAt:0,lastFireSeq:0});
       send(ws,{type:"welcome",playerId:id,roomId:session.roomId,position:spawn,serverTime:Date.now()});
+      send(ws,{type:"grove_state",grove:viewOf(this.grove)});
       send(ws,{type:"npc_state",serverTime:Date.now(),motion:this.residentMotion});
       send(ws,{type:"weapon_state",unlocked:true,peaceful:false,boosted:false});
       send(ws,{type:"foe_state",foes:publicFoes(reviveFoes(this.foes,Date.now()))});
@@ -265,6 +293,19 @@ export class RoomHub extends DurableObject {
       this.sendHealth();
       return;
     }
+    if(m.type==="grove_summon"){
+      if(!nearStone(session.player.position)||this.grove.phase==="fight")return;
+      this.grove=beginWave(this.grove);this.groveAt=now;this.broadcastGrove();
+      return;
+    }
+    if(m.type==="grove_upgrade"){
+      const next=rankForKills(this.grove.kills);
+      if(next>(session.groveRank||0)){
+        ws.serializeAttachment({...session,groveRank:next});
+        send(ws,{type:"grove_rank",rank:next});
+      }
+      return;
+    }
     if(m.type==="fire"){
       if(m.sequence<=session.lastFireSeq)return;
       if(now-(session.lastShotAt??0)<SHOT_COOLDOWN_MS)return;
@@ -279,18 +320,27 @@ export class RoomHub extends DurableObject {
       // This broadcast is cosmetic; client-supplied damage and target IDs are ignored.
       for(const peer of this.members())send(peer,{type:"fire_event",shooterId:session.player.id,
         position:session.player.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence});
-      const shooter={id:session.player.id,hp:session.hp,position:session.player.position};
+const shooter={id:session.player.id,hp:session.hp,position:session.player.position};
       const yaw=m.yaw,pitch=m.pitch,sequence=m.sequence;
       await this.ctx.blockConcurrencyWhile(async()=>{
         const stamp=Date.now();
+        const groveShot=this.grove.phase==="fight"?shootGrove(this.grove,shooter.position,yaw,pitch,session.groveRank||0):null;
         const revived=reviveFoes(this.foes,stamp);
-        const foe=findFoeHit(shooter.position,yaw,pitch,revived,shotObstructed);
+        const foe=inGrove(shooter.position)?null:findFoeHit(shooter.position,yaw,pitch,revived,shotObstructed);
         const candidates=this.members().filter(peer=>peer!==ws).map(sock=>({sock,data:attachment(sock)}))
           .filter(({data})=>data?.player&&data.hp>0&&stamp>=data.invulnerableUntil)
           .map(({sock,data})=>({sock,id:data.player.id,hp:data.hp,position:data.player.position}));
         const victim=findHitscanTarget(shooter,candidates,yaw,pitch,shotObstructed);
         const foeDist=foe?.distance??Infinity;
         const playerDist=victim?.distance??Infinity;
+        if(groveShot&&!victim&&groveShot.distance<=foeDist){
+          this.grove=groveShot.state;
+          const hit={type:"grove_hit",id:groveShot.id,damage:groveShot.damage,crit:groveShot.crit,killed:groveShot.killed,hp:groveShot.hp,x:groveShot.point.x,y:groveShot.point.y,z:groveShot.point.z};
+          for(const peer of this.members())send(peer,hit);
+          this.broadcastGrove();
+          send(ws,{type:"fire_result",sequence,hit:true,damage:groveShot.damage});
+          return;
+        }
         if(foe&&foeDist<=playerDist){
           const applied=applyFoeDamage(revived,foe.id,stamp);
           this.foes=applied.foes;
@@ -349,8 +399,9 @@ export class RoomHub extends DurableObject {
     }
     const player={...session.player,position:m.position,yaw:m.yaw,pitch:m.pitch,sequence:m.sequence};
     ws.serializeAttachment({...session,player,lastMoveAt:now,lastPacketAt:now,jumpBase,jumpBaseUntil});
-    const shown=present(attachment(ws));
+const shown=present(attachment(ws));
     for(const peer of this.members())if(peer!==ws&&shown)send(peer,{type:"joined",player:shown});
+    this.tickGrove(now);
   }
   async alarm(){
     // Remove room-uploaded photo after its retention window; keep short sign

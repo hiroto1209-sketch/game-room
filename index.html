@@ -22,7 +22,8 @@
     <div id="start-screen" class="screen">
       <div class="start-heading"><span class="overline">WELCOME TO YOUR OWN WORLD</span><span class="start-title">GAME ROOM</span><span class="subheading">THE PARTY STARTS HERE</span></div>
       <button id="start-button" class="start-button">スタート <span aria-hidden="true">→</span></button>
-      <p class="start-caption">最初からブラスター装備 · どこでも撃てます</p>
+<p class="start-caption">最初からブラスター装備 · どこでも撃てます</p>
+      <p class="start-caption">東の扉の先は森。召喚石から怪物を呼べる</p>
       <p class="start-caption">iPhone / iPad：左で移動、右で視点。FIRE・ADS・JUMPは同時に押せます</p>
       <p class="start-caption">PC：クリックでマウス視点、左クリック発射、右クリックまたはQでADS、Fで単発</p>
       <section id="online-panel" class="online-panel" aria-label="オンラインルーム">
@@ -44,6 +45,10 @@
         <span id="guide-arrow" aria-hidden="true">↑</span>
         <span id="guide-label">PARTY HOUSE</span>
         <span id="guide-distance">—</span>
+      </div>
+<div id="grove-quest" class="hidden" aria-live="polite">
+        <b id="grove-quest-title">森の試し</b>
+        <span id="grove-quest-body">召喚石に触れて、最初の波を呼べ</span>
       </div>
       <div id="combat-hud" class="hidden" aria-live="polite">
         <span class="combat-title">HEALTH</span>
@@ -68,6 +73,11 @@
         <button type="button" data-emote="cheer">✦ よろこぶ</button>
       </div>
       <button id="jump-button" class="round-action" aria-label="ジャンプ"><span>↑</span><small>JUMP</small></button>
+      <div id="grove-talk" class="hidden" role="dialog" aria-label="会話">
+        <p id="grove-speaker">モリビト</p>
+        <p id="grove-line"></p>
+        <button id="grove-next" type="button">次へ</button>
+      </div>
       <div id="interaction" class="hidden">
         <div id="interaction-text">アクション</div>
         <button id="interact-button">あそぶ</button>

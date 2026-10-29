@@ -28,6 +28,8 @@ type Dummy={
  */
 export class PracticeDummies{
   readonly group=new THREE.Group();
+  /** The forest clearing replaces these targets while the player is inside it. */
+  enabled=true;
   private readonly dummies:Dummy[]=[];
   private readonly materials:THREE.Material[]=[];
   constructor(scene:THREE.Scene){
@@ -53,6 +55,7 @@ export class PracticeDummies{
     });
   }
   update(dt:number,player:{x:number;z:number}):void{
+    if(!this.enabled){this.group.visible=false;return;}
     const near=player.x>100&&player.x<160&&Math.abs(player.z)<40;
     this.group.visible=near;
     if(!near)return;

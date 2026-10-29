@@ -7,6 +7,7 @@ import { isValidRoomId, type RoomSharedState } from "./protocol";
 import { WebSocketTransport } from "./Transport";
 import type {OthelloMatch} from "../../shared/othello.js";
 import type {AvatarStyle,EmoteKind} from "../../shared/avatarRules.js";
+import type {GroveView} from "../../shared/groveRules.js";
 
 export type RoomConnectionState="offline"|"connecting"|"online"|"reconnecting";
 export interface RoomCallbacks{
@@ -29,6 +30,9 @@ export interface RoomCallbacks{
   onWeaponState(unlocked:boolean,peaceful:boolean,boosted:boolean,wings:boolean):void;
   onAvatar(playerId:string,avatar:AvatarStyle):void;
   onEmote(playerId:string,kind:EmoteKind,durationMs:number):void;
+  onGrove?(grove:GroveView):void;
+  onGroveHit?(hit:{id:number;damage:number;crit:boolean;killed:boolean;hp:number;x:number;y:number;z:number}):void;
+  onGroveRank?(rank:number):void;
 }
 /** Holds the network lifecycle; no rendering, DOM or game rules in this module. */
 export class RealtimeRoomClient {
@@ -77,6 +81,8 @@ export class RealtimeRoomClient {
     if(!this.online)return false;
     return this.transport?.send({type:"room_update",key:"signText",value})??false;
   }
+  summonGrove():boolean{return this.online?(this.transport?.send({type:"grove_summon"})??false):false;}
+  upgradeGrove():boolean{return this.online?(this.transport?.send({type:"grove_upgrade"})??false):false;}
   shoot(yaw:number,pitch:number,position?:{x:number;y:number;z:number}):boolean{
     if(!this.online)return false;
     const yawGap=Math.abs(angleDelta(this.lastAim.yaw,yaw));
@@ -189,6 +195,12 @@ export class RealtimeRoomClient {
         if(!this.peers.has(msg.playerId))return;
         this.peers.delete(msg.playerId);
         this.callbacks.onLeave(msg.playerId);this.emit();
+      }else if(msg.type==="grove_state"){
+        this.callbacks.onGrove?.(msg.grove);
+      }else if(msg.type==="grove_hit"){
+        this.callbacks.onGroveHit?.(msg);
+      }else if(msg.type==="grove_rank"){
+        this.callbacks.onGroveRank?.(msg.rank);
       }else if(msg.type==="error"){
         this.callbacks.onError("通信エラー: "+msg.reason);
       }

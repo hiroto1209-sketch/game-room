@@ -22,6 +22,8 @@ import {FloatingDamage} from "./combat/FloatingDamage";
 import {BlasterAudio} from "./audio/BlasterAudio";
 import {PracticeDummies} from "./world/PracticeDummies";
 import {SharedFoes} from "./world/SharedFoes";
+import {ForestGrove} from "./world/ForestGrove";
+import {GUIDE, SMITH, STONE, inGrove} from "../shared/groveRules.js";
 import {StudioMirror} from "./world/StudioMirror";
 import {canBlasterFire,shouldSendPvpShot} from "./combat/practiceRules";
 import {WorldGuide} from "./ui/WorldGuide";
@@ -120,6 +122,7 @@ let input:DualTouchController|undefined;
 let blaster:BlasterEffects|undefined;
 let practice:PracticeDummies|undefined;
 let sharedFoes:SharedFoes|undefined;
+let grove:ForestGrove|undefined;
 let mirror:StudioMirror|undefined;
 let floaters:FloatingDamage|undefined;
 let fpsStage:PlayCanvasStage|undefined;
@@ -402,17 +405,27 @@ function fireBlaster():void{
   const origin={...player.position};
   const shotYaw=camera.yaw,shotPitch=camera.pitch;
   unlockAudio();
+  grove?.unlock();
   blasterAudio.shot();
   weaponViewmodel?.fire();
   let impact:{x:number;y:number;z:number}|null=null;
-  const practiceHit=practice?.shoot(origin,shotYaw,shotPitch);
+  if(practice && inFpsStage(origin.x,origin.z)){practice.enabled=false;practice.group.visible=false;}
+  const groveHit=!roomClient.online?grove?.shoot(origin,shotYaw,shotPitch)??null:null;
+  if(groveHit){
+    impact=groveHit.point;
+    crosshair.classList.add("hit-confirmed");
+    window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),160);
+    showHit((groveHit.crit?"急所 ":"HIT ")+groveHit.damage);
+    floaters?.spawn(groveHit.point,String(groveHit.damage),settings.reducedMotion);
+  }
+  const practiceHit=groveHit?null:practice?.shoot(origin,shotYaw,shotPitch);
   if(practiceHit){
     impact=practiceHit.point;
     crosshair.classList.add("hit-confirmed");
     window.setTimeout(()=>crosshair.classList.remove("hit-confirmed"),160);
     showHit(practiceHit.head?"HEAD "+practiceHit.damage:"HIT "+practiceHit.damage);
     floaters?.spawn(practiceHit.point,String(practiceHit.damage),settings.reducedMotion);
-  }else if(!roomClient.online){
+  }else if(!roomClient.online && !inFpsStage(origin.x,origin.z)){
     const foeHit=sharedFoes?.shoot(origin,shotYaw,shotPitch);
     if(foeHit){
       impact=foeHit.point;
@@ -441,6 +454,17 @@ const roomClient=new RealtimeRoomClient({
     const drops=sharedFoes?.applyServer(foes)??[];
     for(const drop of drops)floaters?.spawn(drop.point,String(drop.damage),settings.reducedMotion);
   },
+  onGrove:view=>{
+    if(!grove)return;
+    grove.online=roomClient.online;
+    grove.applyView(view);
+  },
+  onGroveHit:hit=>{
+    grove?.noteRemoteHit({x:hit.x,y:hit.y,z:hit.z},hit.damage,hit.crit,hit.killed);
+    showHit((hit.crit?"急所 ":"HIT ")+hit.damage);
+    floaters?.spawn({x:hit.x,y:hit.y,z:hit.z},String(hit.damage),settings.reducedMotion);
+  },
+  onGroveRank:rank=>{if(grove)grove.rank=rank;},
   onState:(connection:RoomConnectionState,count:number)=>{
     roomState.textContent=connection==="online"?"オンライン":connection==="offline"?"オフライン":connection==="connecting"?"接続中…":"再接続中…";
     roomCount.textContent=count+"人";
@@ -804,14 +828,19 @@ function update(dt:number):void{
   resident?.update(player.position,dt,residentNow(),state.playing,settings.reducedMotion);
   poko?.update(player.position,dt,state.playing&&!state.paused,settings.reducedMotion);
   if(state.playing&&!state.paused){
-    const bob=currentHp>0?player.update(dt,input.getMovement(),camera.yaw,settings.reducedMotion,speedBoost?6:1):0;
+    const scaled=dt*(grove?.timeScale()??1);
+    const bob=currentHp>0?player.update(scaled,input.getMovement(),camera.yaw,settings.reducedMotion,speedBoost?6:1):0;
     camera.update(player.position,bob);
+    if(grove&&grove.shake>0.001&&world){
+      world.camera.position.x+=(Math.random()-0.5)*grove.shake;
+      world.camera.position.y+=(Math.random()-0.5)*grove.shake*0.6;
+    }
     const inOutdoor=!insideHouse(player.position.x,player.position.z);
     if(inOutdoor!==lastOutdoorZone){
       lastOutdoorZone=inOutdoor;
       showToast(inOutdoor?"🌿 THE DOOR — ようこそ月夜の世界へ！":"🏠 パーティールームにおかえり！");
     }
-    const nextZone=inFpsStage(player.position.x,player.position.z)?"FPS MAP":
+    const nextZone=inFpsStage(player.position.x,player.position.z)?"森の試し":
       inArena(player.position)?"NEON ARENA":
       inOutdoor?
       (player.position.x>45&&player.position.z< -14?"STARLIT POND":player.position.x>75?"MOONLIT FOREST":"MOONLIT PLAZA") :
@@ -871,8 +900,25 @@ function update(dt:number):void{
   weaponViewmodel?.setVisible(state.playing&&!state.paused&&canBlasterFire(weaponUnlocked)&&currentHp>0);
   weaponViewmodel?.update(dt,aiming);
   if(player)fpsStage?.update(player.position);
+  if(player&&practice)practice.enabled=!inFpsStage(player.position.x,player.position.z);
   if(player)practice?.update(dt,player.position);
+  if(player&&sharedFoes)sharedFoes.group.visible=!inFpsStage(player.position.x,player.position.z);
   if(player)sharedFoes?.update(world.camera,player.position);
+  if(player&&grove){
+    grove.online=roomClient.online;
+    const hurts=grove.update(dt,{...player.position,hp:currentHp},state.playing&&!state.paused,world.camera);
+    if(!roomClient.online){
+      for(const hurt of hurts)setHealth(currentHp-hurt.damage);
+    }
+    const hud=grove.hud();
+    const quest=document.getElementById("grove-quest");
+    const inForest=inFpsStage(player.position.x,player.position.z);
+    quest?.classList.toggle("hidden",!inForest);
+    const title=document.getElementById("grove-quest-title");
+    const body=document.getElementById("grove-quest-body");
+    if(title)title.textContent=hud.wave+" · "+hud.title;
+    if(body)body.textContent=hud.body;
+  }
   floaters?.update(dt);
   if(hitReadoutUntil&&performance.now()>hitReadoutUntil){
     hitReadoutUntil=0;hitReadout.classList.add("hidden");
@@ -1103,6 +1149,44 @@ function initialize():void{
   blaster=new BlasterEffects(world.scene);
   practice=new PracticeDummies(world.scene);
   sharedFoes=new SharedFoes(world.scene);
+  grove=new ForestGrove(world.scene);
+  const groveQuest=byId("grove-quest");
+  const groveTalk=byId("grove-talk");
+  const groveLine=byId("grove-line");
+  const groveSpeaker=byId("grove-speaker");
+  const openGroveTalk=(kind:"guide"|"smith")=>{
+    if(!grove||!player)return;
+    grove.unlock();
+    if(kind==="smith"){
+      if(roomClient.online)roomClient.upgradeGrove();
+      else grove.tryUpgrade();
+    }
+    const [who,line]=grove.talk(kind);
+    groveSpeaker.textContent=who;
+    groveLine.textContent=line;
+    groveTalk.classList.remove("hidden");
+    state.paused=true;
+    input?.reset();
+    if(input)input.enabled=false;
+  };
+  byId("grove-next").addEventListener("click",()=>{
+    groveTalk.classList.add("hidden");
+    state.paused=false;
+    input?.reset();
+    if(input)input.enabled=state.playing;
+  });
+  world.targets.push(
+    {x:STONE.x,z:STONE.z,label:"召喚石に触れる",action:()=>{
+      if(!grove)return;
+      grove.unlock();
+      if(roomClient.online){if(!roomClient.summonGrove())showToast("召喚を送れませんでした");}
+      else if(grove.summon())showToast("森が応えた");
+      else showToast("今の波が残っている");
+    }},
+    {x:GUIDE.x,z:GUIDE.z,label:"モリビトに話しかける",action:()=>openGroveTalk("guide")},
+    {x:SMITH.x,z:SMITH.z,label:"リンに話しかける",action:()=>openGroveTalk("smith")}
+  );
+  void groveQuest;
   mirror=new StudioMirror(world.scene,world.quality.scale);
   floaters=new FloatingDamage(world.scene);
   weaponViewmodel=new WeaponViewmodel(world.camera,world.scene);
@@ -1178,6 +1262,20 @@ function initialize():void{
     });
   }
   camera=new CameraController(world.camera);
+  if((location.hostname==="127.0.0.1"||location.hostname==="localhost")&&new URLSearchParams(location.search).has("groveVisualTest")){
+    Object.assign(window,{__GROVE_QA__:{
+      pose:(x:number,y:number,z:number,yaw=0,pitch=0)=>{
+        if(!player||!camera)return;
+        player.teleport(x,y,z);camera.yaw=yaw;camera.pitch=pitch;camera.update(player.position);
+      },
+      summon:()=>grove?.summon()??false,
+      fire:()=>{if(player&&camera)fireBlaster();},
+      state:()=>grove?.snapshot()??null,
+      advance:(seconds:number)=>{
+        for(let i=0;i<Math.ceil(seconds*30);i++)update(1/30);
+      }
+    }});
+  }
   players=new PlayerManager(world.scene);
   const safeName=safeDisplayName("Guest");
   console.info("GAME ROOM Phase 2",{

@@ -62,6 +62,8 @@ export function decodeMessage(raw){
       return m.action==="place"?{type:"othello",action:m.action,index:m.index}:{type:"othello",action:m.action};
     if(m.type==="join"&&validRoomId(m.roomId)&&typeof m.displayName==="string"&&m.displayName.length<=80)
       return {type:"join",roomId:m.roomId,displayName:safeName(m.displayName)};
+    if(m.type==="grove_summon"&&Object.keys(m).length===1)return {type:"grove_summon"};
+    if(m.type==="grove_upgrade"&&Object.keys(m).length===1)return {type:"grove_upgrade"};
     // Decode finite move packets independently of world bounds. The server
     // then rejects out-of-bounds moves with a position correction, not a
     // permanent generic "Invalid message" loop.
