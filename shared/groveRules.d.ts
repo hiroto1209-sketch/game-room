@@ -27,6 +27,7 @@ export interface GroveShot {
   state:GroveState; distance:number; id:number; kind:MonsterKind; damage:number; crit:boolean;
   hp:number; killed:boolean; point:{x:number;y:number;z:number};
 }
+export function standHeight(x:number, z:number):number|null;
 export function inGrove(p:{x:number;z:number}|null|undefined):boolean;
 export function nearStone(p:{x:number;z:number}|null|undefined):boolean;
 export function freshGrove():GroveState;

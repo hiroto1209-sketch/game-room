@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import {groundHeightAt} from "../../shared/worldRules.js";
+import {stageReady} from "../../shared/playcanvasRules.js";
 import {
-  GROVE, GUIDE, SMITH, STONE, KINDS,
+  GROVE, GUIDE, SMITH, STONE, KINDS, standHeight,
   freshGrove, beginWave, stepGrove, shootGrove, monsterFoot, viewOf,
   questCopy, guideLines, smithLines, rankForKills,
   type GroveState, type GroveView, type MonsterKind
@@ -34,6 +34,7 @@ export class ForestGrove{
   private readonly stone:THREE.Group;
   private readonly guide:THREE.Group;
   private readonly smith:THREE.Group;
+  private dressed=false;
   private mood=false;
   private savedFog:THREE.Fog|THREE.FogExp2|null=null;
   private audio:AudioContext|null=null;
@@ -42,7 +43,6 @@ export class ForestGrove{
     this.lite=(navigator.hardwareConcurrency||8)<=4;
     this.group.name="FOREST_GROVE";
     scene.add(this.group);
-    this.buildScenery();
     this.stone=this.character(STONE.x, STONE.z, 0xc4553a, true);
     this.guide=this.character(GUIDE.x, GUIDE.z, 0xf0d2a0, false);
     this.smith=this.character(SMITH.x, SMITH.z, 0x8a5a3a, false);
@@ -54,66 +54,89 @@ export class ForestGrove{
     this.group.add(this.spark);
     this.group.visible=false;
   }
+  private seat(group:THREE.Group, x:number, z:number):void{
+    group.position.y=standHeight(x, z)??0;
+  }
+  private placeTile(mesh:THREE.InstancedMesh, n:number, x:number, y:number, z:number):number{
+    this.dummy.position.set(x, y+0.03, z);
+    this.dummy.rotation.set(0, 0, 0);
+    this.dummy.scale.set(1, 1, 1);
+    this.dummy.updateMatrix();
+    mesh.setMatrixAt(n, this.dummy.matrix);
+    return n+1;
+  }
   private buildScenery():void{
+    const pathCells:{x:number;y:number;z:number}[]=[];
+    const mossCells:{x:number;y:number;z:number}[]=[];
+    for(let ix=0;ix<34;ix++){
+      for(let iz=0;iz<18;iz++){
+        const x=104+ix*1.0;
+        const z=-14.2+iz*0.75;
+        const h=standHeight(x, z);
+        if(h===null) continue;
+        const onPath=Math.abs(z+5.3)<1.45 && x<STONE.x+2.2;
+        if(onPath) pathCells.push({x, y:h, z});
+        else mossCells.push({x, y:h, z});
+      }
+    }
+    const tile=new THREE.BoxGeometry(1.08, 0.05, 0.82);
+    const path=new THREE.InstancedMesh(tile, new THREE.MeshLambertMaterial({color:0xc4a574}), Math.max(1, pathCells.length));
+    const moss=new THREE.InstancedMesh(tile, new THREE.MeshLambertMaterial({color:0x6d8f62}), Math.max(1, mossCells.length));
+    pathCells.forEach((c, i)=>this.placeTile(path, i, c.x, c.y, c.z));
+    mossCells.forEach((c, i)=>this.placeTile(moss, i, c.x, c.y, c.z));
+    path.count=pathCells.length; moss.count=mossCells.length;
+    path.instanceMatrix.needsUpdate=true; moss.instanceMatrix.needsUpdate=true;
+    this.group.add(path, moss);
+
     const trunk=new THREE.CylinderGeometry(0.16, 0.26, 1, 6);
     const crown=new THREE.IcosahedronGeometry(0.72, 0);
-    const leafMat=new THREE.MeshLambertMaterial({color:0x2f6a45});
-    const trunkMat=new THREE.MeshLambertMaterial({color:0x5c4030});
-    const count=this.lite?42:96;
-    const trunks=new THREE.InstancedMesh(trunk, trunkMat, count);
-    const crowns=new THREE.InstancedMesh(crown, leafMat, count);
-    trunks.castShadow=false; crowns.castShadow=false;
+    const trunks=new THREE.InstancedMesh(trunk, new THREE.MeshLambertMaterial({color:0x5c4030}), 40);
+    const crowns=new THREE.InstancedMesh(crown, new THREE.MeshLambertMaterial({color:0x2f6a45}), 40);
     let n=0;
-    for(let i=0;i<count;i++){
-      const edge=i%4;
-      let x=127, z=-9;
-      if(edge===0){x=GROVE.minX-1.4-(i%5)*0.2; z=GROVE.minZ+((i*1.7)%9);}
-      else if(edge===1){x=GROVE.maxX+1.2; z=GROVE.minZ+((i*1.3)%9);}
-      else if(edge===2){x=GROVE.minX+((i*1.1)%14); z=GROVE.minZ-1.5;}
-      else{x=112+(i%6)*1.1; z=i%2?-10.5:-1.2;}
-      const h=2.6+(i%5)*0.45;
-      this.dummy.position.set(x, h*0.5, z);
-      this.dummy.rotation.set(0, i, 0);
-      this.dummy.scale.set(1, h, 1);
+    const plant=(x:number, z:number)=>{
+      if(n>=40) return;
+      const h=standHeight(x, z);
+      if(h===null) return;
+      if(Math.abs(z+5.3)<1.7 && x<STONE.x+1) return;
+      if(Math.hypot(x-STONE.x, z-STONE.z)<4.2) return;
+      const height=2.8+(n%4)*0.4;
+      this.dummy.position.set(x, h+height*0.5, z);
+      this.dummy.rotation.set(0, n, 0);
+      this.dummy.scale.set(1, height, 1);
       this.dummy.updateMatrix();
       trunks.setMatrixAt(n, this.dummy.matrix);
-      this.dummy.position.set(x, h+0.35, z);
-      this.dummy.scale.set(1.1+(i%3)*0.25, 0.9+(i%4)*0.15, 1.1);
+      this.dummy.position.set(x, h+height+0.3, z);
+      this.dummy.scale.set(1.15, 0.95, 1.15);
       this.dummy.updateMatrix();
       crowns.setMatrixAt(n, this.dummy.matrix);
       n++;
+    };
+    for(let i=0;i<18;i++){
+      const a=i/18*Math.PI*2;
+      plant(STONE.x+Math.cos(a)*7.4, STONE.z+Math.sin(a)*6.2);
     }
+    for(let x=108;x<122;x+=2.6){plant(x, -5.3-3.3); plant(x, -5.3+3.3);}
     trunks.count=n; crowns.count=n;
     trunks.instanceMatrix.needsUpdate=true;
     crowns.instanceMatrix.needsUpdate=true;
     this.group.add(trunks, crowns);
-    const tufts=this.lite?80:200;
-    const grass=new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.46, 3), new THREE.MeshLambertMaterial({color:0x6ea86a}), tufts);
+
+    const tufts=this.lite?40:70;
+    const grass=new THREE.InstancedMesh(new THREE.ConeGeometry(0.1, 0.38, 3), new THREE.MeshLambertMaterial({color:0x6ea86a}), tufts);
     let g=0;
     for(let i=0;i<tufts;i++){
-      const x=GROVE.minX+((i*3.1)%(GROVE.maxX-GROVE.minX));
-      const z=GROVE.minZ+((i*2.4)%(GROVE.maxZ-GROVE.minZ));
-      if(Math.hypot(x-STONE.x, z-STONE.z)<1.4) continue;
-      this.dummy.position.set(x, 0.2, z);
+      const x=GROVE.minX+((i*2.7)%(GROVE.maxX-GROVE.minX));
+      const z=GROVE.minZ+((i*1.9)%(GROVE.maxZ-GROVE.minZ));
+      const h=standHeight(x, z);
+      if(h===null || Math.hypot(x-STONE.x, z-STONE.z)<2.4) continue;
+      this.dummy.position.set(x, h+0.16, z);
       this.dummy.rotation.set(0, i, 0);
-      this.dummy.scale.set(1, 0.7+(i%4)*0.2, 1);
+      this.dummy.scale.set(1, 0.8, 1);
       this.dummy.updateMatrix();
       grass.setMatrixAt(g++, this.dummy.matrix);
     }
     grass.count=g; grass.instanceMatrix.needsUpdate=true;
     this.group.add(grass);
-    if(!this.lite){
-      const mat=new THREE.MeshBasicMaterial({color:0xffe1b0, transparent:true, opacity:0.09, depthWrite:false, side:THREE.DoubleSide});
-      for(let i=0;i<4;i++){
-        const ray=new THREE.Mesh(new THREE.PlaneGeometry(1.4, 9), mat);
-        ray.position.set(126+i*1.6, 4.2, -8);
-        ray.rotation.z=-0.35; ray.rotation.y=0.4;
-        this.rays.push(ray); this.group.add(ray);
-      }
-    }
-    const floor=new THREE.Mesh(new THREE.CircleGeometry(2.1, 18), new THREE.MeshLambertMaterial({color:0x243028}));
-    floor.rotation.x=-Math.PI/2; floor.position.set(STONE.x, 0.02, STONE.z);
-    this.group.add(floor);
   }
   private character(x:number, z:number, color:number, stone:boolean):THREE.Group{
     const group=new THREE.Group();
@@ -125,12 +148,16 @@ export class ForestGrove{
       group.add(rock, glow);
     }else{
       const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.7, 3, 6), new THREE.MeshLambertMaterial({color}));
-      body.position.y=1.05;
+      body.position.y=0.63;
       const head=new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshLambertMaterial({color:0xf3ddc4}));
-      head.position.y=1.72;
-      group.add(body, head);
+      head.position.y=1.32;
+      const prop=color===0xf0d2a0
+        ? new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({color:0xffb15a}))
+        : new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.16, 0.28), new THREE.MeshLambertMaterial({color:0x6a635c}));
+      prop.position.set(color===0xf0d2a0?0.28:0.42, color===0xf0d2a0?1.55:0.7, 0.15);
+      group.add(body, head, prop);
     }
-    const y=groundHeightAt(x, z)??0;
+    const y=standHeight(x, z)??0;
     group.position.set(x, y, z);
     this.group.add(group);
     return group;
@@ -141,19 +168,19 @@ export class ForestGrove{
     const mat=new THREE.MeshLambertMaterial({color, emissive:0x000000});
     if(kind==="rush"){
       const body=new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.42, 1.15), mat);
-      body.position.y=0.48;
+      body.position.y=0.21;
       const horn=new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.38, 5), new THREE.MeshLambertMaterial({color:0xf2e2c4}));
       horn.position.set(0, 0.86, 0.35); horn.rotation.x=0.5;
       group.add(body, horn);
     }else if(kind==="spit"){
       const stalk=new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.9, 3, 6), mat);
-      stalk.position.y=0.9;
+      stalk.position.y=0.63;
       const sac=new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), new THREE.MeshLambertMaterial({color:0xb6e38a, emissive:0x3d6a32, emissiveIntensity:0.6}));
       sac.position.y=1.55; sac.name="SAC";
       group.add(stalk, sac);
     }else{
       const body=new THREE.Mesh(new THREE.SphereGeometry(0.72, 10, 8), mat);
-      body.position.y=0.78; body.scale.y=0.72;
+      body.position.y=0.52; body.scale.y=0.72;
       const eye=new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({color:0xffd56a}));
       eye.position.set(0, 1.35, 0.42); eye.name="EYE";
       group.add(body, eye);
@@ -252,6 +279,13 @@ export class ForestGrove{
   update(dt:number, player:{x:number;y:number;z:number;hp:number}, active:boolean, camera?:THREE.Camera):Array<{type:"hurt"; damage:number}>{
     this.hitStop=Math.max(0, this.hitStop-dt);
     this.shake*=Math.pow(0.05, dt);
+    if(!this.dressed && stageReady()){
+      this.buildScenery();
+      this.seat(this.stone, STONE.x, STONE.z);
+      this.seat(this.guide, GUIDE.x, GUIDE.z);
+      this.seat(this.smith, SMITH.x, SMITH.z);
+      this.dressed=true;
+    }
     const inside=active && player.x>108 && player.x<148 && player.z>-30 && player.z<30;
     this.group.visible=inside;
     this.setMood(inside);
@@ -279,7 +313,8 @@ export class ForestGrove{
       }
       const foot=monsterFoot(m);
       const spec=KINDS[m.kind];
-      group.visible=m.state!=="dead" || true;
+      if(foot===null){group.visible=false; continue;}
+      group.visible=true;
       group.position.set(m.x, foot, m.z);
       group.rotation.y=m.yaw;
       const fallen=m.state==="dead";
@@ -295,9 +330,10 @@ export class ForestGrove{
         const map=(bar.mesh.material as THREE.MeshBasicMaterial).map;
         if(map) map.needsUpdate=true;
       }
-      bar.mesh.position.set(m.x, foot+spec.height+0.45, m.z);
+      const dist=camera?Math.hypot(camera.position.x-m.x, camera.position.z-m.z):8;
+      bar.mesh.position.set(m.x, foot+spec.height+0.28, m.z);
       if(camera)bar.mesh.lookAt(camera.position);
-      bar.mesh.visible=!fallen;
+      bar.mesh.visible=!fallen && dist>2.4 && dist<16;
       if(m.kind==="spit" && m.state==="attack"){
         const sac=group.getObjectByName("SAC");
         if(sac) sac.scale.setScalar(1.25);

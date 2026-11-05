@@ -2,7 +2,7 @@ import * as THREE from "three";
 import {MAX_HP} from "../../shared/combatRules.js";
 import {shotObstructed} from "../../shared/worldRules.js";
 import {applyFoeDamage, findFoeHit, foeEye, foeSlot, freshFoes, reviveFoes, type FoeState} from "../../shared/foeRules.js";
-import {stageGround} from "../../shared/playcanvasRules.js";
+import {inFpsStage, stageGround} from "../../shared/playcanvasRules.js";
 
 type Rig={
   id:string;
@@ -78,6 +78,7 @@ export class SharedFoes{
     return applied.damage>0?{damage:applied.damage,point:hit.point}:null;
   }
   update(camera:THREE.Camera,player:{x:number;z:number},now=Date.now()):void{
+    if(inFpsStage(player.x,player.z)){this.group.visible=false;return;}
     const near=player.x>100&&player.x<160&&Math.abs(player.z)<40;
     this.group.visible=near;
     if(!near)return;
