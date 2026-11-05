@@ -1,5 +1,6 @@
 import {aimDirection, raySphereDistance} from "./combatRules.js";
-import {stageBlocked, stageGround} from "./playcanvasRules.js";
+import {groundHeightAt} from "./worldRules.js";
+import {stageBlocked, stageGround, stageCorridor, inFpsStage} from "./playcanvasRules.js";
 
 /** Flat, open floor inside the FPS stage. The building collision stays. */
 export const GROVE = {minX:120.6, maxX:135.2, minZ:-13.2, maxZ:-4.4};
@@ -62,15 +63,30 @@ export function beginWave(state){
   return {...state, wave, phase:"fight", nextId:state.nextId+kinds.length, monsters};
 }
 
+/** Walkable foot height, or null when there is no floor to stand on. */
+export function standHeight(x, z){
+  if(inFpsStage(x, z)){
+    const g = stageGround(x, z, 1.15);
+    if(g===null || g>1.15) return null;
+    if(stageBlocked(x, z, 0.34, g+1.65)) return null;
+    return g;
+  }
+  if(stageCorridor(x, z)) return 0;
+  if(x>=104 && x<=122 && z>=-12 && z<=-1){
+    const g = groundHeightAt(x, z);
+    return Number.isFinite(g) && g>=-0.05 && g<1.8 ? g : null;
+  }
+  return null;
+}
 function footAt(x, z, foot){
-  const g = stageGround(x, z, foot+0.45);
-  if(g===null || Math.abs(g-foot)>0.4) return null;
-  if(stageBlocked(x, z, 0.42, g+1.65)) return null;
+  const g = standHeight(x, z);
+  if(g===null || Math.abs(g-foot)>0.45) return null;
   if(x<GROVE.minX||x>GROVE.maxX||z<GROVE.minZ||z>GROVE.maxZ) return null;
   return g;
 }
 function tryMove(m, dx, dz, dt){
-  const foot = stageGround(m.x, m.z, 0.8) ?? 0;
+  const foot = standHeight(m.x, m.z);
+  if(foot===null) return;
   const nx = m.x+dx*dt, nz = m.z+dz*dt;
   if(footAt(nx, nz, foot)!==null){m.x=nx; m.z=nz; return;}
   if(footAt(nx, m.z, foot)!==null){m.x=nx; return;}
@@ -151,7 +167,7 @@ export function stepGrove(state, dt, players){
 }
 
 export function monsterFoot(m){
-  return stageGround(m.x, m.z, 0.8) ?? 0;
+  return standHeight(m.x, m.z);
 }
 
 /** Server- and solo-shared hitscan. Rank is 0..2. Does not trust a client target id. */
@@ -163,6 +179,7 @@ export function shootGrove(state, origin, yaw, pitch, rank=0){
     if(m.hp<=0) continue;
     const spec=specOf(m.kind);
     const foot=monsterFoot(m);
+    if(foot===null) continue;
     const body=raySphereDistance(origin, dir, {x:m.x, y:foot+spec.height*0.48, z:m.z}, spec.radius);
     const weak=raySphereDistance(origin, dir, {x:m.x, y:foot+spec.height*0.95, z:m.z}, spec.weak);
     const crit=weak!==null && (body===null || weak<=body+0.02);

@@ -916,8 +916,8 @@ function update(dt:number):void{
     quest?.classList.toggle("hidden",!inForest);
     const title=document.getElementById("grove-quest-title");
     const body=document.getElementById("grove-quest-body");
-    if(title)title.textContent=hud.wave+" · "+hud.title;
-    if(body)body.textContent=hud.body;
+    if(title)title.textContent="森の試し";
+    if(body)body.textContent=hud.wave+" · "+hud.body;
   }
   floaters?.update(dt);
   if(hitReadoutUntil&&performance.now()>hitReadoutUntil){
